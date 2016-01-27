@@ -69,3 +69,12 @@ ospackage {
   requires "apache2"
   from "build/webpack"
 }
+
+buildDeb {
+  dependsOn installDist
+}
+
+buildRpm {
+  dependsOn installDist
+  os LINUX
+}
