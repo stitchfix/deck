@@ -70,11 +70,6 @@ ospackage {
   from "build/webpack"
 }
 
-buildDeb {
-  dependsOn installDist
-}
-
 buildRpm {
-  dependsOn installDist
   os LINUX
 }
