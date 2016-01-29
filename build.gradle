@@ -71,5 +71,6 @@ ospackage {
 }
 
 buildRpm {
+  dependsOn webpack
   os LINUX
 }
