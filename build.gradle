@@ -70,6 +70,6 @@ ospackage {
 }
 
 buildRpm {
-  dependsOn webpack
+  dependsOn test
   os LINUX
 }
