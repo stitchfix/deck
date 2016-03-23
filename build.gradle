@@ -65,7 +65,7 @@ ospackage {
   version = toVers(project.version.toString())
   release '3'
   into "/opt/deck/html"
-  # requires "apache2"
+  // requires "apache2"
   from "build/webpack"
 }
 
