@@ -67,7 +67,7 @@ module.exports = angular.module('spinnaker.instance.detail.aws.controller', [
         account = instance.account;
         region = instance.region;
       } else {
-        app.serverGroups.some(function (serverGroup) {
+        app.serverGroups.data.some(function (serverGroup) {
           return serverGroup.instances.some(function (possibleInstance) {
             if (possibleInstance.id === instance.instanceId) {
               instanceSummary = possibleInstance;
@@ -83,7 +83,7 @@ module.exports = angular.module('spinnaker.instance.detail.aws.controller', [
         });
         if (!instanceSummary) {
           // perhaps it is in a server group that is part of another app
-          app.loadBalancers.some(function (loadBalancer) {
+          app.loadBalancers.data.some(function (loadBalancer) {
             return loadBalancer.instances.some(function (possibleInstance) {
               if (possibleInstance.id === instance.instanceId) {
                 instanceSummary = possibleInstance;
@@ -97,7 +97,7 @@ module.exports = angular.module('spinnaker.instance.detail.aws.controller', [
           });
           if (!instanceSummary) {
             // perhaps it is in a disabled server group via a load balancer
-            app.loadBalancers.some(function(loadBalancer) {
+            app.loadBalancers.data.some(function(loadBalancer) {
               return loadBalancer.serverGroups.some(function(serverGroup) {
                 if (!serverGroup.isDisabled) {
                   return false;
@@ -362,14 +362,17 @@ module.exports = angular.module('spinnaker.instance.detail.aws.controller', [
       );
     };
 
-    retrieveInstance().then(() => {
+    let initialize = app.isStandalone ?
+      retrieveInstance() :
+      $q.all([app.serverGroups.ready(), app.loadBalancers.ready()]).then(retrieveInstance);
+
+    initialize.then(() => {
       // Two things to look out for here:
       //  1. If the retrieveInstance call completes *after* the user has navigated away from the view, there
-      //     is no point in subscribing to the autoRefreshStream
+      //     is no point in subscribing to the refresh
       //  2. If this is a standalone instance, there is no application that will refresh
       if (!$scope.$$destroyed && !app.isStandalone) {
-        let refreshWatcher = app.autoRefreshStream.subscribe(retrieveInstance);
-        $scope.$on('$destroy', () => refreshWatcher.dispose());
+        app.serverGroups.onRefresh($scope, retrieveInstance);
       }
      });
 

@@ -27,7 +27,6 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.gce.disableAsgSta
       ],
     });
   }).controller('gceDisableAsgStageCtrl', function($scope, accountService, stageConstants) {
-    var ctrl = this;
 
     let stage = $scope.stage;
 
@@ -36,19 +35,13 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.gce.disableAsgSta
       zonesLoaded: false
     };
 
+
     accountService.listAccounts('gce').then(function (accounts) {
       $scope.accounts = accounts;
       $scope.state.accounts = true;
     });
 
     $scope.zones = {'us-central1': ['us-central1-a', 'us-central1-b', 'us-central1-c']};
-
-    ctrl.accountUpdated = function() {
-      accountService.getRegionsForAccount(stage.credentials).then(function(zoneMap) {
-        $scope.zones = zoneMap;
-        $scope.zonesLoaded = true;
-      });
-    };
 
     $scope.targets = stageConstants.targetList;
 
@@ -62,13 +55,7 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.gce.disableAsgSta
     if (!stage.credentials && $scope.application.defaultCredentials.gce) {
       stage.credentials = $scope.application.defaultCredentials.gce;
     }
-    if (!stage.zones.length && $scope.application.defaultRegions.gce) {
-      stage.zones.push($scope.application.defaultRegions.gce);
-    }
 
-    if (stage.credentials) {
-      ctrl.accountUpdated();
-    }
     if (!stage.target) {
       stage.target = $scope.targets[0].val;
     }

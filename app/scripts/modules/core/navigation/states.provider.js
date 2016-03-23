@@ -8,13 +8,15 @@ module.exports = angular.module('spinnaker.core.navigation.states.provider', [
   require('angular-ui-router'),
   require('./stateHelper.provider.js'),
   require('../delivery/states.js'),
+  require('../config/settings.js'),
   require('../cloudProvider/cloudProvider.registry.js'),
   require('../projects/project.controller.js'),
   require('../projects/dashboard/dashboard.controller.js'),
   require('../projects/service/project.read.service.js'),
   require('../overrideRegistry/override.registry.js'),
+  require('../application/service/applications.read.service.js'),
 ])
-  .provider('states', function($stateProvider, $urlRouterProvider, stateHelperProvider, deliveryStates) {
+  .provider('states', function($stateProvider, $urlRouterProvider, stateHelperProvider, deliveryStates, settings) {
 
     // Used to put additional states into the home and application views; can add to more states as needed
     let addedStates = {};
@@ -357,12 +359,19 @@ module.exports = angular.module('spinnaker.core.navigation.states.provider', [
       };
 
       function application(mainView, relativeUrl = '') {
+        let children = [insight, tasks, config];
+        if (settings.feature && settings.feature.pipelines !== false) {
+          children.push(deliveryStates.executions);
+          children.push(deliveryStates.configure);
+          children.push(deliveryStates.executionDetails);
+        }
+
         let applicationConfig = {
           name: 'application',
           url: `${relativeUrl}/:application`,
           resolve: {
             app: ['$stateParams', 'applicationReader', function($stateParams, applicationReader) {
-              return applicationReader.getApplication($stateParams.application, {tasks: true, executions: true, pipelineConfigs: true})
+              return applicationReader.getApplication($stateParams.application)
                 .then(
                 function(app) {
                   return app || { notFound: true, name: $stateParams.application };
@@ -382,13 +391,7 @@ module.exports = angular.module('spinnaker.core.navigation.states.provider', [
               keyParams: ['application']
             },
           },
-          children: [
-            insight,
-            tasks,
-            deliveryStates.executions,
-            deliveryStates.configure,
-            config,
-          ],
+          children: children,
         };
         augmentChildren(applicationConfig);
         applicationConfig.views = {};
@@ -452,7 +455,7 @@ module.exports = angular.module('spinnaker.core.navigation.states.provider', [
           'main@': {
             templateUrl: require('../projects/project.html'),
             controller: 'ProjectCtrl',
-            controllerAs: 'ctrl',
+            controllerAs: 'vm',
           },
         },
         data: {
@@ -519,7 +522,6 @@ module.exports = angular.module('spinnaker.core.navigation.states.provider', [
             // we need the application to have a security group index (so rules get attached and linked properly)
             // and its name should just be the name of the security group (so cloning works as expected)
             return securityGroupReader.loadSecurityGroups()
-              .then(securityGroupReader.indexSecurityGroups)
               .then((securityGroupsIndex) => {
                 return {
                   name: $stateParams.name,

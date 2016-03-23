@@ -31,11 +31,12 @@ describe('Service: securityGroupReader', function () {
     })
   );
 
-  it('attaches load balancer to security group usages', function() {
+  it('does nothing when index not in place', function () {
     var application = {
       accounts: [ 'test' ],
-      serverGroups: [],
-      loadBalancers: [
+      securityGroups: { data: [] },
+      serverGroups: {data: []},
+      loadBalancers: {data: [
         {
           name: 'my-elb',
           account: 'test',
@@ -44,31 +45,46 @@ describe('Service: securityGroupReader', function () {
             'not-cached',
           ]
         }
-      ]
+      ]}
     };
 
-    var securityGroups = [
-      { account: 'test',
-        securityGroups: {
-          'us-east-1': [
-            { name: 'not-cached', id: 'not-cached-id', vpcId: null }
+    securityGroupReader.attachSecurityGroups(application);
+    $scope.$digest();
+    expect(application.securityGroups.data.length).toBe(0);
+  });
+
+  it('attaches load balancer to security group usages', function() {
+    var application = {
+      accounts: [ 'test' ],
+      securityGroupsIndex: { test: { 'us-east-1': { 'not-cached': { name: 'not-cached' }}}},
+      securityGroups: { data: [] },
+      serverGroups: {data: []},
+      loadBalancers: {data: [
+        {
+          name: 'my-elb',
+          account: 'test',
+          region: 'us-east-1',
+          securityGroups: [
+            'not-cached',
           ]
         }
-      }
-    ];
+      ]}
+    };
 
-    securityGroupReader.attachSecurityGroups(application, securityGroups, [], true);
+    securityGroupReader.attachSecurityGroups(application);
     $scope.$digest();
-    var group = application.securityGroups[0];
+    var group = application.securityGroups.data[0];
     expect(group.name).toBe('not-cached');
-    expect(group.usages.loadBalancers[0]).toEqual({name: application.loadBalancers[0].name});
+    expect(group.usages.loadBalancers[0]).toEqual({name: application.loadBalancers.data[0].name});
   });
 
   it('should clear cache, then reload security groups and try again if a security group is not found', function () {
     var application = {
       accounts: [ 'test' ],
-      serverGroups: [],
-      loadBalancers: [
+      securityGroups: { data: [] },
+      serverGroups: {data: []},
+      securityGroupsIndex: {},
+      loadBalancers: {data: [
         {
           name: 'my-elb',
           account: 'test',
@@ -77,7 +93,7 @@ describe('Service: securityGroupReader', function () {
             'not-cached',
           ]
         }
-      ]
+      ]}
     };
 
     $http.expectGET('/securityGroups').respond(200, {
@@ -90,11 +106,11 @@ describe('Service: securityGroupReader', function () {
       }
     });
 
-    securityGroupReader.attachSecurityGroups(application, [], [], true);
+    securityGroupReader.attachSecurityGroups(application, [], true);
     $http.flush();
-    var group = application.securityGroups[0];
+    var group = application.securityGroups.data[0];
     expect(group.name).toBe('not-cached');
-    expect(group.usages.loadBalancers[0]).toEqual({name:application.loadBalancers[0].name});
+    expect(group.usages.loadBalancers[0]).toEqual({name:application.loadBalancers.data[0].name});
 
   });
 });

@@ -54,10 +54,9 @@ module.exports = angular.module('spinnaker.securityGroup.aws.details.controller'
 
     extractSecurityGroup().then(() => {
       // If the user navigates away from the view before the initial extractSecurityGroup call completes,
-      // do not bother subscribing to the autoRefreshStream
+      // do not bother subscribing to the refresh
       if (!$scope.$$destroyed && !app.isStandalone) {
-        let refreshWatcher = app.autoRefreshStream.subscribe(extractSecurityGroup);
-        $scope.$on('$destroy', () => refreshWatcher.dispose());
+        app.securityGroups.onRefresh($scope, extractSecurityGroup);
       }
     });
 
@@ -65,6 +64,7 @@ module.exports = angular.module('spinnaker.securityGroup.aws.details.controller'
       $uibModal.open({
         templateUrl: require('../configure/editSecurityGroup.html'),
         controller: 'awsEditSecurityGroupCtrl as ctrl',
+        size: 'lg',
         resolve: {
           securityGroup: function() {
             return angular.copy($scope.securityGroup.plain());
@@ -79,6 +79,7 @@ module.exports = angular.module('spinnaker.securityGroup.aws.details.controller'
       $uibModal.open({
         templateUrl: require('../clone/cloneSecurityGroup.html'),
         controller: 'awsCloneSecurityGroupController as ctrl',
+        size: 'lg',
         resolve: {
           securityGroup: function() {
             var securityGroup = angular.copy($scope.securityGroup.plain());
@@ -102,8 +103,8 @@ module.exports = angular.module('spinnaker.securityGroup.aws.details.controller'
 
       var submitMethod = function () {
         return securityGroupWriter.deleteSecurityGroup(securityGroup, application, {
-          cloudProvider: $scope.securityGroup.type,
-          vpcId: $scope.securityGroup.vpcId,
+          cloudProvider: securityGroup.provider,
+          vpcId: securityGroup.vpcId,
         });
       };
 
@@ -118,5 +119,11 @@ module.exports = angular.module('spinnaker.securityGroup.aws.details.controller'
       });
     };
 
+    if (app.isStandalone) {
+      // we still want the edit to refresh the security group details when the modal closes
+      app.securityGroups = {
+        refresh: extractSecurityGroup
+      };
+    }
   }
 );

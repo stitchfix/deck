@@ -4,7 +4,6 @@ let angular = require('angular');
 
 //BEN_TODO
 module.exports = angular.module('spinnaker.core.pipeline.stage.aws.findAmiStage', [
-  require('../../../../../utils/lodash.js'),
   require('./findAmiExecutionDetails.controller.js')
 ])
   .config(function(pipelineConfigProvider) {
@@ -21,8 +20,7 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.aws.findAmiStage'
         { type: 'requiredField', fieldName: 'credentials' }
       ]
     });
-  }).controller('awsFindAmiStageCtrl', function($scope, accountService, _) {
-    var ctrl = this;
+  }).controller('awsFindAmiStageCtrl', function($scope, accountService) {
 
     let stage = $scope.stage;
 
@@ -35,15 +33,6 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.aws.findAmiStage'
       $scope.accounts = accounts;
       $scope.state.accounts = true;
     });
-
-    $scope.regions = ['us-east-1', 'us-west-1', 'eu-west-1', 'us-west-2'];
-
-    ctrl.accountUpdated = function() {
-      accountService.getRegionsForAccount(stage.credentials).then(function(regions) {
-        $scope.regions = _.map(regions, function(v) { return v.name; });
-        $scope.state.regionsLoaded = true;
-      });
-    };
 
     $scope.selectionStrategies = [{
       label: 'Largest',
@@ -78,9 +67,6 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.aws.findAmiStage'
       stage.regions.push($scope.application.defaultRegions.aws);
     }
 
-    if (stage.credentials) {
-      ctrl.accountUpdated();
-    }
     $scope.$watch('stage.credentials', $scope.accountUpdated);
   });
 

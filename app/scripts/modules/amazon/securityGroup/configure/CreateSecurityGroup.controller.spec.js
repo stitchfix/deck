@@ -13,14 +13,14 @@ describe('Controller: CreateSecurityGroup', function () {
   describe('filtering', function() {
 
     // Initialize the controller and a mock scope
-    beforeEach(window.inject(function ($controller, $rootScope, $q, accountService, securityGroupReader, modalWizardService,
+    beforeEach(window.inject(function ($controller, $rootScope, $q, accountService, securityGroupReader, v2modalWizardService,
                                 taskMonitorService, securityGroupWriter, vpcReader) {
 
       this.$scope = $rootScope.$new();
       this.$q = $q;
       this.accountService = accountService;
       this.securityGroupReader = securityGroupReader;
-      this.modalWizardService = modalWizardService;
+      this.v2modalWizardService = v2modalWizardService;
       this.taskMonitorService = taskMonitorService;
       this.securityGroupWriter = securityGroupWriter;
       this.vpcReader = vpcReader;
@@ -85,7 +85,7 @@ describe('Controller: CreateSecurityGroup', function () {
           $modalInstance: { result: this.$q.when(null) },
           accountService: this.accountService,
           securityGroupReader: this.securityGroupReader,
-          modalWizardService: this.modalWizardService,
+          v2modalWizardService: this.v2modalWizardService,
           taskMonitorService: this.taskMonitorService,
           securityGroupWriter: this.securityGroupWriter,
           vpcReader: this.vpcReader,
@@ -151,6 +151,46 @@ describe('Controller: CreateSecurityGroup', function () {
       expect(_.pluck(this.$scope.vpcs, 'label').sort()).toEqual(['vpc 1', 'vpc 2']);
     });
 
+    describe('security group removal', function () {
+      beforeEach(function () {
+        spyOn(this.v2modalWizardService, 'markDirty').and.callFake(angular.noop);
+        this.initializeCtrl();
+        let securityGroup = this.$scope.securityGroup;
+        securityGroup.credentials = 'prod';
+        securityGroup.regions = ['us-east-1'];
+        this.ctrl.accountUpdated();
+        this.$scope.$digest();
+      });
+
+      it('removes rules that are not available when account changes', function () {
+        let securityGroup = this.$scope.securityGroup;
+        this.$scope.availableSecurityGroups.forEach(group => securityGroup.securityGroupIngress.push({name: group}));
+        expect(securityGroup.securityGroupIngress.length).toBe(2);
+
+        securityGroup.credentials = 'test';
+        this.ctrl.accountUpdated();
+        this.$scope.$digest();
+        expect(this.$scope.state.removedRules.length).toBe(1);
+        expect(this.v2modalWizardService.markDirty).toHaveBeenCalledWith('Ingress');
+      });
+
+      it('does not repeatedly add removed rule warnings when multiple rules for the same group are removed', function () {
+        let securityGroup = this.$scope.securityGroup;
+        this.$scope.availableSecurityGroups.forEach(group => {
+          securityGroup.securityGroupIngress.push({name: group, startPort: 7001, endPort: 7001, protocol: 'HTTPS'});
+          securityGroup.securityGroupIngress.push({name: group, startPort: 7000, endPort: 7000, protocol: 'HTTP'});
+
+        });
+        expect(securityGroup.securityGroupIngress.length).toBe(4);
+
+        securityGroup.credentials = 'test';
+        this.ctrl.accountUpdated();
+        this.$scope.$digest();
+        expect(this.$scope.state.removedRules).toEqual(['group2']);
+        expect(this.v2modalWizardService.markDirty).toHaveBeenCalledWith('Ingress');
+      });
+
+    });
 
   });
 });

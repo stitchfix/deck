@@ -25,25 +25,6 @@ module.exports = angular.module('spinnaker.core.loadBalancer.controller', [
 
     this.groupingsTemplate = require('./groupings.html');
 
-    function addSearchFields() {
-      app.loadBalancers.forEach(function(loadBalancer) {
-        if (!loadBalancer.searchField) {
-          loadBalancer.searchField = [
-            loadBalancer.name,
-            loadBalancer.region.toLowerCase(),
-            loadBalancer.account,
-            _.pluck(loadBalancer.serverGroups, 'name').join(' '),
-            _.pluck(loadBalancer.instances, 'id').join(' '),
-          ].join(' ');
-        }
-      });
-    }
-
-    this.clearFilters = function() {
-      loadBalancerFilterService.clearFilters();
-      updateLoadBalancerGroups();
-    };
-
     let updateLoadBalancerGroups = () => {
       LoadBalancerFilterModel.applyParamsToUrl();
       $scope.$evalAsync(() => {
@@ -55,16 +36,23 @@ module.exports = angular.module('spinnaker.core.loadBalancer.controller', [
       });
     };
 
+    this.clearFilters = function() {
+      loadBalancerFilterService.clearFilters();
+      updateLoadBalancerGroups();
+    };
+
     this.createLoadBalancer = function createLoadBalancer() {
       providerSelectionService.selectProvider(app, 'loadBalancer').then(function(selectedProvider) {
         let provider = cloudProviderRegistry.getValue(selectedProvider, 'loadBalancer');
         $uibModal.open({
           templateUrl: provider.createLoadBalancerTemplateUrl,
           controller: `${provider.createLoadBalancerController} as ctrl`,
+          size: cloudProviderRegistry.getValue(selectedProvider, 'v2wizard') ? 'lg' : 'md',
           resolve: {
             application: function() { return app; },
             loadBalancer: function() { return null; },
-            isNew: function() { return true; }
+            isNew: function() { return true; },
+            forPipelineConfig: function() { return false; }
           }
         });
       });
@@ -72,13 +60,13 @@ module.exports = angular.module('spinnaker.core.loadBalancer.controller', [
 
     this.updateLoadBalancerGroups = _.debounce(updateLoadBalancerGroups, 200);
 
-    function autoRefreshHandler() {
-      addSearchFields();
+    if (app.loadBalancers.loaded) {
       updateLoadBalancerGroups();
     }
 
-    autoRefreshHandler();
+    app.activeState = app.loadBalancers;
+    $scope.$on('$destroy', () => app.activeState = app);
 
-    app.registerAutoRefreshHandler(autoRefreshHandler, $scope);
+    app.loadBalancers.onRefresh($scope, updateLoadBalancerGroups);
   }
 );

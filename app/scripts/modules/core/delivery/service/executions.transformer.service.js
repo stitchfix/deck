@@ -13,7 +13,10 @@ module.exports = angular.module('spinnaker.core.delivery.executionTransformer.se
 
     var hiddenStageTypes = ['pipelineInitialization', 'waitForRequisiteCompletion'];
 
+    //let totalTime = 0.0;
+
     function transformExecution(application, execution) {
+      //let start = window.performance.now();
       if (execution.trigger) {
         execution.isStrategy = execution.trigger.isPipeline === false && execution.trigger.type === 'pipeline';
       }
@@ -30,7 +33,7 @@ module.exports = angular.module('spinnaker.core.delivery.executionTransformer.se
         stage.index = index;
         orchestratedItemTransformer.defineProperties(stage);
         if (stage.tasks && stage.tasks.length) {
-          stage.tasks.forEach(orchestratedItemTransformer.defineProperties);
+          stage.tasks.forEach(orchestratedItemTransformer.addRunningTime);
         }
       });
 
@@ -77,10 +80,27 @@ module.exports = angular.module('spinnaker.core.delivery.executionTransformer.se
       execution.currentStages = getCurrentStages(execution);
       addStageWidths(execution);
       addBuildInfo(execution);
+      //let end = window.performance.now();
+      //totalTime += (end-start);
+      //console.warn('tt:', totalTime, '(this)', (end-start));
+    }
+
+    function siblingStageSorter(a, b) {
+      if (!a.startTime && !b.startTime) {
+        return 0;
+      }
+      if (!a.startTime) {
+        return 1;
+      }
+      if (!b.startTime) {
+        return -1;
+      }
+      return a.startTime - b.startTime;
     }
 
     function flattenStages(stages, stage) {
       if (stage.before && stage.before.length) {
+        stage.before.sort(siblingStageSorter);
         stage.before.forEach(function(beforeStage) {
           flattenStages(stages, beforeStage);
         });
@@ -91,6 +111,7 @@ module.exports = angular.module('spinnaker.core.delivery.executionTransformer.se
         stages.push(stage);
       }
       if (stage.after && stage.after.length) {
+        stage.after.sort(siblingStageSorter);
         stage.after.forEach(function(afterStage) {
           flattenStages(stages, afterStage);
         });
@@ -102,23 +123,6 @@ module.exports = angular.module('spinnaker.core.delivery.executionTransformer.se
       return flattenStages([], stage)
         .filter(function(stage) {
           return stage.type !== 'initialization' && stage.initializationStage !== true;
-        })
-        .sort(function(a, b) {
-          if (a.syntheticStageOwner === 'STAGE_BEFORE' &&
-            b.syntheticStageOwner === 'STAGE_BEFORE' &&
-            a.parentStageId === b.parentStageId) {
-              if (!a.startTime && !b.startTime) {
-                return 0;
-              }
-              if (!a.startTime) {
-                return 1;
-              }
-              if (!b.startTime) {
-                return -1;
-              }
-              return a.startTime - b.startTime;
-          }
-          return 0;
         });
     }
 
@@ -160,7 +164,7 @@ module.exports = angular.module('spinnaker.core.delivery.executionTransformer.se
         setMasterStageStartTime(stages, stage);
         var lastNotStartedStage = _(stages).findLast(
           function (childStage) {
-            return !childStage.hasNotStarted;
+            return childStage.hasNotStarted;
           }
         );
 
@@ -176,7 +180,13 @@ module.exports = angular.module('spinnaker.core.delivery.executionTransformer.se
           }
         );
 
-        var currentStage = lastRunningStage || lastFailedStage || lastNotStartedStage || lastStage;
+        var lastCanceledStage = _(stages).findLast(
+          function (childStage) {
+            return childStage.isCanceled;
+          }
+        );
+
+        var currentStage = lastRunningStage || lastFailedStage || lastCanceledStage || lastNotStartedStage || lastStage;
         stage.status = currentStage.status;
         // if a stage is running, ignore the endTime of the parent stage
         if (!currentStage.endTime) {

@@ -5,6 +5,7 @@ let angular = require('angular');
 module.exports = angular.module('spinnaker.delivery', [
 
   require('./details/executionDetails.controller.js'),
+  require('./details/singleExecutionDetails.controller.js'),
   require('./details/executionDetails.directive.js'),
   require('./details/executionDetailsSectionNav.directive.js'),
 
@@ -24,5 +25,4 @@ module.exports = angular.module('spinnaker.delivery', [
   require('../utils/appendTransform.js'),
   require('../utils/lodash.js'),
   require('../utils/moment.js'),
-  require('../utils/rx.js'),
 ]);

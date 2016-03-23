@@ -4,8 +4,9 @@ let angular = require('angular');
 
 module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transformer', [
   require('../../../../core/utils/lodash.js'),
+  require('../../../../core/orchestratedItem/orchestratedItem.transformer.js'),
 ])
-  .service('canaryStageTransformer', function($log, _) {
+  .service('canaryStageTransformer', function($log, _, orchestratedItemTransformer) {
 
     // adds "canary" or "baseline" to the deploy stage name when converting it to a task
     function getDeployTaskName(stage) {
@@ -22,16 +23,8 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
     }
 
     function getException (stage) {
-      if (stage.context) {
-        if (stage.context.exception && stage.context.exception.details.errors.length) {
-          return stage.context.exception.details.errors.join(', ');
-        }
-        if (stage.context['kato.tasks'] && stage.context['kato.tasks'].length) {
-          var lastTask = stage.context['kato.tasks'][stage.context['kato.tasks'].length - 1];
-          return lastTask.exception ? lastTask.exception.message : null;
-        }
-      }
-      return null;
+      orchestratedItemTransformer.defineProperties(stage);
+      return stage.isFailed ? stage.failureMessage : null;
     }
 
     function buildCanaryDeploymentsFromClusterPairs(stage) {
@@ -114,7 +107,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
       var syntheticStagesToAdd = [];
       execution.stages.forEach(function(stage) {
         if (stage.type === 'canary') {
-
+          orchestratedItemTransformer.defineProperties(stage);
           stage.exceptions = [];
 
           var deployParent = _.find(execution.stages, {
@@ -167,7 +160,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
               status = 'RUNNING';
             }
             if (canaryStatus.complete) {
-              status = 'COMPLETED';
+              status = 'SUCCEEDED';
             }
             if (canaryStatus.status === 'DISABLED') {
               status = 'DISABLED';
@@ -243,8 +236,10 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
               deployment.commits = foundTask.commits;
             }
 
-            if (deployedClusterPair) {
-              var canaryServerGroup = _.find(application.serverGroups, {
+            // verify the server groups are present - if this is a project-level pipeline, the application will be an
+            // empty object
+            if (deployedClusterPair && application.serverGroups) {
+              var canaryServerGroup = _.find(application.serverGroups.data, {
                 name: deployedClusterPair.canaryCluster.serverGroup,
                 account: deployedClusterPair.canaryCluster.accountName,
                 region: deployedClusterPair.canaryCluster.region
@@ -255,7 +250,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
                 deployment.canaryCluster.capacity = 'n/a';
               }
 
-              var baselineServerGroup = _.find(application.serverGroups, {
+              var baselineServerGroup = _.find(application.serverGroups.data, {
                 name: deployedClusterPair.baselineCluster.serverGroup,
                 account: deployedClusterPair.baselineCluster.accountName,
                 region: deployedClusterPair.baselineCluster.region

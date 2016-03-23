@@ -6,7 +6,7 @@ var bakeryDetailUrl = process.env.BAKERY_DETAIL_URL || 'http://bakery.test.netfl
 var authEndpoint = process.env.AUTH_ENDPOINT || 'https://spinnaker-api-prestaging.prod.netflix.net/auth/info';
 
 window.spinnakerSettings = {
-  defaultProviders: ['aws', 'gce', 'azure', 'cf', 'kubernetes'],
+  defaultProviders: ['aws', 'gce', 'azure', 'cf', 'kubernetes', 'titan'],
   feedbackUrl: feedbackUrl,
   gateUrl: gateHost,
   bakeryDetailUrl: bakeryDetailUrl,
@@ -17,7 +17,7 @@ window.spinnakerSettings = {
     azure: {
       defaults: {
         account: 'azure-test',
-        region: 'West US'
+        region: 'westus'
       },
     },
     aws: {
@@ -26,6 +26,11 @@ window.spinnakerSettings = {
         region: 'us-east-1'
       },
       defaultSecurityGroups: ['nf-datacenter-vpc', 'nf-infrastructure-vpc', 'nf-datacenter', 'nf-infrastructure'],
+      loadBalancers: {
+        // if true, VPC load balancers will be created as internal load balancers if the selected subnet has a purpose
+        // tag that starts with "internal"
+        inferInternalFlagFromSubnet: false,
+      },
     },
     gce: {
       defaults: {
@@ -36,7 +41,7 @@ window.spinnakerSettings = {
     },
     titan: {
       defaults: {
-        account: 'titantest',
+        account: 'titustest',
         region: 'us-east-1'
       },
     },
@@ -52,13 +57,16 @@ window.spinnakerSettings = {
     fileName: 'news.md',
   },
   authEnabled: process.env.AUTH === 'enabled',
+  gitSources: ['stash', 'github'],
   feature: {
     pipelines: true,
     notifications: false,
     fastProperty: true,
     vpcMigrator: true,
     clusterDiff: true,
-    rebakeControlEnabled: false,
+    roscoMode: false,
     netflixMode: false,
+    // whether stages affecting infrastructure (like "Create Load Balancer") should be enabled or not
+    infrastructureStages: process.env.INFRA_STAGES === 'enabled',
   },
 };

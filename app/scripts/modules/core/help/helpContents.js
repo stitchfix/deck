@@ -37,6 +37,7 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'aws.serverGroup.detail': '(Optional) <b>Detail</b> is a string of free-form alphanumeric characters and hyphens to describe any other variables.',
     'aws.serverGroup.imageName': '(Required) <b>Image</b> is the deployable Amazon Machine Image. Images are restricted to the account and region selected.',
     'aws.serverGroup.base64UserData': '(Optional) <b>UserData</b> is a base64 encoded string.',
+    'aws.serverGroup.tags': '(Optional) <b>Tags</b> are propagated to the instances in this cluster.',
     'aws.serverGroup.allImages': 'Search for an image that does not match the name of your application.',
     'aws.serverGroup.filterImages': 'Select from a pre-filtered list of images matching the name of your application.',
     'aws.serverGroup.strategy': 'The deployment strategy tells Spinnaker what to do with the previous version of the server group.',
@@ -108,6 +109,7 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'gce.loadBalancer.portRange': '(Optional) Only packets addressed to ports in the specified <b>Port Range</b> will be forwarded. If left empty, all ports are forwarded. Must be a single port number or two port numbers separated by a dash. Each port number must be between 1 and 65535, inclusive. For example: 5000-5999.',
     'gce.serverGroup.imageName': '(Required) <b>Image</b> is the Google Compute Engine image. Images are restricted to the account selected.',
     'gce.serverGroup.capacity': 'The number of instances that the instance group manager will attempt to maintain. Deleting or abandoning instances will affect this number, as will resizing the group.',
+    'gce.serverGroup.customMetadata': '<b>Custom Metadata</b> will be propagated to the instances in this server group. This is useful for passing in arbitrary values that can be queried by your code on the instance.',
     'gce.serverGroup.customMetadata.load-balancer-names': 'This field is used to "remember" what load balancers this server group is associated with, even if the instances are deregistered.',
     'gce.serverGroup.customMetadata.startup-script': 'This script will run automatically on every boot.',
     'gce.serverGroup.preemptibility': 'A preemptible VM costs much less, but lasts only 24 hours. It can be terminated sooner due to system demands.',
@@ -120,6 +122,12 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'gce.serverGroup.autoscaling.minVMs': 'The least number of VM instances the group will contain, even if the target is not met.',
     'gce.serverGroup.autoscaling.maxVMs': 'The largest number of VM instances allowed, even if the target is exceeded.',
     'gce.serverGroup.autoscaling.cooldown': 'How long to wait before collecting information from a new instance. This should be at least the time it takes to initialize the instance. To find the minimum, create an instance from the same image and note how long it takes to start.',
+    'gce.serverGroup.subnet': 'Subnetworks allow you to regionally segment the network IP space into prefixes (subnets) and control which prefix a VM instance\'s internal IP address is allocated from. There are several types of GCE networks:' +
+      '<ul>' +
+      '<li><b>Legacy (non-subnet) Network</b>: IP address allocation occurs at the global network level. This means the network address space spans across all regions.</li>' +
+      '<li><b>Auto Subnet Network</b>: Server groups will be automatically assigned to the specified region\'s subnet.</li>' +
+      '<li><b>Custom Subnet Network</b>: A subnet must be selected for the server group. If no subnets have been created for the specified region, you will not be able to provision the server group.</li>' +
+      '</ul>',
     'pipeline.config.checkPreconditions.failPipeline': '' +
       '<p><strong>Checked</strong> - the overall pipeline will fail whenever this precondition is false.</p>' +
       '<p><strong>Unchecked</strong> - the overall pipeline will continue executing but this particular branch will stop.</p>',
@@ -152,16 +160,28 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'pipeline.config.quickPatchAsg.skipUpToDate': '<p>Skip instances which already have the requested version.</p>',
     'pipeline.config.jenkins.propertyFile': '<p>(Optional) Configures the name to the Jenkins artifact file used to pass in properties to later stages in the Spinnaker pipeline.</p>',
     'pipeline.config.bake.package': '<p>The name of the package you want installed (without any version identifiers).</p>' +
-      '<p>If your build produces a deb file named "myapp_1.27-h343", you would want to enter "myapp" here.</p>',
+      '<p>If your build produces a deb file named "myapp_1.27-h343", you would want to enter "myapp" here.</p>' +
+      '<p>If there are multiple packages (space separated), then they will be installed in the order they are entered.</p>',
     'pipeline.config.bake.baseAmi': '<p>(Optional) ami-????????</p>',
     'pipeline.config.bake.amiSuffix': '<p>(Optional) String of date in format YYYYMMDDHHmm, default is calculated from timestamp,</p>',
     'pipeline.config.bake.enhancedNetworking': '<p>(Optional) Enable enhanced networking (sr-iov) support for image (requires hvm and trusty base_os).</p>',
     'pipeline.config.bake.amiName': '<p>(Optional) Default = $package-$arch-$ami_suffix-$store_type</p>',
+    'pipeline.config.bake.templateFileName': '<p>(Optional) The explicit packer template to use, instead of resolving one from rosco\'s configuration.</p>',
+    'pipeline.config.bake.extendedAttributes': '<p>(Optional) Any additional attributes that you want to pass onto rosco, which will be injected into your packer runtime variables.</p>',
     'pipeline.config.gce.bake.baseImage': '<p>(Optional) A GCE image name. For example: ubuntu-1204-precise-v20150910.</p>',
     'pipeline.config.manualJudgment.instructions': '<p>(Optional) Instructions are shown to the user when making a manual judgment.</p><p>May contain HTML.</p>',
     'pipeline.config.manualJudgment.failPipeline': '' +
       '<p><strong>Checked</strong> - the overall pipeline will fail whenever the manual judgment is negative.</p>' +
       '<p><strong>Unchecked</strong> - the overall pipeline will continue executing but this particular branch will stop.</p>',
+    'pipeline.config.manualJudgment.judgmentInputs': '<p>(Optional) Entries populate a dropdown displayed when ' +
+      'performing a manual judgment.</p>' +
+      '<p>The selected value can be used in a subsequent <strong>Check Preconditions</strong> stage to determine branching.</p>' +
+      '<p>For example, if the user selects "rollback" from this list of options, that branch can be activated by using the ' +
+      'expression: ' +
+      '<samp class="small">execution.stages[n].context.judgmentInput=="rollback"</samp></p>',
+    'pipeline.config.failPipeline': '' +
+    '<p><strong>Checked</strong> - the overall pipeline will fail whenever the stage fails.</p>' +
+    '<p><strong>Unchecked</strong> - the overall pipeline will continue executing but this particular branch will stop.</p>',
     'pipeline.config.canary.clusterPairs': '' +
       '<p>A <em>cluster pair</em> is used to create a baseline and canary cluster.</p>' +
       '<p>The version currently deployed in the baseline cluster will be used to create a new baseline server group, while the version created in the previous bake or Find AMI stage will be deployed into the canary.</p>',
@@ -182,6 +202,7 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'pipeline.config.canary.scaleUpCapacity': '<p>Desired capacity after canary and control clusters are scaled up</p>',
     'pipeline.config.canary.scaleUpDelay': '<p>Minutes to delay before initiating canary scale up</p>',
     'pipeline.config.canary.baselineVersion': '<p>The Canary stage will inspect the specified cluster to determine which version to deploy as the baseline in each cluster pair.</p>',
+    'pipeline.config.canary.lookback':'<p>By default ACA will look at the entire duration of the canary for its analysis. Setting a look-back duration limits the number of minutes that the canary will use for it\'s analysis report.<br> <b>Useful for long running canaries that span multiple days.</b></p>',
 
     'pipeline.config.cron.expression': '<strong>Format (Year is optional)</strong><p><samp>Seconds  Minutes  Hour  DayOfMonth  Month  DayOfWeek  (Year)</samp></p>' +
     '<p><strong>Example: every 30 minutes</strong></p><samp>0 0/30 * * * ?</samp>' +
@@ -189,9 +210,10 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     '<p><strong>Note:</strong> values for "DayOfWeek" are 1-7, where Sunday is 1, Monday is 2, etc. You can also use MON,TUE,WED, etc.',
 
     'cluster.description': '<p>A cluster is a collection of server groups with the same name (stack + detail) in the same account.</p>',
-
-    'pipeline.config.findAmi.cluster': 'The cluster to look at when selecting the AMI to use in this pipeline.',
+    'pipeline.config.findAmi.cluster': 'The cluster to look at when selecting the image to use in this pipeline.',
+    'pipeline.config.findAmi.imageNamePattern': 'A regex used to match the name of the image. Must result in exactly one match to succeed. Empty is treated as match any.',
     'pipeline.config.dependsOn': 'Declares which stages must be run <em>before</em> this stage begins.',
+    'pipeline.config.fastProperty.rollback': 'Enables the Fast Property to be rolled back to it previous state when the pipeline completes.',
     'pipeline.config.parallel.execution': '<p>Enabling parallel stage execution allows you to run stages only after dependent ' +
       'stages have completed.</p><p>By configuring a pipeline this way, you can reduce the time it takes to run.</p>',
     'pipeline.config.timeout': '<p>Allows you to override the amount of time the stage can run before failing.</p> ' +
@@ -199,6 +221,7 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'pipeline.config.timeout.bake': '<p>For the Bake stage, the timeout will apply to both the "Create Bake" and "Monitor Bake" tasks.</p>',
     'pipeline.config.timeout.deploy': '<p>For the Deploy stage, the timeout will apply to both the "Monitor Deploy" and "Wait For Up Instances" tasks.</p>',
     'pipeline.config.timeout.jenkins': '<p>For the Jenkins stage, the timeout will apply to both the "Wait For Jenkins Job Start" and "Monitor Jenkins Job" tasks.</p>',
+    'pipeline.config.script.repoUrl': '<p>Path to the repo hosting the scripts in Stash. (e.g. <samp>CDL/mimir-scripts</samp>). Leave empty to use the default.</p>',
     'pipeline.config.script.path': '<p>Path to the folder hosting the scripts in Stash. (e.g. <samp>groovy</samp>, <samp>python</samp> or <samp>shell</samp>)</p>',
     'pipeline.config.script.command': '<p>Executable script and parameters. (e.g. <samp>script.py --ami-id ${deploymentDetails[0].ami}</samp> ) </p>',
     'pipeline.config.script.image': '<p>(Optional) image passed down to script execution as IMAGE_ID</p>',
@@ -207,6 +230,7 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'pipeline.config.script.cluster': '<p>(Optional) cluster passed down to script execution as CLUSTER_PARAM</p>',
     'pipeline.config.script.cmc': '<p>(Optional) cmc passed down to script execution as CMC</p>',
     'pipeline.config.script.propertyFile': '<p>(Optional) The name to the properties file produced by the script execution to be used by later stages of the Spinnaker pipeline. </p>',
+    'pipeline.config.docker.trigger.tag': '<p>(Optional) If specified, only changes to this tag will trigger the pipeline. </p>',
     'serverGroupCapacity.useSourceCapacityTrue':  '<p>Spinnaker will use the current capacity of the existing server group when deploying a new server group.</p>' +
       '<p>This setting is intended to support a server group with auto-scaling enabled, where the bounds and desired capacity are controlled by an external process.</p>' +
       '<p>In the event that there is no existing server group, the deploy will fail.</p>',
@@ -241,19 +265,81 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'execution.forceRebake': '<p>By default, the bakery will <b>not</b> create a new image if the contents of the package have not changed; ' +
       'instead, it will return the previously baked image.</p>' +
       '<p>Select this option to force the bakery to create a new image, regardless of whether or not the selected package exists.</p>',
+    'kubernetes.serverGroup.stack': '(Optional) One of the core naming components of a cluster, used to create vertical stacks of dependent services for integration testing.',
+    'kubernetes.serverGroup.detail': '(Optional) A string of free-form alphanumeric characters and hyphens to describe any other variables.',
     'kubernetes.serverGroup.containers': '(Required) Select at least one image to run in this server group (pod). ' +
       'If multiple images are selected, they will be colocated and replicated equally.',
     'kubernetes.containers.image': 'The image selected under Basic Settings whose container is to be configured.',
+    'kubernetes.containers.registry': 'The registry the selected image will be pulled from.',
     'kubernetes.containers.name': '(Required) The name of the container associated with the above image. Used for resource identification',
-    'kubernetes.containers.limits.cpu': '(Optional) The relative CPU shares to allocate this container. If set, it is multiplied by 1024, then ' +
+    'kubernetes.containers.cpu': '(Optional) The relative CPU shares to allocate this container. If set, it is multiplied by 1024, then ' +
       'passed to Docker as the --cpu-shares flag. Otherwise the default of 1 (1024) is used',
-    'kubernetes.containers.requests.cpu': '(Optional) This is used for scheduling. It assures that this container will always be scheduled on a machine ' +
-      'with at least this much CPU available.',
-    'kubernetes.containers.limits.memory': '(Optional) The relative memory in megabytes to allocate this container. If set, it is converted to an integer ' +
-      'and passed to Docker as the --memory flag. Otherwise there are no restrictions on memory usage',
-    'kubernetes.containers.requests.memory': '(Optional) This is used for scheduling. It assures that this container will always be scheduled on a machine ' +
-      'with at least this much memory available.',
+    'kubernetes.containers.memory': '(Optional) The relative memory in megabytes to allocate this container. If set, it is converted to an integer ' +
+      'and passed to Docker as the --memory flag',
+    'kubernetes.containers.requests': '(Optional) This is used for scheduling. It assures that this container will always be scheduled on a machine ' +
+      'with at least this much of the resource available.',
+    'kubernetes.containers.ports.name': '(Optional) A name for this port. Can be found using DNS lookup if specified.',
+    'kubernetes.containers.ports.containerPort': '(Required) The port to expose on this container.',
+    'kubernetes.containers.ports.hostPort': '(Optional) The port to expose on <b>Host IP</b>. Most containers do not need this',
+    'kubernetes.containers.ports.hostIp': '(Optional) The IP to bind the external port to. Most containers do not need this.',
+    'kubernetes.containers.ports.protocol': '(Required) The protocol for this port.',
+    'kubernetes.containers.limits': '(Optional) This provides a hard limit on this resource for the given container.',
+    'kubernetes.containers.probes.type': '<p><b>HTTP</b> Hit the probe at the specified port and path.</p>' +
+      '<p><b>EXEC</b> Execute the specified commands on the container.</p>' +
+      '<p><b>TCP</b> Connect to the container at the specified port.</p>',
+    'kubernetes.containers.probes.initialDelay': 'How long to wait after startup before running this probe.',
+    'kubernetes.containers.probes.timeout': 'How long to wait on the result of this probe.',
+    'kubernetes.containers.probes.period': 'How long between probe executions.',
+    'kubernetes.containers.probes.successThreshold': 'How many executions need to succeed before the probe is declared healthy.',
+    'kubernetes.containers.probes.failureThreshold': 'How many executions need to fail before the probe is declared unhealthy.',
+    'kubernetes.containers.volumemounts.name': 'The <b>Volume Source</b> configured above to claim.',
+    'kubernetes.containers.volumemounts.mountPath': 'The directory to mount the specified <b>Volume Source</b> to.',
+    'kubernetes.namespace': 'The namespace you have configured with the above selected account. This will often be referred to as <b>Region</b> in Spinnaker.',
+    'kubernetes.loadBalancer.detail': '(Optional) A string of free-form alphanumeric characters; by convention, we recommend using "frontend".',
+    'kubernetes.loadBalancer.stack': '(Optional) One of the core naming components of a cluster, used to create vertical stacks of dependent services for integration testing.' ,
+    'kubernetes.service.ports.name': '(Optional) A name for this port. Can be found using DNS lookup if specified.',
+    'kubernetes.service.ports.port': 'The port this service will expose to resources internal to the cluster.',
+    'kubernetes.service.ports.nodePort': '(Optional) A port to open on every node in the cluster. This allows you to receive external traffic without ' +
+      'having to provision a cloud load balancer. <b>Type</b> in <b>Advanced Settings</b> cannot be set to <b>ClusterIP</b> for this to work.',
+    'kubernetes.service.ports.targetPort': '(Optional) The port to forward incoming traffic to for pods associated with this load balancer.',
+    'kubernetes.service.ports.protocol': 'The protocol this port listens to.',
+    'kubernetes.service.type': '<b>ClusterIP</b> means this is an internal load balancer only. <b>LoadBalancer</b> provisions a cloud load balancer if possible ' +
+      'at address <b>Load Balancer IP</b>. <b>NodePort</b> means this load balancer forwards traffic from ports with <b>Node Port</b> specified.',
+    'kubernetes.service.sessionAffinity': '<b>None</b> means incoming connections are not associated with the pods they are routed to. <b>ClientIP</b> ' +
+      'associates connections with pods by incoming IP address.',
+    'kubernetes.service.clusterIp': '(Optional) If specified, and available, this internal IP address will be the internal endpoint for this load balancer.' +
+      'If not specified, one will be assigned.',
+    'kubernetes.service.loadBalancerIp': 'If specified, and available, this external IP address will be the external endpoint for this load balancer ' +
+      'when <b>Type</b> is set to <b>LoadBalancer</b>.',
+    'kubernetes.service.externalIps': 'IP addresses for which nodes in the cluster also accept traffic. This is not managed by Kubernetes and the ' +
+      'responsibility of the user to configure.',
+    'kubernetes.pod.volume': 'A storage volume to be mounted and shared containers in this pod. The lifecycle depends on the volume type selected' +
+      '<p><b>EMPTYDIR</b>: A transient volume tied to the lifecycle of this pod.</p>' +
+      '<p><b>HOSTPATH</b>: A directory on the host node. Most pods do not need this.</p>' +
+      '<p><b>PERSISTENTVOLUMECLAIM</b>: An already created persistent volume claim to be bound by this pod.</p>',
+    'kubernetes.pod.emptydir.medium': 'The type of storage medium used by this volume type.' +
+      '<p><b>DEFAULT</b>: Depends on the storage mechanism backing this pod\'s Kubernetes installation.</p>' +
+      '<p><b>MEMORY</b>: A tmpfs (RAM-backed filesystem). Very fast, but usage counts against the memory resource limit, and contents are lost on reboot.</p>',
+    'kubernetes.pod.persistentvolumeclaim.claim': 'The name of the underlying persistent volume claim to request.',
+    'kubernetes.pod.hostpath.path': 'The path on the host node\'s filesystem to mount.',
+    'kubernetes.ingress.backend.port': 'The port for the specified load balancer.',
+    'kubernetes.ingress.backend.service': 'The load balancer (service) traffic not matching the below rules will be routed to.',
+    'kubernetes.ingress.rules.service': 'The load balancer (service) traffic matching this rule will be routed to.',
+    'kubernetes.ingress.rules.host': 'The fully qualified domain name of a network host. Any traffic routed to this host matches this rule. May not be an IP address, or contain port information.',
+    'kubernetes.ingress.rules.path': 'POSIX regex (IEE Std 1003.1) matched against the path of an incoming request.',
+    'kubernetes.ingress.rules.port': 'The port on the specifed load balancer to route traffic to.',
     'user.verification': 'Typing into this verification field is annoying! But it serves as a reminder that you are ' +
     'changing something in an account deemed important, and prevents you from accidentally changing something ' +
     'when you meant to click on the "Cancel" button.',
+    'azure.securityGroup.ingress.description': 'Friendly description of the rule you want to enable (limit 80 chars.)',
+    'azure.securityGroup.ingress.priority': 'Rules are processed in priority order; the lower the number, the higher the priority.  We recommend leaving gaps between rules - 100, 200, 300, etc. - so that it\'s easier to add new rules without having to edit existing rules.  There are several default rules that can be overridden with priority (65000, 65001 and 65500).  For more information visit http://portal.azure.com.' ,
+    'azure.securityGroup.ingress.source': 'The source filter can be Any, an IP address range or a default tag(\'Internet\', \'VirtualNetwork\', \AzureLoadBalancer\').  It specifies the incoming traffic from a specific source IP address range (CIDR format) that will be allowed or denied by this rule.',
+    'azure.securityGroup.ingress.sourcePortRange': 'The source port range can be a single port, such as 80, or a port range, such as 1024-65535.  This specifies from which ports incoming traffic will be allowed or denied by this rule.  Provide an asterisk (*) to allow traffic from clients connecting from any port.',
+    'azure.securityGroup.ingress.destination': 'The destination filter can be Any, an IP address range or a default tag(\'Internet\', \'VirtualNetwork\', \AzureLoadBalancer\').  It specifies the outgoing traffic from a specific destination IP address range (CIDR format) that will be allowed or denied by this rule.',
+    'azure.securityGroup.ingress.destinationPortRange': 'The destination port range can be a single port, such as 80, or a port range, such as 1024-65535.  This specifies from which destination ports traffic will be allowed or denied by this rule.  Provide an asterisk (*) to allow traffic from clients connecting from any port.',
+    'azure.securityGroup.ingress.direction': 'Specifies whether the rule is for inbound or outbound traffic.',
+    'azure.securityGroup.ingress.actions': 'To adjust the priority of a rule, move it up or down in the list of rules.  Rules at the top of the list have the highest priority.',
+    'azure.serverGroup.imageName': '(Required) <b>Image</b> is the deployable Azure Machine Image.',
+    'azure.serverGroup.stack': '(Required) <b>Stack</b> is one of the core naming components of a cluster, used to create vertical stacks of dependent services for integration testing.',
+    'azure.serverGroup.detail': '(Required) <b>Detail</b> is a naming component to help distinguish specifics of the server group.',
   });

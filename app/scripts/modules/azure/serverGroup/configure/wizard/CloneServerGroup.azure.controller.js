@@ -6,21 +6,23 @@ module.exports = angular.module('spinnaker.azure.cloneServerGroup.controller', [
   require('angular-ui-router'),
   require('../../../../core/utils/lodash.js'),
   require('../serverGroupConfiguration.service.js'),
+  require('../../serverGroup.transformer.js'),
   require('../../../../core/serverGroup/serverGroup.write.service.js'),
   require('../../../../core/task/monitor/taskMonitorService.js'),
-  require('../../../../core/modal/wizard/modalWizard.service.js'),
+  require('../../../../core/modal/wizard/v2modalWizard.service.js'),
 ])
   .controller('azureCloneServerGroupCtrl', function($scope, $modalInstance, _, $q, $exceptionHandler, $state,
-                                                  serverGroupWriter, modalWizardService, taskMonitorService,
-                                                  azureServerGroupConfigurationService, serverGroupCommand, application, title) {
+                                                  serverGroupWriter, v2modalWizardService, taskMonitorService,
+                                                  azureServerGroupConfigurationService, serverGroupCommand,
+                                                  azureServerGroupTransformer, application, title) {
     $scope.pages = {
       templateSelection: require('./templateSelection.html'),
-      basicSettings: require('./basicSettings.html'),
-/*      loadBalancers: require('./loadBalancers.html'),
-      securityGroups: require('./securityGroups.html'),
-      instanceArchetype: require('./instanceArchetype.html'),
+      basicSettings: require('./basicSettings/basicSettings.html'),
+      loadBalancers: require('./loadBalancers/loadBalancers.html'),
+      capacity: require('./capacity/capacity.html'),
+      securityGroups: require('./securityGroup/securityGroups.html'),
+/*      instanceArchetype: require('./instanceArchetype.html'),
       instanceType: require('./instanceType.html'),
-      capacity: require('./capacity.html'),
       advancedSettings: require('./advancedSettings.html'),
       */
     };
@@ -67,8 +69,8 @@ module.exports = angular.module('spinnaker.azure.cloneServerGroup.controller', [
     }
 
     function onTaskComplete() {
-      application.refreshImmediately();
-      application.registerOneTimeRefreshHandler(onApplicationRefresh);
+      application.serverGroups.refresh();
+      application.serverGroups.onNextRefresh($scope, onApplicationRefresh);
     }
 
 
@@ -84,12 +86,10 @@ module.exports = angular.module('spinnaker.azure.cloneServerGroup.controller', [
       azureServerGroupConfigurationService.configureCommand(application, serverGroupCommand).then(function () {
         var mode = serverGroupCommand.viewState.mode;
         if (mode === 'clone' || mode === 'create') {
-          if (!serverGroupCommand.backingData.packageImages.length) {
-            serverGroupCommand.viewState.useAllImageSelection = true;
-          }
+          serverGroupCommand.viewState.useAllImageSelection = true;
         }
         $scope.state.loaded = true;
-        initializeCommand();
+        initializeSpecificImage();
         initializeWizardState();
         initializeSelectOptions();
         initializeWatches();
@@ -97,41 +97,22 @@ module.exports = angular.module('spinnaker.azure.cloneServerGroup.controller', [
     }
 
     function initializeWizardState() {
-      if (serverGroupCommand.viewState.instanceProfile && serverGroupCommand.viewState.instanceProfile !== 'custom') {
-        modalWizardService.getWizard().includePage('instance-type');
-        modalWizardService.getWizard().markComplete('instance-type');
-      }
       var mode = serverGroupCommand.viewState.mode;
       if (mode === 'clone' || mode === 'editPipeline') {
-        modalWizardService.getWizard().markComplete('location');
-        modalWizardService.getWizard().markComplete('load-balancers');
-        modalWizardService.getWizard().markComplete('security-groups');
-        modalWizardService.getWizard().markComplete('instance-profile');
-        modalWizardService.getWizard().markComplete('instance-type');
-        modalWizardService.getWizard().markComplete('capacity');
-        modalWizardService.getWizard().markComplete('advanced');
+        v2modalWizardService.markComplete('basic-settings');
+        v2modalWizardService.markComplete('load-balancers');
+        v2modalWizardService.markComplete('security-groups');
       }
     }
 
     function initializeWatches() {
       $scope.$watch('command.credentials', createResultProcessor($scope.command.credentialsChanged));
       $scope.$watch('command.region', createResultProcessor($scope.command.regionChanged));
-      $scope.$watch('command.subnetType', createResultProcessor($scope.command.subnetChanged));
-      $scope.$watch('command.viewState.usePreferredZones', createResultProcessor($scope.command.usePreferredZonesChanged));
-      $scope.$watch('command.stack', $scope.command.clusterChanged);
-      $scope.$watch('command.freeFormDetails', $scope.command.clusterChanged);
-      $scope.$watch('command.viewState.securityGroupDiffs', function(newVal) {
-        if (newVal && newVal.length) {
-          modalWizardService.getWizard().markDirty('security-groups');
-        }
-      });
-      $scope.$watch('command.securityGroups', $scope.command.configureSecurityGroupDiffs);
     }
 
     function initializeSelectOptions() {
       processCommandUpdateResult($scope.command.credentialsChanged());
       processCommandUpdateResult($scope.command.regionChanged());
-      azureServerGroupConfigurationService.configureSubnetPurposes($scope.command);
     }
 
     function createResultProcessor(method) {
@@ -142,17 +123,14 @@ module.exports = angular.module('spinnaker.azure.cloneServerGroup.controller', [
 
     function processCommandUpdateResult(result) {
       if (result.dirty.loadBalancers) {
-        modalWizardService.getWizard().markDirty('load-balancers');
+        v2modalWizardService.markDirty('load-balancers');
       }
       if (result.dirty.securityGroups) {
-        modalWizardService.getWizard().markDirty('security-groups');
-      }
-      if (result.dirty.availabilityZones) {
-        modalWizardService.getWizard().markDirty('capacity');
+        v2modalWizardService.markDirty('security-groups');
       }
     }
 
-    function initializeCommand() {
+    function initializeSpecificImage() {
       if (serverGroupCommand.viewState.imageId) {
         var foundImage = $scope.command.backingData.packageImages.filter(function(image) {
           return image.amis[serverGroupCommand.region] && image.amis[serverGroupCommand.region].indexOf(serverGroupCommand.viewState.imageId) !== -1;
@@ -164,19 +142,17 @@ module.exports = angular.module('spinnaker.azure.cloneServerGroup.controller', [
     }
 
     this.isValid = function () {
-      //TODO:larrygug - modify to fit Azure model. Need to change the command object completely.
       return $scope.command &&
-        ($scope.command.viewState.useAllImageSelection ? $scope.command.viewState.allImageSelection !== null : $scope.command.amiName !== null) &&
         ($scope.command.application !== null) &&
-        ($scope.command.credentials !== null) && ($scope.command.instanceType !== null) &&
-        ($scope.command.region !== null) && ($scope.command.availabilityZones !== null) &&
-        ($scope.command.capacity.min !== null) && ($scope.command.capacity.max !== null) &&
-        ($scope.command.capacity.desired !== null) &&
-        modalWizardService.getWizard().isComplete();
+        ($scope.command.credentials !== null) &&
+        ($scope.command.region !== null) &&
+        $scope.serverGroupWizardForm.$valid &&
+        v2modalWizardService.isComplete();
     };
 
     this.showSubmitButton = function () {
-      return modalWizardService.getWizard().allPagesVisited();
+      //return modalWizardService.getWizard().allPagesVisited();
+      return true;
     };
 
     this.submit = function () {

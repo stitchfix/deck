@@ -19,7 +19,7 @@ module.exports = angular
 
 
     let refreshApp = () => {
-      app.refreshImmediately(true);
+      app.refresh(true);
     };
 
     vm.application = app;
@@ -268,8 +268,8 @@ module.exports = angular
     }
 
 
-    application.registerAutoRefreshHandler(fetchFastProperties, $scope);
-    application.registerAutoRefreshHandler(loadPromotions, $scope);
+    application.onRefresh($scope, fetchFastProperties);
+    application.onRefresh($scope, loadPromotions);
 
     fetchFastProperties();
     loadPromotions();

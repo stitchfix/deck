@@ -30,7 +30,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.titan.controller'
     $scope.InsightFilterStateModel = InsightFilterStateModel;
 
     function extractServerGroupSummary () {
-      var summary = _.find(application.serverGroups, function (toCheck) {
+      var summary = _.find(application.serverGroups.data, function (toCheck) {
         return toCheck.name === serverGroup.name && toCheck.account === serverGroup.accountId && toCheck.region === serverGroup.region;
       });
       return summary;
@@ -42,6 +42,8 @@ module.exports = angular.module('spinnaker.serverGroup.details.titan.controller'
         cancelLoader();
 
         var restangularlessDetails = details.plain();
+        // it's possible the summary was not found because the clusters are still loading
+        restangularlessDetails.account = serverGroup.accountId;
         angular.extend(restangularlessDetails, summary);
 
         $scope.serverGroup = restangularlessDetails;
@@ -52,8 +54,8 @@ module.exports = angular.module('spinnaker.serverGroup.details.titan.controller'
         if (!_.isEmpty($scope.serverGroup)) {
           if (details.securityGroups) {
             $scope.securityGroups = _(details.securityGroups).map(function(id) {
-              return _.find(application.securityGroups, { 'accountName': serverGroup.accountId, 'region': 'global', 'id': id }) ||
-                _.find(application.securityGroups, { 'accountName': serverGroup.accountId, 'region': 'global', 'name': id });
+              return _.find(application.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': 'global', 'id': id }) ||
+                _.find(application.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': 'global', 'name': id });
             }).compact().value();
           }
 
@@ -79,10 +81,9 @@ module.exports = angular.module('spinnaker.serverGroup.details.titan.controller'
 
     retrieveServerGroup().then(() => {
       // If the user navigates away from the view before the initial retrieveServerGroup call completes,
-      // do not bother subscribing to the autoRefreshStream
+      // do not bother subscribing to the refresh
       if (!$scope.$$destroyed) {
-        let refreshWatcher = app.autoRefreshStream.subscribe(retrieveServerGroup);
-        $scope.$on('$destroy', () => refreshWatcher.dispose());
+        app.serverGroups.onRefresh($scope, retrieveServerGroup);
       }
     });
 
@@ -214,10 +215,12 @@ module.exports = angular.module('spinnaker.serverGroup.details.titan.controller'
       });
     };
 
-    this.cloneServerGroup = function cloneServerGroup(serverGroup) {
+    this.cloneServerGroup = function cloneServerGroup() {
+      var serverGroup = $scope.serverGroup;
       $uibModal.open({
         templateUrl: require('../configure/wizard/serverGroupWizard.html'),
         controller: 'titanCloneServerGroupCtrl as ctrl',
+        size: 'lg',
         resolve: {
           title: function() { return 'Clone ' + serverGroup.name; },
           application: function() { return application; },

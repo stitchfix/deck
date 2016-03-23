@@ -5,7 +5,7 @@ let angular = require('angular');
 module.exports = angular.module('spinnaker.azure.securityGroup.azure.details.controller', [
   require('angular-ui-router'),
   require('../../../core/securityGroup/securityGroup.read.service.js'),
-  require('../../../core/securityGroup/securityGroup.write.service.js'),
+  require('../securityGroup.write.service.js'),
   require('../../../core/confirmationModal/confirmationModal.service.js'),
   require('../../../core/utils/lodash.js'),
   require('../../../core/insight/insightFilterState.model.js'),
@@ -13,7 +13,7 @@ module.exports = angular.module('spinnaker.azure.securityGroup.azure.details.con
   require('../../../core/utils/selectOnDblClick.directive.js'),
 ])
   .controller('azureSecurityGroupDetailsCtrl', function ($scope, $state, resolvedSecurityGroup, app, InsightFilterStateModel,
-                                                    confirmationModalService, securityGroupWriter, securityGroupReader,
+                                                    confirmationModalService, azureSecurityGroupWriter, securityGroupReader,
                                                     $modal, _) {
 
     const application = app;
@@ -46,10 +46,9 @@ module.exports = angular.module('spinnaker.azure.securityGroup.azure.details.con
 
     extractSecurityGroup().then(() => {
       // If the user navigates away from the view before the initial extractSecurityGroup call completes,
-      // do not bother subscribing to the autoRefreshStream
+      // do not bother subscribing to the refresh
       if (!$scope.$$destroyed) {
-        let refreshWatcher = app.autoRefreshStream.subscribe(extractSecurityGroup);
-        $scope.$on('$destroy', () => refreshWatcher.dispose());
+        app.securityGroups.onRefresh($scope, extractSecurityGroup);
       }
     });
 
@@ -93,8 +92,9 @@ module.exports = angular.module('spinnaker.azure.securityGroup.azure.details.con
       };
 
       var submitMethod = function () {
-        return securityGroupWriter.deleteSecurityGroup(securityGroup, application, {
-          cloudProvider: $scope.securityGroup.type,
+        $scope.securityGroup.type = 'deleteSecurityGroup';
+        return azureSecurityGroupWriter.deleteSecurityGroup(securityGroup, application, {
+          cloudProvider: 'azure',
           vpcId: $scope.securityGroup.vpcId,
         });
       };
@@ -109,6 +109,13 @@ module.exports = angular.module('spinnaker.azure.securityGroup.azure.details.con
         submitMethod: submitMethod
       });
     };
+
+    if (app.isStandalone) {
+      // we still want the edit to refresh the security group details when the modal closes
+      app.securityGroups = {
+        refresh: extractSecurityGroup
+      };
+    }
 
   }
 );

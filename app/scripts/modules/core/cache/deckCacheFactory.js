@@ -9,6 +9,8 @@ module.exports = angular.module('spinnaker.core.cache.deckCacheFactory', [
 
     var caches = Object.create(null);
 
+    var cacheProxy = Object.create(null);
+
     function buildCacheKey(namespace, cacheId) {
       if (!namespace || !cacheId) {
         return namespace || cacheId;
@@ -58,23 +60,24 @@ module.exports = angular.module('spinnaker.core.cache.deckCacheFactory', [
       setItem: function(k, v) {
         try {
           window.localStorage.setItem(k, v);
+          cacheProxy[k] = v;
         } catch (e) {
           $log.warn('Local Storage Error! Clearing caches and trying again.\nException:', e);
-          for (var key in window.localStorage) {
-            // invalidate keystore for any angular caches
-            if (key.match(/angular-cache\.caches\.infrastructure:.*.\.keys/)) {
-              window.localStorage.setItem(key, '[]');
-            }
-            // clear the data itself
-            if (key.match(/angular-cache\.caches\.infrastructure:.*.\.data\./)) {
-              window.localStorage.removeItem(key);
-            }
-          }
+          cacheProxy = Object.create(null);
+          window.localStorage.clear();
           window.localStorage.setItem(k, v);
         }
       },
-      getItem: function(k) { return window.localStorage.getItem(k); },
-      removeItem: function(k) { return window.localStorage.removeItem(k); },
+      getItem: function(k) {
+        if (cacheProxy[k] !== undefined) {
+          return cacheProxy[k];
+        }
+        return window.localStorage.getItem(k);
+      },
+      removeItem: function(k) {
+        delete cacheProxy[k];
+        return window.localStorage.removeItem(k);
+      },
     };
 
     function addLocalStorageCache(namespace, cacheId, cacheConfig) {
@@ -99,8 +102,22 @@ module.exports = angular.module('spinnaker.core.cache.deckCacheFactory', [
       caches[key].config = cacheConfig;
     }
 
+    function bombCorruptedCache(namespace, cacheId, currentVersion) {
+      // if the "meta-key" (the key that represents the cached keys) somehow got deleted or emptied
+      // but the data did not, we need to remove the data or the cache will always return the old stale data
+      let baseKey = buildCacheKey(namespace, cacheId),
+          indexKey = getStoragePrefix(baseKey, currentVersion) + baseKey;
+      if (!window.localStorage[indexKey + '.keys'] || window.localStorage[indexKey + '.keys'] === '[]') {
+        Object.keys(window.localStorage)
+          .filter(k => k.indexOf(indexKey) > -1)
+          .forEach(k => window.localStorage.removeItem(k));
+      }
+    }
+
     function clearPreviousVersions(namespace, cacheId, currentVersion, cacheFactory) {
       if (currentVersion) {
+
+        bombCorruptedCache(namespace, cacheId, currentVersion);
 
         // clear previous versions
         for (var i = 0; i < currentVersion; i++) {

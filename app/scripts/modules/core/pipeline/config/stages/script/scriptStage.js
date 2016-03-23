@@ -9,6 +9,7 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.scriptStage', [
         label: 'Script',
         description: 'Runs a script',
         key: 'script',
+        restartable: true,
         controller: 'ScriptStageCtrl',
         controllerAs: 'scriptStageCtrl',
         templateUrl: require('./scriptStage.html'),
@@ -18,6 +19,7 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.scriptStage', [
     })
     .controller('ScriptStageCtrl', function($scope, stage, authenticationService) {
       $scope.stage = stage;
+      $scope.stage.failPipeline = ($scope.stage.failPipeline === undefined ? true : $scope.stage.failPipeline);
 
       if (!$scope.stage.user) {
         $scope.stage.user = authenticationService.getAuthenticatedUser().name;

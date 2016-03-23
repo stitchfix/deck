@@ -3,6 +3,7 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.pipeline.stage.gce.enableAsgStage', [
+  require('../../../../../../core/application/listExtractor/listExtractor.service'),
   require('../../../../../application/modal/platformHealthOverride.directive.js'),
   require('../../stageConstants.js'),
   require('./enableAsgExecutionDetails.controller.js')
@@ -22,7 +23,6 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.gce.enableAsgStag
       ]
     });
   }).controller('gceEnableAsgStageCtrl', function($scope, accountService, stageConstants) {
-    var ctrl = this;
 
     let stage = $scope.stage;
 
@@ -38,12 +38,6 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.gce.enableAsgStag
 
     $scope.zones = {'us-central1': ['us-central1-a', 'us-central1-b', 'us-central1-c']};
 
-    ctrl.accountUpdated = function() {
-      accountService.getRegionsForAccount(stage.credentials).then(function(zoneMap) {
-        $scope.zones = zoneMap;
-        $scope.zonesLoaded = true;
-      });
-    };
 
     $scope.targets = stageConstants.targetList;
 
@@ -57,13 +51,7 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.gce.enableAsgStag
     if (!stage.credentials && $scope.application.defaultCredentials.gce) {
       stage.credentials = $scope.application.defaultCredentials.gce;
     }
-    if (!stage.zones.length && $scope.application.defaultRegions.gce) {
-      stage.zones.push($scope.application.defaultRegions.gce);
-    }
 
-    if (stage.credentials) {
-      ctrl.accountUpdated();
-    }
     if (!stage.target) {
       stage.target = $scope.targets[0].val;
     }

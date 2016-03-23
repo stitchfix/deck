@@ -4,11 +4,10 @@ let angular = require('angular');
 
 module.exports = angular.module('spinnaker.serverGroup.configure.titan.cloneServerGroup', [
   require('angular-ui-router'),
-  require('../../../../core/utils/dataConverter.service.js')
 ])
   .controller('titanCloneServerGroupCtrl', function($scope, $modalInstance, _, $q, $state,
-                                                  serverGroupWriter, modalWizardService, taskMonitorService,
-                                                  titanServerGroupConfigurationService, dataConverterService,
+                                                  serverGroupWriter, v2modalWizardService, taskMonitorService,
+                                                  titanServerGroupConfigurationService,
                                                   serverGroupCommand, application, title) {
     $scope.pages = {
       templateSelection: require('./templateSelection.html'),
@@ -58,8 +57,8 @@ module.exports = angular.module('spinnaker.serverGroup.configure.titan.cloneServ
     }
 
     function onTaskComplete() {
-      application.refreshImmediately();
-      application.registerOneTimeRefreshHandler(onApplicationRefresh);
+      application.serverGroups.refresh();
+      application.serverGroups.onNextRefresh($scope, onApplicationRefresh);
     }
 
     $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
@@ -80,11 +79,11 @@ module.exports = angular.module('spinnaker.serverGroup.configure.titan.cloneServ
       var mode = serverGroupCommand.viewState.mode;
       if (mode === 'clone' || mode === 'editPipeline') {
         if ($scope.command.image || $scope.command.viewState.disableImageSelection) {
-          modalWizardService.getWizard().markComplete('location');
+          v2modalWizardService.markComplete('location');
         }
-        modalWizardService.getWizard().markComplete('resources');
-        modalWizardService.getWizard().markComplete('capacity');
-        modalWizardService.getWizard().markComplete('parameters');
+        v2modalWizardService.markComplete('resources');
+        v2modalWizardService.markComplete('capacity');
+        v2modalWizardService.markComplete('parameters');
       }
     }
 
@@ -93,18 +92,15 @@ module.exports = angular.module('spinnaker.serverGroup.configure.titan.cloneServ
         ($scope.command.credentials !== null) &&
         ($scope.command.region !== null) &&
         ($scope.command.capacity.desired !== null) &&
-        modalWizardService.getWizard().isComplete();
+        v2modalWizardService.isComplete();
     };
 
     this.showSubmitButton = function () {
-      return modalWizardService.getWizard().allPagesVisited();
+      return v2modalWizardService.allPagesVisited();
     };
 
     this.clone = function () {
-      $scope.command.capacity.min = $scope.command.capacity.desired;  // We want min/max set to the same value as desired
-      $scope.command.capacity.max = $scope.command.capacity.desired;
       let command = angular.copy($scope.command);
-      command.env = dataConverterService.equalListToKeyValue(command.env);
       if ($scope.command.viewState.mode === 'editPipeline' || $scope.command.viewState.mode === 'createPipeline') {
         return $modalInstance.close(command);
       }

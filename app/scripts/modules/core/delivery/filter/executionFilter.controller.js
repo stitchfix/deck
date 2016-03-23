@@ -26,9 +26,14 @@ module.exports = angular.module('spinnaker.core.delivery.filter.executionFilter.
       this.pipelineSortOptions.disabled = true;
     };
 
-    this.updateExecutionGroups = () => {
+    this.updateExecutionGroups = (reload) => {
       ExecutionFilterModel.applyParamsToUrl();
-      executionFilterService.updateExecutionGroups(this.application);
+      if (reload) {
+        this.application.executions.reloadingForFilters = true;
+        this.application.executions.refresh();
+      } else {
+        executionFilterService.updateExecutionGroups(this.application);
+      }
     };
 
     this.clearFilters = () => {
@@ -37,24 +42,20 @@ module.exports = angular.module('spinnaker.core.delivery.filter.executionFilter.
     };
 
     this.initialize = () => {
-      if (this.application.pipelineConfigsLoadFailure) {
+      if (this.application.pipelineConfigs.loadFailure) {
         return;
       }
-      let allOptions = _.sortBy(this.application.pipelineConfigs, 'index')
-        .concat(this.application.executions)
+      let allOptions = _.sortBy(this.application.pipelineConfigs.data, 'index')
+        .concat(this.application.executions.data)
         .filter((option) => option && option.name)
         .map((option) => option.name);
       this.pipelineNames = _.uniq(allOptions);
       this.updateExecutionGroups();
+      this.application.executions.reloadingForFilters = false;
     };
 
-    var executionWatcher = this.application.executionRefreshStream.subscribe(this.initialize);
-    var pipelineConfigWatcher = this.application.pipelineConfigRefreshStream.subscribe(this.initialize);
-
-    $scope.$on('$destroy', () => {
-      executionWatcher.dispose();
-      pipelineConfigWatcher.dispose();
-    });
+    this.application.executions.onRefresh($scope, this.initialize);
+    this.application.pipelineConfigs.onRefresh($scope, this.initialize);
 
     this.initialize();
 
@@ -75,7 +76,7 @@ module.exports = angular.module('spinnaker.core.delivery.filter.executionFilter.
       disabled: true,
       stop: () => {
         var dirty = [];
-        this.application.pipelineConfigs.forEach((pipeline, index) => {
+        this.application.pipelineConfigs.data.forEach((pipeline, index) => {
           if (pipeline.index !== index) {
             pipeline.index = index;
             dirty.push(pipeline);

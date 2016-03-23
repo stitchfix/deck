@@ -45,6 +45,8 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canaryStage', 
     $scope.stage.canary.canaryConfig = $scope.stage.canary.canaryConfig || { name: [$scope.pipeline.name, 'Canary'].join(' - ') };
     $scope.stage.canary.canaryConfig.canaryAnalysisConfig = $scope.stage.canary.canaryConfig.canaryAnalysisConfig || {};
     $scope.stage.canary.canaryConfig.canaryAnalysisConfig.notificationHours = $scope.stage.canary.canaryConfig.canaryAnalysisConfig.notificationHours || [];
+    $scope.stage.canary.canaryConfig.canaryAnalysisConfig.useLookback = $scope.stage.canary.canaryConfig.canaryAnalysisConfig.useLookback || false;
+    $scope.stage.canary.canaryConfig.canaryAnalysisConfig.lookbackMins = $scope.stage.canary.canaryConfig.canaryAnalysisConfig.lookbackMins || 0;
 
     $scope.stage.canary.canaryConfig.actionsForUnhealthyCanary = $scope.stage.canary.canaryConfig.actionsForUnhealthyCanary || [
       {action: 'DISABLE'},
@@ -68,6 +70,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canaryStage', 
       }) !== undefined;
     };
 
+
     this.terminateUnhealthyCanaryMinutes = function (delayBeforeActionInMins) {
       var terminateAction = _.find($scope.stage.canary.canaryConfig.actionsForUnhealthyCanary, function (action) {
         return action.action === 'TERMINATE';
@@ -84,6 +87,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canaryStage', 
       $scope.accounts = accounts;
       setClusterList();
     });
+
 
     this.notificationHours = $scope.stage.canary.canaryConfig.canaryAnalysisConfig.notificationHours.join(',');
 
@@ -154,6 +158,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canaryStage', 
         $uibModal.open({
           templateUrl: config.cloneServerGroupTemplateUrl,
           controller: `${config.cloneServerGroupController} as ctrl`,
+          size: 'lg',
           resolve: {
             title: function () {
               return 'Add Cluster Pair';
@@ -194,6 +199,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canaryStage', 
       $uibModal.open({
         templateUrl: config.cloneServerGroupTemplateUrl,
         controller: `${config.cloneServerGroupController} as ctrl`,
+        size: 'lg',
         resolve: {
           title: function () {
             return 'Configure ' + type + ' Cluster';

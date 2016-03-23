@@ -5,7 +5,7 @@ let angular = require('angular');
 module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service', [
   require('exports?"restangular"!imports?_=lodash!restangular'),
   require('../../../core/account/account.service.js'),
-  require('../../subnet/subnet.read.service.js'),
+  require('../../../core/subnet/subnet.read.service.js'),
   require('../../../core/instance/instanceTypeService.js'),
   require('../../../core/naming/naming.service.js'),
   require('./serverGroupConfiguration.service.js'),
@@ -17,7 +17,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
 
     function buildNewServerGroupCommand (application, defaults) {
       defaults = defaults || {};
-      var regionsKeyedByAccountLoader = accountService.getRegionsKeyedByAccount('aws');
+      var credentialsLoader = accountService.getCredentialsKeyedByAccount('aws');
 
       var defaultCredentials = defaults.account || application.defaultCredentials.aws || settings.providers.aws.defaults.account;
       var defaultRegion = defaults.region || application.defaultRegions.aws || settings.providers.aws.defaults.region;
@@ -26,13 +26,13 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
 
       return $q.all({
         preferredZones: preferredZonesLoader,
-        regionsKeyedByAccount: regionsKeyedByAccountLoader,
+        credentialsKeyedByAccount: credentialsLoader,
       })
         .then(function (asyncData) {
           var availabilityZones = asyncData.preferredZones;
 
-          var regions = asyncData.regionsKeyedByAccount[defaultCredentials];
-          var keyPair = regions ? regions.defaultKeyPair : null;
+          var credentials = asyncData.credentialsKeyedByAccount[defaultCredentials];
+          var keyPair = credentials ? credentials.defaultKeyPair : null;
 
           var command = {
             application: application.name,
@@ -52,13 +52,13 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
             ebsOptimized: false,
             selectedProvider: 'aws',
             iamRole: 'BaseIAMRole', // TODO: should not be hard coded here
-
             terminationPolicies: ['Default'],
             vpcId: null,
             availabilityZones: availabilityZones,
             keyPair: keyPair,
             suspendedProcesses: [],
             securityGroups: [],
+            tags: {},
             viewState: {
               instanceProfile: 'custom',
               useAllImageSelection: false,
@@ -66,6 +66,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
               usePreferredZones: true,
               mode: defaults.mode || 'create',
               disableStrategySelection: true,
+              dirty: {},
             },
           };
 
@@ -98,6 +99,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
           mode: 'editPipeline',
           submitButtonLabel: 'Done',
           templatingEnabled: true,
+          dirty: {},
         };
 
         var viewOverrides = {
@@ -195,6 +197,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
           suspendedProcesses: (serverGroup.asg.suspendedProcesses || [])
             .map((process) => process.processName)
             .filter((name) => enabledProcesses.indexOf(name) < 0),
+          tags: serverGroup.tags || {},
           viewState: {
             instanceProfile: asyncData.instanceProfile,
             useAllImageSelection: false,
@@ -202,6 +205,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
             usePreferredZones: usePreferredZones,
             mode: mode,
             isNew: false,
+            dirty: {},
           },
         };
 
@@ -240,6 +244,9 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
             instanceMonitoring: serverGroup.launchConfig.instanceMonitoring.enabled,
             ebsOptimized: serverGroup.launchConfig.ebsOptimized,
           });
+          if (serverGroup.launchConfig.userData) {
+            command.base64UserData = serverGroup.launchConfig.userData;
+          }
           command.viewState.imageId = serverGroup.launchConfig.imageId;
         }
 
@@ -258,4 +265,3 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
       buildUpdateServerGroupCommand: buildUpdateServerGroupCommand,
     };
 });
-

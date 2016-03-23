@@ -77,7 +77,7 @@ module.exports = angular.module('spinnaker.core.account.service', [
       });
     };
 
-    let getRegionsKeyedByAccount = _.memoize((provider) => {
+    let getCredentialsKeyedByAccount = _.memoize((provider) => {
       var deferred = $q.defer();
       listAccounts(provider).then(function(accounts) {
         $q.all(accounts.reduce(function(acc, account) {
@@ -92,6 +92,42 @@ module.exports = angular.module('spinnaker.core.account.service', [
         });
       });
       return deferred.promise;
+    });
+
+    let getUniqueAttributeForAllAccounts = (attribute) => {
+      return _.memoize((provider) => {
+        return getCredentialsKeyedByAccount(provider)
+          .then(function(credentialsByAccount) {
+            let attributes = _(credentialsByAccount)
+              .pluck(attribute)
+              .flatten()
+              .map(reg => reg.name || reg)
+              .uniq()
+              .value();
+
+            return attributes;
+          });
+       });
+    };
+
+    let getUniqueGceZonesForAllAccounts = _.memoize((provider) => {
+      return getCredentialsKeyedByAccount(provider)
+        .then(function(regionsByAccount) {
+          return _(regionsByAccount)
+            .pluck('regions')
+            .flatten()
+            .reduce((acc, obj) => {
+              Object.keys(obj).forEach((key) => {
+                if(acc[key]) {
+                  acc[key] = _.uniq(acc[key].concat(obj[key]));
+                } else {
+                  acc[key] = obj[key];
+                }
+              });
+              return acc;
+            }, {})
+            .value();
+        });
     });
 
     function getAccountDetails(accountName) {
@@ -124,8 +160,10 @@ module.exports = angular.module('spinnaker.core.account.service', [
       getAccountDetails: getAccountDetails,
       getAllAccountDetailsForProvider: getAllAccountDetailsForProvider,
       getRegionsForAccount: getRegionsForAccount,
-      getRegionsKeyedByAccount: getRegionsKeyedByAccount,
+      getCredentialsKeyedByAccount: getCredentialsKeyedByAccount,
       getPreferredZonesByAccount: getPreferredZonesByAccount,
+      getUniqueAttributeForAllAccounts: getUniqueAttributeForAllAccounts,
+      getUniqueGceZonesForAllAccounts: getUniqueGceZonesForAllAccounts,
       getAvailabilityZonesForAccountAndRegion: getAvailabilityZonesForAccountAndRegion
     };
   });

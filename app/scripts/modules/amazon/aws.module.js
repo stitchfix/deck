@@ -22,6 +22,7 @@ module.exports = angular.module('spinnaker.aws', [
   require('../core/pipeline/config/stages/resizeAsg/aws/awsResizeAsgStage.js'),
   require('../core/pipeline/config/stages/scaleDownCluster/aws/awsScaleDownClusterStage.js'),
   require('../core/pipeline/config/stages/shrinkCluster/aws/awsShrinkClusterStage.js'),
+  require('../core/subnet/subnet.module.js'),
   require('./serverGroup/details/serverGroup.details.module.js'),
   require('./serverGroup/serverGroup.transformer.js'),
   require('./serverGroup/configure/wizard/CloneServerGroup.aws.controller.js'),
@@ -37,7 +38,7 @@ module.exports = angular.module('spinnaker.aws', [
   require('./securityGroup/configure/EditSecurityGroupCtrl.js'),
   require('./securityGroup/securityGroup.transformer.js'),
   require('./securityGroup/securityGroup.reader.js'),
-  require('./subnet/subnet.module.js'),
+  require('./subnet/subnet.renderer.js'),
   require('./validation/applicationName.validator.js'),
   require('./vpc/vpc.module.js'),
   require('./image/image.reader.js'),
@@ -46,6 +47,7 @@ module.exports = angular.module('spinnaker.aws', [
 ])
   .config(function(cloudProviderRegistryProvider) {
     cloudProviderRegistryProvider.registerProvider('aws', {
+      v2wizard: true,
       name: 'Amazon',
       logo: {
         path: require('./logo/amazon.logo.svg'),
@@ -76,6 +78,7 @@ module.exports = angular.module('spinnaker.aws', [
         detailsController: 'awsLoadBalancerDetailsCtrl',
         createLoadBalancerTemplateUrl: require('./loadBalancer/configure/createLoadBalancer.html'),
         createLoadBalancerController: 'awsCreateLoadBalancerCtrl',
+        editLoadBalancerTemplateUrl: require('./loadBalancer/configure/editLoadBalancer.html'),
       },
       securityGroup: {
         transformer: 'awsSecurityGroupTransformer',
@@ -84,6 +87,9 @@ module.exports = angular.module('spinnaker.aws', [
         detailsController: 'awsSecurityGroupDetailsCtrl',
         createSecurityGroupTemplateUrl: require('./securityGroup/configure/createSecurityGroup.html'),
         createSecurityGroupController: 'awsCreateSecurityGroupCtrl',
+      },
+      subnet: {
+        renderer: 'awsSubnetRenderer',
       },
       search: {
         resultFormatter: 'awsSearchResultFormatter',

@@ -9,13 +9,13 @@
           <dt>Zones</dt>
           <dd>{{stage.context.zones.join(',')}}</dd>
           <dt>Server Group</dt>
-          <dd>{{stage.context.asgName}}</dd>
+          <dd>{{stage.context.serverGroupName}}</dd>
           <dt>Target Size</dt>
           <dd>{{stage.context.capacity.desired}}</dd>
         </dl>
       </div>
     </div>
-    <stage-failure-message is-failed="stage.isFailed" message="ctrl.getException(stage)"></stage-failure-message>
+    <stage-failure-message is-failed="stage.isFailed" message="stage.failureMessage"></stage-failure-message>
 
     <div class="row" ng-if="stage.context.execution.logs">
       <div class="col-md-12">

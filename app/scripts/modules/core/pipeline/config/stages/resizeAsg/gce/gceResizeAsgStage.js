@@ -44,19 +44,13 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.gce.resizeAsgStag
 
     $scope.zones = {'us-central1': ['us-central1-a', 'us-central1-b', 'us-central1-c']};
 
-    ctrl.accountUpdated = function () {
-      accountService.getRegionsForAccount(stage.credentials).then(function(zoneMap) {
-        $scope.zones = zoneMap;
-        $scope.zonesLoaded = true;
-      });
-    };
 
     $scope.resizeTargets = stageConstants.targetList;
 
     $scope.scaleActions = [
       {
         label: 'Scale Up',
-        val: 'scale_up'
+        val: 'scale_up',
       },
       {
         label: 'Scale Down',
@@ -80,7 +74,7 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.gce.resizeAsgStag
       {
         label: 'Incremental',
         val: 'incr'
-      }
+      },
     ];
 
     stage.capacity = stage.capacity || {};
@@ -100,10 +94,6 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.gce.resizeAsgStag
 
     if (!stage.credentials && $scope.application.defaultCredentials.gce) {
       stage.credentials = $scope.application.defaultCredentials.gce;
-    }
-
-    if (stage.credentials) {
-      ctrl.accountUpdated();
     }
 
     ctrl.updateResizeType = function() {

@@ -37,6 +37,13 @@ module.exports = angular
 
     let defaultClusterFilter = (/*cluster*/) => true;
 
+    let clusterFilterForCredentials = (credentials) => {
+      return (cluster) => {
+        let acctFilter = credentials ? cluster.account === credentials : true;
+        return acctFilter;
+      };
+    };
+
     let clusterFilterForCredentialsAndRegion = (credentials, region) => {
       return (cluster) => {
         let acctFilter = credentials ? cluster.account === credentials : true;
@@ -48,6 +55,20 @@ module.exports = angular
           : true;
 
         return acctFilter && regionFilter;
+      };
+    };
+
+    let clusterFilterForCredentialsAndZone = (credentials, zone) => {
+      return (cluster) => {
+        let acctFilter = credentials ? cluster.account === credentials : true;
+
+        let zoneFilter = Array.isArray(zone) && zone.length
+          ? _.some( cluster.serverGroups, (sg) => _.some(zone, (zone) => zone.startsWith(`${sg.region}-`)))
+          : _.isString(zone) //zone is just a string not an array
+          ? _.any(cluster.serverGroups, (sg) => zone.startsWith(`${sg.region}-`))
+          : true;
+
+        return acctFilter && zoneFilter;
       };
     };
 
@@ -92,6 +113,27 @@ module.exports = angular
         .value();
     };
 
+    let getZonesByRegion = (appList, accountFilter = defaultAccountFilter, clusterFilter = defaultClusterFilter, regionFilter = defaultRegionFilter, serverGroupFilter = defaultServerGroupFilter) => {
+      return _(appList)
+        .map('clusters').flatten()
+        .filter( accountFilter )
+        .filter( clusterFilter )
+        .map('serverGroups').flatten()
+        .filter( regionFilter )
+        .filter( serverGroupFilter )
+        .value()
+        .reduce((acc, serverGroup) => {
+          serverGroup['instances'].forEach((instance) => {
+            if (acc[serverGroup.region]) {
+              acc[serverGroup.region] = _.uniq(acc[serverGroup.region].concat(instance.availabilityZone));
+            } else {
+              acc[serverGroup.region] = [instance.availabilityZone];
+            }
+          });
+          return acc;
+        }, {});
+    };
+
     let defaultAvailabilityZoneFilter = (/*instance*/) => true;
 
     let getInstances = (appList, clusterFilter = defaultClusterFilter, serverGroupFilter = defaultServerGroupFilter, availabilityZoneFilter = defaultAvailabilityZoneFilter) => {
@@ -111,9 +153,12 @@ module.exports = angular
       getRegions: getRegions,
       getStacks: getStacks,
       getClusters: getClusters,
+      clusterFilterForCredentials: clusterFilterForCredentials,
       clusterFilterForCredentialsAndRegion: clusterFilterForCredentialsAndRegion,
+      clusterFilterForCredentialsAndZone: clusterFilterForCredentialsAndZone,
       getAsgs: getAsgs,
       getZones: getZones,
+      getZonesByRegion: getZonesByRegion,
       getInstances: getInstances,
     };
 

@@ -10,12 +10,23 @@
           <dd ng-if="stage.context.lastModifiedBy">
             <span ng-bind="stage.context.lastModifiedBy"></span> <br/> {{ stage.endTime | timestamp }}
           </dd>
-          <dt>Instructions</dt>
+          <dt ng-if="stage.context.judgmentInput">Input</dt>
+          <dd ng-if="stage.context.judgmentInput">{{ stage.context.judgmentInput | robotToHuman}}</dd>
+          <dt ng-if="stage.context.instructions">Instructions</dt>
           <dd ng-bind-html="stage.context.instructions"></dd>
         </dl>
       </div>
       <div class="col-md-9" ng-if="!stage.context.judgmentStatus && stage.status === 'RUNNING'">
-        <button class="btn btn-primary" ng-click="manualCtrl.provideJudgment('continue')" ng-disabled="viewState.submitting">
+        <div class="form-group" ng-if="!!stage.context.judgmentInputs.length">
+          <p><b>Judgment Input</b></p>
+          <ui-select ng-model="viewState.judgmentInput" class="form-control input-sm">
+            <ui-select-match allow-clear="true" placeholder="Select...">{{$select.selected.value}}</ui-select-match>
+            <ui-select-choices repeat="judgmentInput in stage.context.judgmentInputs | filter: $select.search">
+              <span ng-bind-html="judgmentInput.value | highlight: $select.search"></span>
+            </ui-select-choices>
+          </ui-select>
+        </div>
+        <button class="btn btn-primary" ng-click="manualCtrl.provideJudgment('continue', viewState.judgmentInput.value)" ng-disabled="viewState.submitting">
           <button-busy-indicator ng-if="viewState.submitting && viewState.judgmentDecision === 'continue'"></button-busy-indicator>
           Continue
         </button>
@@ -29,7 +40,7 @@
       </div>
     </div>
 
-    <stage-failure-message is-failed="stage.isFailed && !stage.context.judgmentStatus" message="ctrl.getException(stage)"></stage-failure-message>
+    <stage-failure-message is-failed="stage.isFailed && !stage.context.judgmentStatus" message="stage.failureMessage"></stage-failure-message>
   </div>
 
   <div class="step-section-details" ng-if="detailsSection === 'taskStatus'">

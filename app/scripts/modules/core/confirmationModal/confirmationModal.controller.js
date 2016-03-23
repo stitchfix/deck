@@ -26,7 +26,9 @@ module.exports = angular
       toVerify: params.textToVerify,
     };
 
-    this.formDisabled = () => $scope.verification.required && !$scope.verification.verified;
+    this.formDisabled = () => {
+      return $scope.state.submitting || ($scope.verification.required && !$scope.verification.verified);
+    };
 
     function showError(exception) {
       $scope.state.error = true;
@@ -36,11 +38,11 @@ module.exports = angular
 
     this.confirm = function () {
       if (!this.formDisabled()) {
+        $scope.state.submitting = true;
         if ($scope.taskMonitor) {
           $scope.taskMonitor.submit(() => { return params.submitMethod({interestingHealthProviderNames: params.interestingHealthProviderNames, reason: params.reason}); });
         } else {
           if (params.submitMethod) {
-            $scope.state.submitting = true;
             params.submitMethod(params.interestingHealthProviderNames).then($modalInstance.close, showError);
           } else {
             $modalInstance.close();

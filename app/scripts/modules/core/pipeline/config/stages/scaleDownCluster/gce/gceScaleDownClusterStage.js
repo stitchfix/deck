@@ -37,25 +37,11 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.gce.scaleDownClus
 
     $scope.zones = {'us-central1': ['us-central1-a', 'us-central1-b', 'us-central1-c']};
 
-    ctrl.accountUpdated = function() {
-      accountService.getRegionsForAccount(stage.credentials).then(function(zoneMap) {
-        $scope.zones = zoneMap;
-        $scope.zonesLoaded = true;
-      });
-    };
-
     stage.zones = stage.zones || [];
     stage.cloudProvider = 'gce';
 
     if (!stage.credentials && $scope.application.defaultCredentials.gce) {
       stage.credentials = $scope.application.defaultCredentials.gce;
-    }
-    if (!stage.zones.length && $scope.application.defaultRegions.gce) {
-      stage.zones.push($scope.application.defaultRegions.gce);
-    }
-
-    if (stage.credentials) {
-      ctrl.accountUpdated();
     }
 
     if (stage.remainingFullSizeServerGroups === undefined) {

@@ -21,7 +21,7 @@ module.exports = angular.module('spinnaker.core.delivery.executions.controller',
       ExecutionFilterModel.mostRecentApplication = $scope.application.name;
     }
 
-    let scrollIntoView = (delay = 200) => scrollToService.scrollTo('execution-' + $stateParams.executionId, '.all-execution-groups', 225, delay);
+    let scrollIntoView = (delay = 200) => scrollToService.scrollTo('#execution-' + $stateParams.executionId, '.all-execution-groups', 225, delay);
 
     let application = $scope.application;
     this.application = application;
@@ -29,8 +29,8 @@ module.exports = angular.module('spinnaker.core.delivery.executions.controller',
       return;
     }
 
-    application.loadAllExecutions = true;
-    $scope.$on('$destroy', () => application.loadAllExecutions = false);
+    application.activeState = application.executions;
+    $scope.$on('$destroy', () => application.activeState = application);
 
     this.InsightFilterStateModel = InsightFilterStateModel;
 
@@ -38,16 +38,21 @@ module.exports = angular.module('spinnaker.core.delivery.executions.controller',
 
     this.clearFilters = () => {
       executionFilterService.clearFilters();
-      this.updateExecutionGroups();
+      this.updateExecutionGroups(true);
     };
 
-    this.updateExecutionGroups = () => {
+    this.updateExecutionGroups = (reload) => {
       normalizeExecutionNames();
       ExecutionFilterModel.applyParamsToUrl();
-      executionFilterService.updateExecutionGroups(this.application);
-      this.tags = ExecutionFilterModel.tags;
-      // updateExecutionGroups is debounced by 25ms, so we need to delay setting the loading flag a bit
-      $timeout(() => { this.viewState.loading = false; }, 50);
+      if (reload) {
+        this.application.executions.refresh(true);
+        this.application.executions.reloadingForFilters = true;
+      } else {
+        executionFilterService.updateExecutionGroups(this.application);
+        this.tags = ExecutionFilterModel.tags;
+        // updateExecutionGroups is debounced by 25ms, so we need to delay setting the loading flag a bit
+        $timeout(() => { this.viewState.loading = false; }, 50);
+      }
     };
 
     this.viewState = {
@@ -55,24 +60,14 @@ module.exports = angular.module('spinnaker.core.delivery.executions.controller',
       triggeringExecution: false,
     };
 
-    let executionLoader = application.reloadExecutions(true);
-
-    let deferred = $q.defer();
-    let configLoader = deferred.promise;
-    if (application.pipelineConfigs) {
-      deferred.resolve();
-    } else {
-      application.pipelineConfigRefreshStream.take(1).subscribe(deferred.resolve);
-    }
-
-    $q.all([executionLoader, configLoader]).then(() => {
+    $q.all([application.executions.ready(), application.pipelineConfigs.ready()]).then(() => {
       this.updateExecutionGroups();
       if ($stateParams.executionId) {
         scrollIntoView();
       }
     });
 
-    $scope.filterCountOptions = [1, 2, 5, 10, 20];
+    $scope.filterCountOptions = [1, 2, 5, 10, 20, 30, 40, 50];
 
     let dataInitializationFailure = () => {
       this.viewState.loading = false;
@@ -80,11 +75,11 @@ module.exports = angular.module('spinnaker.core.delivery.executions.controller',
     };
 
     function normalizeExecutionNames() {
-      if (application.executionsLoadFailure) {
+      if (application.executions.loadFailure) {
         dataInitializationFailure();
       }
-      let executions = application.executions || [];
-      var configurations = application.pipelineConfigs || [];
+      let executions = application.executions.data || [];
+      var configurations = application.pipelineConfigs.data || [];
       executions.forEach(function(execution) {
         if (execution.pipelineConfigId) {
           var configMatches = configurations.filter(function(configuration) {
@@ -97,8 +92,7 @@ module.exports = angular.module('spinnaker.core.delivery.executions.controller',
       });
     }
 
-    let executionWatcher = this.application.executionRefreshStream.subscribe(normalizeExecutionNames, dataInitializationFailure);
-    $scope.$on('$destroy', () => executionWatcher.dispose());
+    this.application.executions.onRefresh($scope, normalizeExecutionNames, dataInitializationFailure);
 
     this.toggleExpansion = (expand) => {
       $scope.$broadcast('toggle-expansion', expand);

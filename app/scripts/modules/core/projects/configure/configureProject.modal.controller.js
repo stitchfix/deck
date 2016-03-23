@@ -11,7 +11,7 @@ module.exports = angular.module('spinnaker.core.projects.configure.modal.control
   .controller('ConfigureProjectModalCtrl', function ($scope, projectConfig, $modalInstance, $q,
                                                      pipelineConfigService, applicationReader, projectWriter,
                                                      projectReader, accountService, taskMonitorService,
-                                                     modalWizardService, $timeout) {
+                                                     v2modalWizardService, $timeout) {
 
     if (!projectConfig.name) {
       projectConfig.name = '';
@@ -38,9 +38,7 @@ module.exports = angular.module('spinnaker.core.projects.configure.modal.control
     };
 
     $timeout(() => {
-      if (projectConfig.name) {
-        Object.keys(this.pages).forEach(modalWizardService.getWizard().markComplete);
-      }
+      Object.keys(this.pages).forEach(v2modalWizardService.markComplete);
     });
 
     this.addApplication = (application) => {
@@ -61,6 +59,12 @@ module.exports = angular.module('spinnaker.core.projects.configure.modal.control
       $scope.command.config.pipelineConfigs = $scope.command.config.pipelineConfigs.filter(
           pipeline => pipeline.application !== null && pipeline.pipelineConfigId !== null
       );
+      $scope.command.config.clusters
+        .filter((cluster) => !cluster.useAllApplications)
+        .forEach((cluster) => {
+          cluster.applications = cluster.applications
+            .filter((app) => $scope.command.config.applications.indexOf(app) > -1);
+      });
     };
 
     this.removeCluster = (index) => {
@@ -171,7 +175,7 @@ module.exports = angular.module('spinnaker.core.projects.configure.modal.control
       $scope.taskMonitor.submit(submitMethod);
     };
 
-    this.showSubmitButton = () => modalWizardService.getWizard().allPagesVisited();
+    this.showSubmitButton = () => v2modalWizardService.allPagesVisited();
 
 
     this.cancel = $modalInstance.dismiss;

@@ -1,8 +1,6 @@
 'use strict';
 
 describe('Controller: titanServerGroupDetailsCtrl', function () {
-  const angular = require('angular');
-
   //NOTE: This is only testing the controllers dependencies. Please add more tests.
 
   var controller;
@@ -20,9 +18,8 @@ describe('Controller: titanServerGroupDetailsCtrl', function () {
       controller = $controller('titanServerGroupDetailsCtrl', {
         $scope: scope,
         app: {
-          serverGroups: [],
-          loadBalancers: [],
-          registerAutoRefreshHandler: angular.noop
+          serverGroups: {data: []},
+          loadBalancers: {data: []},
         },
         serverGroup: {}
       });

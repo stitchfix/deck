@@ -16,6 +16,7 @@ module.exports = angular
     $scope.viewState = {
       submitting: false,
       judgmentDecision: null,
+      judgmentInput: null,
       error: false,
     };
 
@@ -30,7 +31,7 @@ module.exports = angular
     function judgmentMade() {
       // do not update the submitting state - the reload of the executions will clear it out; otherwise,
       // there is a flash on the screen when we go from submitting to not submitting to the buttons not being there.
-      $scope.application.reloadExecutions();
+      $scope.application.executions.refresh();
     }
 
     function judgmentFailure() {
@@ -38,12 +39,12 @@ module.exports = angular
       $scope.viewState.error = true;
     }
 
-    this.provideJudgment = (judgmentDecision) => {
+    this.provideJudgment = (judgmentDecision, judgmentInput) => {
       $scope.viewState.submitting = true;
       $scope.viewState.error = false;
       $scope.viewState.judgmentDecision = judgmentDecision;
-      return manualJudgmentService.provideJudgment($scope.execution, $scope.stage, judgmentDecision)
+      $scope.viewState.judgmentInput = judgmentInput;
+      return manualJudgmentService.provideJudgment($scope.execution, $scope.stage, judgmentDecision, judgmentInput)
         .then(judgmentMade, judgmentFailure);
     };
-
   });

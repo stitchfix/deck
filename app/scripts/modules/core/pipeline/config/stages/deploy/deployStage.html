@@ -13,7 +13,7 @@
           <th>Account</th>
           <th>Cluster</th>
           <th>Region</th>
-          <th ng-if="deployStageCtrl.hasAmazonDeployments()">Subnet</th>
+          <th ng-if="deployStageCtrl.hasSubnetDeployments()">Subnet</th>
           <th>Strategy</th>
           <th>Capacity</th>
           <th>Actions</th>
@@ -35,19 +35,24 @@
           <td>
             {{ deployStageCtrl.getRegion(cluster) }}
           </td>
-          <td ng-if="deployStageCtrl.hasAmazonDeployments()">
-            {{!cluster.providerType || cluster.provider === 'aws' || cluster.providerType === 'aws' ? cluster.subnetType || '[none]' : '-'}}
+          <td ng-if="deployStageCtrl.hasSubnetDeployments()">
+            {{deployStageCtrl.getSubnet(cluster)}}
           </td>
           <td>
             {{cluster.strategy || '[none]'}}
           </td>
           <td>
             <div ng-if="cluster.useSourceCapacity">Current Server Group</div>
-            <div ng-if="!cluster.useSourceCapacity && cluster.capacity.min === cluster.capacity.max">{{cluster.capacity.max}}</div>
-            <div ng-if="!cluster.useSourceCapacity && cluster.capacity.min !== cluster.capacity.max">
-              Min: {{cluster.capacity.min}},
-              Max: {{cluster.capacity.max}},
-              Desired: {{cluster.capacity.desired}}
+            <div ng-if="cluster.capacity">
+              <div ng-if="!cluster.useSourceCapacity && cluster.capacity.min === cluster.capacity.max">{{cluster.capacity.max}}</div>
+              <div ng-if="!cluster.useSourceCapacity && cluster.capacity.min !== cluster.capacity.max">
+                Min: {{cluster.capacity.min}},
+                Max: {{cluster.capacity.max}},
+                Desired: {{cluster.capacity.desired}}
+              </div>
+            </div>
+            <div ng-if="!cluster.capacity">
+              {{cluster.targetSize}}
             </div>
           </td>
           <td>

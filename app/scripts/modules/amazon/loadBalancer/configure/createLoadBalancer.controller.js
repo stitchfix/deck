@@ -9,9 +9,9 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
   require('../../../core/account/account.service.js'),
   require('../loadBalancer.transformer.js'),
   require('../../../core/securityGroup/securityGroup.read.service.js'),
-  require('../../../core/modal/wizard/modalWizard.service.js'),
+  require('../../../core/modal/wizard/v2modalWizard.service.js'),
   require('../../../core/task/monitor/taskMonitorService.js'),
-  require('../../subnet/subnet.read.service.js'),
+  require('../../../core/subnet/subnet.read.service.js'),
   require('../../../core/cache/cacheInitializer.js'),
   require('../../../core/cache/infrastructureCaches.js'),
   require('../../../core/naming/naming.service.js'),
@@ -24,9 +24,9 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
   .controller('awsCreateLoadBalancerCtrl', function($scope, $modalInstance, $state, _,
                                                     accountService, awsLoadBalancerTransformer, securityGroupReader,
                                                     cacheInitializer, infrastructureCaches, loadBalancerReader,
-                                                    modalWizardService, loadBalancerWriter, taskMonitorService,
+                                                    v2modalWizardService, loadBalancerWriter, taskMonitorService,
                                                     subnetReader, namingService, settings,
-                                                    application, loadBalancer, isNew) {
+                                                    application, loadBalancer, isNew, forPipelineConfig) {
 
     var ctrl = this;
 
@@ -35,9 +35,15 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
       securityGroups: require('./securityGroups.html'),
       listeners: require('./listeners.html'),
       healthCheck: require('./healthCheck.html'),
+      advancedSettings: require('./advancedSettings.html'),
     };
 
     $scope.isNew = isNew;
+    // if this controller is used in the context of "Create Load Balancer" stage,
+    // then forPipelineConfig flag will be true. In that case, the Load Balancer
+    // modal dialog will just return the Load Balancer object.
+    $scope.forPipelineConfig = forPipelineConfig;
+    $scope.submitButtonLabel = forPipelineConfig ? (isNew ? 'Add' : 'Done') : (isNew ? 'Create' : 'Update');
 
     $scope.state = {
       securityGroupsLoaded: false,
@@ -69,8 +75,8 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
     }
 
     function onTaskComplete() {
-      application.refreshImmediately();
-      application.registerOneTimeRefreshHandler(onApplicationRefresh);
+      application.loadBalancers.refresh();
+      application.loadBalancers.onNextRefresh($scope, onApplicationRefresh);
     }
 
     $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
@@ -97,6 +103,12 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
       if (_.has(settings, 'providers.aws.defaultSecurityGroups')) {
         defaultSecurityGroups = settings.providers.aws.defaultSecurityGroups;
       }
+      if (_.has(settings, 'providers.aws.loadBalancers.inferInternalFlagFromSubnet')) {
+        if (settings.providers.aws.loadBalancers.inferInternalFlagFromSubnet) {
+          delete $scope.loadBalancer.isInternal;
+          $scope.state.hideInternalFlag = true;
+        }
+      }
       accountService.listAccounts('aws').then(function (accounts) {
         $scope.accounts = accounts;
         $scope.state.accountsLoaded = true;
@@ -113,8 +125,13 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
 
     function initializeController() {
       if (loadBalancer) {
-        $scope.loadBalancer = awsLoadBalancerTransformer.convertLoadBalancerForEditing(loadBalancer);
-        initializeEditMode();
+        if (forPipelineConfig) {
+          $scope.loadBalancer = loadBalancer;
+          initializeCreateMode();
+        } else {
+          $scope.loadBalancer = awsLoadBalancerTransformer.convertLoadBalancerForEditing(loadBalancer);
+          initializeEditMode();
+        }
         if (isNew) {
           var nameParts = namingService.parseLoadBalancerName($scope.loadBalancer.name);
           $scope.loadBalancer.stack = nameParts.stack;
@@ -180,7 +197,7 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
         });
         $scope.loadBalancer.securityGroups = _.unique(existingNames);
         if ($scope.state.removedSecurityGroups.length) {
-          modalWizardService.getWizard().markDirty('Security Groups');
+          v2modalWizardService.markDirty('Security Groups');
         }
       } else {
         clearSecurityGroups();
@@ -262,19 +279,17 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
     }
 
     function certificateIdAsARN(accountId, certificateId) {
-      if (certificateId) {
+      if (certificateId && certificateId.indexOf('arn:aws:iam::') !== 0) {
         // If they really want to enter the ARN...
-        if (certificateId.indexOf('arn:aws:iam::') !== 0) {
-          return 'arn:aws:iam::' + accountId + ':server-certificate/' + certificateId;
-        }
+        return 'arn:aws:iam::' + accountId + ':server-certificate/' + certificateId;
       }
+      return certificateId;
     }
 
     function formatListeners() {
       return accountService.getAccountDetails($scope.loadBalancer.credentials).then(function (account) {
-        $scope.loadBalancer.listeners.forEach(function (listener, idx) {
-          var arn = certificateIdAsARN(account.accountId, listener.sslCertificateId);
-          $scope.loadBalancer.listeners[idx].sslCertificateId = arn;
+        $scope.loadBalancer.listeners.forEach(function (listener) {
+          listener.sslCertificateId = certificateIdAsARN(account.accountId, listener.sslCertificateId);
         });
       });
     }
@@ -299,6 +314,10 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
 
     this.requiresHealthCheckPath = function () {
       return $scope.loadBalancer.healthCheckProtocol && $scope.loadBalancer.healthCheckProtocol.indexOf('HTTP') === 0;
+    };
+
+    this.prependForwardSlash = (text) => {
+      return text && text.indexOf('/') !== 0 ? `/${text}` : text;
     };
 
     this.updateName = function() {
@@ -333,10 +352,10 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
         updateAvailableSecurityGroups(availableVpcIds);
       if (subnetPurpose) {
         $scope.loadBalancer.vpcId = availableVpcIds.length ? availableVpcIds[0] : null;
-        modalWizardService.getWizard().includePage('Security Groups');
+        v2modalWizardService.includePage('Security Groups');
       } else {
         $scope.loadBalancer.vpcId = null;
-        modalWizardService.getWizard().excludePage('Security Groups');
+        v2modalWizardService.excludePage('Security Groups');
       }
     };
 
@@ -357,13 +376,20 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
     this.submit = function () {
       var descriptor = isNew ? 'Create' : 'Update';
 
-      $scope.taskMonitor.submit(
-        function() {
-          return formatListeners().then(function () {
-            return loadBalancerWriter.upsertLoadBalancer($scope.loadBalancer, application, descriptor);
-          });
-        }
-      );
+      if ($scope.forPipelineConfig) {
+        // don't submit to backend for creation. Just return the loadBalancer object
+        formatListeners().then(function () {
+          $modalInstance.close($scope.loadBalancer);
+        });
+      } else {
+        $scope.taskMonitor.submit(
+          function() {
+            return formatListeners().then(function () {
+              return loadBalancerWriter.upsertLoadBalancer($scope.loadBalancer, application, descriptor);
+            });
+          }
+        );
+      }
     };
 
     this.cancel = function () {

@@ -7,6 +7,7 @@ require('./executionStatus.less');
 module.exports = angular
   .module('spinnaker.core.delivery.executionStatus.directive', [
     require('../filter/executionFilter.model.js'),
+    require('./executionUser.filter.js'),
   ])
   .directive('executionStatus', function() {
     return {
@@ -16,6 +17,7 @@ module.exports = angular
         execution: '=',
         toggleDetails: '=',
         showingDetails: '=',
+        standalone: '=',
       },
       templateUrl: require('./executionStatus.html'),
       controller: 'executionStatus as vm',

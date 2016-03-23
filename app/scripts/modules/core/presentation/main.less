@@ -537,6 +537,9 @@ body > .container {
 }
 .sm-label-right {
   text-align: right;
+  @media(max-width: 992px) {
+    text-align: left;
+  }
 }
 
 .form-inline {
@@ -557,6 +560,7 @@ body > .container {
 .modal-content {
   overflow-x: hidden;
   overflow-y: hidden;
+  border-radius: 3px;
 }
 
 .modal-pages {
@@ -769,7 +773,7 @@ tfoot .add-new {
   position:fixed;
   top: 58px;
   width:100%;
-  height:100%
+  height:100%;
 }
 
 .transition-overlay {
@@ -778,7 +782,8 @@ tfoot .add-new {
   opacity:.7;
   position:fixed;
   width:100%;
-  height:100%
+  height:100%;
+  transition: opacity 0.2s;
 }
 
 .panel {
@@ -1089,6 +1094,11 @@ ul.select2-results {
 }
 
 .select2.select2-container {
+  &.ng-invalid-required {
+    a.select2-default {
+      border: 1px solid @unhealthy_red_border;
+    }
+  }
   .select2-choice {
     .select2-chosen {
       padding-left: 0;

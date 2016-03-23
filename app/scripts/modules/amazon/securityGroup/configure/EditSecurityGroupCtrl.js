@@ -32,11 +32,13 @@ module.exports = angular.module('spinnaker.securityGroup.aws.edit.controller', [
       securityGroup: securityGroup,
     }));
 
+    $scope.isNew = false;
+
     $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
       application: application,
       title: 'Updating your security group',
       modalInstance: $modalInstance,
-      onTaskComplete: application.refreshImmediately,
+      onTaskComplete: application.securityGroups.refresh,
     });
 
     securityGroup.securityGroupIngress = _(securityGroup.inboundRules)

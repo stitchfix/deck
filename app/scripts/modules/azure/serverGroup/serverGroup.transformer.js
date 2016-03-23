@@ -3,52 +3,73 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.azure.serverGroup.transformer', [
-    require('../../core/utils/lodash.js'),
-    require('../vpc/vpc.read.service.js'),
   ])
-  .factory('azureServerGroupTransformer', function (_, azureVpcReader) {
+  .factory('azureServerGroupTransformer', function () {
 
     function normalizeServerGroup(serverGroup) {
-      serverGroup.instances.forEach((instance) => { instance.vpcId = serverGroup.vpcId; });
-      return azureVpcReader.listVpcs().then(addVpcNameToServerGroup(serverGroup));
+      return serverGroup;
     }
 
-    function addVpcNameToServerGroup(serverGroup) {
-      return function(vpcs) {
-        var matches = vpcs.filter(function(test) {
-          return test.id === serverGroup.vpcId;
-        });
-        serverGroup.vpcName = matches.length ? matches[0].name : '';
-        return serverGroup;
+    function convertServerGroupCommandToDeployConfiguration(command) {
+      var tempImage;
+
+      if(command.viewState.mode === 'editPipeline' || command.viewState.mode === 'createPipeline') {
+        tempImage = {
+          imageName: '${imageName}',
+          isCustom: '${isCustom}',
+          publisher: '${publisher}',
+          offer: '${offer}',
+          sku: '${imagesku}',
+          version: '${version}',
+          region: command.region,
+          uri: '${uri}',
+          ostype: '${ostype}',
+        };
+      } else {
+        tempImage = command.selectedImage;
+      }
+
+      var configuration = {
+        name: command.application,
+        cloudProvider: command.selectedProvider,
+        application: command.application,
+        stack: command.stack,
+        detail: command.freeFormDetails,
+        account: command.credentials,
+        selectedProvider: 'azure',
+        capacity: {
+          useSourceCapacity: false,
+          min: command.sku.capacity,
+          max: command.sku.capacity,
+        },
+        credentials: command.credentials,
+        region: command.region,
+        securityGroup: command.securityGroup,
+        loadBalancerName: command.loadBalancerName,
+        user: '[anonymous]',
+        upgradePolicy: 'Manual',
+        type: 'createServerGroup',
+        image: tempImage,
+        sku: {
+          name: 'Standard_A1',
+          tier: 'Standard',
+          capacity: command.sku.capacity,
+        },
+        viewState: command.viewState,
+        osConfig: {
+          adminUserName: 'spinnakeruser',
+          adminPassword: '!Qnti**234',
+        },
       };
-    }
 
-    function convertServerGroupCommandToDeployConfiguration(base) {
-      // use _.defaults to avoid copying the backingData, which is huge and expensive to copy over
-      var command = _.defaults({backingData: [], viewState: []}, base);
-      if (base.viewState.mode !== 'clone') {
-        delete command.source;
+      if (typeof command.stack !== 'undefined') {
+        configuration.name = configuration.name + '-' + command.stack;
       }
-      if (base.viewState.useAllImageSelection) {
-        command.amiName = base.viewState.allImageSelection;
+      if (typeof command.details !== 'undefined') {
+        configuration.name = configuration.name + '-' + command.details;
       }
-      command.availabilityZones = {};
-      command.availabilityZones[command.region] = base.availabilityZones;
-      command.account = command.credentials;
-      if (!command.ramdiskId) {
-        delete command.ramdiskId; // TODO: clean up in kato? - should ignore if empty string
-      }
-      delete command.region;
-      delete command.viewState;
-      delete command.backingData;
-      delete command.selectedProvider;
-      delete command.instanceProfile;
-      delete command.vpcId;
 
-      if (!command.subnetType) {
-        delete command.subnetType;
-      }
-      return command;
+      return configuration;
     }
 
     return {

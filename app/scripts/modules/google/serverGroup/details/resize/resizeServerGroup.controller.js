@@ -4,10 +4,14 @@ let angular = require('angular');
 
 module.exports = angular.module('spinnaker.google.serverGroup.details.resize.controller', [
   require('../../../../core/application/modal/platformHealthOverride.directive.js'),
+  require('../../../../core/task/modal/reason.directive.js'),
   require('../../../../core/serverGroup/serverGroup.write.service.js'),
-  require('../../../../core/task/monitor/taskMonitorService.js')
+  require('../../../../core/task/monitor/taskMonitorService.js'),
+  require('./resizeCapacity.directive.js'),
+  require('../../../common/footer.directive.js'),
 ])
-  .controller('gceResizeServerGroupCtrl', function($scope, $modalInstance, serverGroupWriter, taskMonitorService,
+  .controller('gceResizeServerGroupCtrl', function($scope, $modalInstance, serverGroupWriter,
+                                                   taskMonitorService,
                                                    application, serverGroup) {
     $scope.serverGroup = serverGroup;
     $scope.currentSize = {
@@ -57,6 +61,7 @@ module.exports = angular.module('spinnaker.google.serverGroup.details.resize.con
           region: serverGroup.region,
           zone: serverGroup.zones[0],
           interestingHealthProviderNames: $scope.command.interestingHealthProviderNames,
+          reason: $scope.command.reason,
         });
       };
 

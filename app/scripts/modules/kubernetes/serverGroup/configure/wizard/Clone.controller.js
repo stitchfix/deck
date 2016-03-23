@@ -6,20 +6,20 @@ module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.clon
   require('angular-ui-router'),
   require('../../../../core/application/modal/platformHealthOverride.directive.js'),
   require('../../../../core/serverGroup/serverGroup.write.service.js'),
-  require('../../../../core/modal/wizard/modalWizard.service.js'),
+  require('../../../../core/modal/wizard/v2modalWizard.service.js'),
   require('../../../../core/task/monitor/taskMonitorService.js'),
   require('../configuration.service.js'),
 ])
   .controller('kubernetesCloneServerGroupController', function($scope, $modalInstance, _, $q, $state,
-                                                         serverGroupWriter, modalWizardService, taskMonitorService,
+                                                         serverGroupWriter, v2modalWizardService, taskMonitorService,
                                                          kubernetesServerGroupConfigurationService,
                                                          serverGroupCommand, application, title) {
     $scope.pages = {
+      templateSelection: require('./templateSelection.html'),
       basicSettings: require('./basicSettings.html'),
       loadBalancers: require('./loadBalancers.html'),
-      securityGroups: require('./securityGroups.html'),
-      containers: require('./containers.html'),
-      capacity: require('./capacity.html'),
+      replicas: require('./replicas.html'),
+      volumes: require('./volumes.html'),
     };
 
     $scope.title = title;
@@ -28,6 +28,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.clon
     $scope.application = application;
 
     $scope.command = serverGroupCommand;
+    $scope.contextImages = serverGroupCommand.viewState.contextImages;
 
     $scope.state = {
       loaded: false,
@@ -43,39 +44,44 @@ module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.clon
     });
 
     function configureCommand() {
+      serverGroupCommand.viewState.contextImages = $scope.contextImages;
+      $scope.contextImages = null;
       kubernetesServerGroupConfigurationService.configureCommand(application, serverGroupCommand).then(function () {
-        var mode = serverGroupCommand.viewState.mode;
-        if (mode === 'clone' || mode === 'create') {
-          serverGroupCommand.viewState.useAllImageSelection = true;
-        }
         $scope.state.loaded = true;
         initializeWizardState();
+        initializeWatches();
       });
+    }
+
+    function initializeWatches() {
+      $scope.$watch('command.account', $scope.command.accountChanged);
+      $scope.$watch('command.namespace', $scope.command.namespaceChanged);
     }
 
     function initializeWizardState() {
       var mode = serverGroupCommand.viewState.mode;
       if (mode === 'clone' || mode === 'editPipeline') {
-        if ($scope.command.image || $scope.command.viewState.disableImageSelection) {
-          modalWizardService.getWizard().markComplete('location');
-        }
-        modalWizardService.getWizard().markComplete('load-balancers');
-        modalWizardService.getWizard().markComplete('security-groups');
-        modalWizardService.getWizard().markComplete('containers');
+        v2modalWizardService.markComplete('location');
+        v2modalWizardService.markComplete('load-balancers');
+        v2modalWizardService.markComplete('replicas');
+        v2modalWizardService.markComplete('volumes');
       }
     }
 
     this.isValid = function () {
       return $scope.command && $scope.command.containers.length > 0 &&
-        $scope.command.credentials !== null &&
-        modalWizardService.getWizard().isComplete();
+        $scope.command.account !== null &&
+        v2modalWizardService.isComplete();
     };
 
     this.showSubmitButton = function () {
-      return modalWizardService.getWizard().allPagesVisited();
+      return v2modalWizardService.allPagesVisited();
     };
 
     this.clone = function () {
+      if ($scope.command.viewState.mode === 'editPipeline' || $scope.command.viewState.mode == 'createPipeline') {
+        return $modalInstance.close($scope.command);
+      }
       $scope.taskMonitor.submit(
         function() {
           return serverGroupWriter.cloneServerGroup(angular.copy($scope.command), application);

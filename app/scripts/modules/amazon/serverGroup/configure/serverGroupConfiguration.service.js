@@ -7,8 +7,8 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
   require('../../../core/account/account.service.js'),
   require('../../../core/naming/naming.service.js'),
   require('../../../core/securityGroup/securityGroup.read.service.js'),
+  require('../../../core/subnet/subnet.read.service.js'),
   require('../../instance/awsInstanceType.service.js'),
-  require('../../subnet/subnet.read.service.js'),
   require('../../keyPairs/keyPairs.read.service.js'),
   require('../../../core/loadBalancer/loadBalancer.read.service.js'),
   require('../../../core/cache/cacheInitializer.js'),
@@ -33,6 +33,7 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
     }
 
     function configureCommand(application, command) {
+      applyOverrides('beforeConfiguration', command);
       var imageLoader;
       if (command.viewState.disableImageSelection) {
         imageLoader = $q.when(null);
@@ -54,8 +55,13 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
         return command.suspendedProcesses.indexOf(process) !== -1;
       };
 
+      command.regionIsDeprecated = () => {
+        return _.has(command, 'backingData.filtered.regions') &&
+          command.backingData.filtered.regions.some((region) => region.name === command.region && region.deprecated);
+      };
+
       return $q.all({
-        regionsKeyedByAccount: accountService.getRegionsKeyedByAccount('aws'),
+        credentialsKeyedByAccount: accountService.getCredentialsKeyedByAccount('aws'),
         securityGroups: securityGroupReader.getAllSecurityGroups(),
         loadBalancers: loadBalancerReader.listLoadBalancers('aws'),
         subnets: subnetReader.listSubnets(),
@@ -69,11 +75,14 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
         var loadBalancerReloader = $q.when(null);
         var securityGroupReloader = $q.when(null);
         var instanceTypeReloader = $q.when(null);
-        backingData.accounts = _.keys(backingData.regionsKeyedByAccount);
+        backingData.accounts = _.keys(backingData.credentialsKeyedByAccount);
         backingData.filtered = {};
         backingData.scalingProcesses = autoScalingProcessService.listProcesses();
         command.backingData = backingData;
         configureVpcId(command);
+        if (command.viewState.disableImageSelection) {
+          configureInstanceTypes(command);
+        }
 
         if (command.loadBalancers && command.loadBalancers.length) {
           // verify all load balancers are accounted for; otherwise, try refreshing load balancers cache
@@ -93,8 +102,17 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
         }
 
         return $q.all([loadBalancerReloader, securityGroupReloader, instanceTypeReloader]).then(function() {
+          applyOverrides('afterConfiguration', command);
           attachEventHandlers(command);
         });
+      });
+    }
+
+    function applyOverrides(phase, command) {
+      serverGroupCommandRegistry.getCommandOverrides('aws').forEach((override) => {
+        if (override[phase]) {
+          override[phase](command);
+        }
       });
     }
 
@@ -141,7 +159,7 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
           .pluck('keyName')
           .valueOf();
         if (command.keyPair && filtered.indexOf(command.keyPair) === -1) {
-          var acct = command.backingData.regionsKeyedByAccount[command.credentials] || {regions: [], defaultKeyPair: null};
+          var acct = command.backingData.credentialsKeyedByAccount[command.credentials] || {regions: [], defaultKeyPair: null};
           command.keyPair = acct.defaultKeyPair;
           // Note: this will generally be ignored, so we probably won't flag it in the UI
           result.dirty.keyPair = true;
@@ -193,15 +211,18 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
               ami: image.amis ? image.amis[command.region][0] : null
             };
           });
-        var regionalImageMatches = regionalImages.filter((image) => image.imageName === command.amiName);
-        if (command.amiName && !regionalImageMatches.length) {
+        var [match] = regionalImages.filter((image) => image.imageName === command.amiName);
+        if (command.amiName && !match) {
           result.dirty.amiName = true;
           command.amiName = null;
         } else {
-          command.virtualizationType = regionalImages.length ? regionalImages[0].virtualizationType : null;
+          command.virtualizationType = match ? match.virtualizationType : null;
         }
       } else {
-        command.amiName = null;
+        if (command.amiName) {
+          result.dirty.amiName = true;
+          command.amiName = null;
+        }
       }
       command.backingData.filtered.images = regionalImages;
       return result;
@@ -209,7 +230,7 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
 
     function configureAvailabilityZones(command) {
       command.backingData.filtered.availabilityZones =
-        _.find(command.backingData.regionsKeyedByAccount[command.credentials].regions, {name: command.region}).availabilityZones;
+        _.find(command.backingData.credentialsKeyedByAccount[command.credentials].regions, {name: command.region}).availabilityZones;
     }
 
     function configureSubnetPurposes(command) {
@@ -403,7 +424,7 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
         var result = { dirty: {} };
         var backingData = command.backingData;
         if (command.credentials) {
-          var regionsForAccount = backingData.regionsKeyedByAccount[command.credentials] || {regions: [], defaultKeyPair: null};
+          var regionsForAccount = backingData.credentialsKeyedByAccount[command.credentials] || {regions: [], defaultKeyPair: null};
           backingData.filtered.regions = regionsForAccount.regions;
           if (!_(backingData.filtered.regions).some({name: command.region})) {
             command.region = null;
@@ -419,11 +440,7 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
 
       command.imageChanged = () => configureInstanceTypes(command);
 
-      serverGroupCommandRegistry.getCommandOverrides('aws').forEach((override) => {
-        if (override.attachEventHandlers) {
-          override.attachEventHandlers(command);
-        }
-      });
+      applyOverrides('attachEventHandlers', command);
     }
 
     return {

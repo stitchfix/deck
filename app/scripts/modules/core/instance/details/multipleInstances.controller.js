@@ -158,7 +158,7 @@ module.exports = angular.module('spinnaker.core.instance.details.multipleInstanc
      */
 
     function getServerGroup(group) {
-      let [serverGroup] = app.serverGroups.filter((serverGroup) => serverGroup.name === group.serverGroup &&
+      let [serverGroup] = app.serverGroups.data.filter((serverGroup) => serverGroup.name === group.serverGroup &&
           serverGroup.account === group.account && serverGroup.region === group.region);
 
       return serverGroup;
@@ -200,26 +200,28 @@ module.exports = angular.module('spinnaker.core.instance.details.multipleInstanc
       };
     };
 
-
+    let countInstances = () => {
+      return ClusterFilterModel.multiselectInstanceGroups.reduce((acc, group) => acc + group.instanceIds.length, 0);
+    };
 
     let retrieveInstances = () => {
-      this.instancesCount = 0;
+      this.instancesCount = countInstances();
       this.selectedGroups = ClusterFilterModel.multiselectInstanceGroups
         .filter((group) => group.instanceIds.length)
         .map(makeServerGroupModel);
-
-      this.selectedGroups.forEach((group) => {
-        this.instancesCount += group.instances.length;
-      });
     };
 
     let multiselectWatcher = ClusterFilterModel.multiselectInstancesStream.subscribe(retrieveInstances);
-    let refreshWatcher = app.autoRefreshStream.subscribe(retrieveInstances);
+    app.serverGroups.onRefresh($scope, retrieveInstances);
 
     retrieveInstances();
 
     $scope.$on('$destroy', () => {
-      refreshWatcher.dispose();
+      // if there's just one instance selected, this is being destroyed because we're moving to the instanceDetails
+      // view; otherwise, deselect any instances because the user is closing the panel explicitly
+      if (countInstances() !== 1) {
+        ClusterFilterModel.clearAllMultiselectGroups();
+      }
       multiselectWatcher.dispose();
     });
 

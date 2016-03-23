@@ -1,19 +1,3 @@
-/*
- * Copyright 2014 Netflix, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 'use strict';
 
 describe('Service: awsServerGroupConfiguration', function () {
@@ -89,7 +73,7 @@ describe('Service: awsServerGroupConfiguration', function () {
 
   describe('configureCommand', function () {
     it ('attempts to reload load balancers if some are not found on initialization, but does not set dirty flag', function () {
-      spyOn(accountService, 'getRegionsKeyedByAccount').and.returnValue($q.when([]));
+      spyOn(accountService, 'getCredentialsKeyedByAccount').and.returnValue($q.when([]));
       spyOn(securityGroupReader, 'getAllSecurityGroups').and.returnValue($q.when([]));
       spyOn(loadBalancerReader, 'listLoadBalancers').and.returnValue($q.when(this.allLoadBalancers));
       spyOn(subnetReader, 'listSubnets').and.returnValue($q.when([]));
@@ -105,11 +89,11 @@ describe('Service: awsServerGroupConfiguration', function () {
         vpcId: null,
         viewState: {
           disableImageSelection: true,
+          dirty: {},
         }
       };
 
       service.configureCommand({}, command);
-      $scope.$digest();
       $scope.$digest();
 
       expect(cacheInitializer.refreshCache).toHaveBeenCalledWith('loadBalancers');
@@ -120,7 +104,7 @@ describe('Service: awsServerGroupConfiguration', function () {
     });
 
     it ('attempts to reload security groups if some are not found on initialization, but does not set dirty flag', function () {
-      spyOn(accountService, 'getRegionsKeyedByAccount').and.returnValue($q.when([]));
+      spyOn(accountService, 'getCredentialsKeyedByAccount').and.returnValue($q.when([]));
       spyOn(securityGroupReader, 'getAllSecurityGroups').and.returnValue($q.when([]));
       spyOn(loadBalancerReader, 'listLoadBalancers').and.returnValue($q.when(this.allLoadBalancers));
       spyOn(subnetReader, 'listSubnets').and.returnValue($q.when([]));
@@ -136,6 +120,7 @@ describe('Service: awsServerGroupConfiguration', function () {
         vpcId: null,
         viewState: {
           disableImageSelection: true,
+          dirty: {},
         }
       };
 
@@ -150,14 +135,18 @@ describe('Service: awsServerGroupConfiguration', function () {
 
     });
 
-    it ('attempts to reload instance types if previous selection is not found on initialization, but does not set dirty flag', function () {
-      spyOn(accountService, 'getRegionsKeyedByAccount').and.returnValue($q.when([]));
+    it ('attempts to reload instance types if already selected on initialization, but does not set dirty flag', function () {
+      spyOn(accountService, 'getCredentialsKeyedByAccount').and.returnValue($q.when([]));
       spyOn(securityGroupReader, 'getAllSecurityGroups').and.returnValue($q.when([]));
       spyOn(loadBalancerReader, 'listLoadBalancers').and.returnValue($q.when([]));
       spyOn(subnetReader, 'listSubnets').and.returnValue($q.when([]));
       spyOn(accountService, 'getPreferredZonesByAccount').and.returnValue($q.when([]));
       spyOn(keyPairsReader, 'listKeyPairs').and.returnValue($q.when([]));
-      spyOn(awsInstanceTypeService, 'getAllTypesByRegion').and.returnValue($q.when([]));
+      spyOn(awsInstanceTypeService, 'getAllTypesByRegion').and.returnValue($q.when(
+        { 'us-east-1': [
+          {name: 'm4.tiny'}
+        ] }
+      ));
       spyOn(cacheInitializer, 'refreshCache').and.returnValue($q.when(null));
 
       var command = {
@@ -168,11 +157,11 @@ describe('Service: awsServerGroupConfiguration', function () {
         vpcId: null,
         viewState: {
           disableImageSelection: true,
+          dirty: {},
         }
       };
 
       service.configureCommand({}, command);
-      $scope.$digest();
       $scope.$digest();
 
       expect(cacheInitializer.refreshCache).toHaveBeenCalledWith('instanceTypes');
@@ -359,7 +348,7 @@ describe('Service: awsServerGroupConfiguration', function () {
       this.command = {
         backingData: {
           filtered: {},
-          regionsKeyedByAccount: {
+          credentialsKeyedByAccount: {
             test: {
               defaultKeyPair: 'test-pair'
             },
@@ -409,6 +398,65 @@ describe('Service: awsServerGroupConfiguration', function () {
       expect(result.dirty.keyPair).toBe(true);
       expect(this.command.keyPair).toBe('test-pair');
     });
+
+  });
+
+  describe('configureImages', function () {
+    beforeEach(function() {
+      this.command = {
+        viewState: {},
+        backingData: {
+          filtered: {},
+          credentialsKeyedByAccount: {
+            test: {
+              defaultKeyPair: 'test-pair'
+            },
+            prod: {
+              defaultKeyPair: 'prod-pair'
+            },
+          },
+          packageImages: [
+            { amis: { 'us-east-1': [ {} ] }, attributes: { virtualizationType: 'hvm', }, imageName: 'ami-1234' },
+            { amis: { 'us-east-1': [ {} ], 'eu-west-1': [ {} ] }, attributes: { virtualizationType: 'pv', }, imageName: 'ami-1235' },
+            { amis: { 'us-west-1': [ {} ] }, attributes: { virtualizationType: 'hvm', }, imageName: 'ami-1236' },
+          ],
+        },
+        credentials: 'test',
+        region: 'us-west-1',
+        amiName: 'ami-1236'
+      };
+    });
+
+    it('clears virtualization type if no ami present', function () {
+      this.command.virtualizationType = 'pv';
+      this.command.amiName = null;
+      service.configureImages(this.command);
+      expect(this.command.virtualizationType).toBe(null);
+    });
+
+    it('clears amiName if region is absent and sets dirty flag', function () {
+      this.command.region = null;
+      let result = service.configureImages(this.command);
+      expect(this.command.amiName).toBe(null);
+      expect(result.dirty.amiName).toBe(true);
+    });
+
+    it('clears amiName and sets dirty flag if image is not found in region', function () {
+      this.command.region = 'us-east-1';
+      let result = service.configureImages(this.command);
+      expect(this.command.amiName).toBe(null);
+      expect(result.dirty.amiName).toBe(true);
+    });
+
+    it('preserves amiName if image is found in region, and sets virtualizationType on command', function () {
+      this.command.region = 'us-east-1';
+      this.command.amiName = 'ami-1235';
+      let result = service.configureImages(this.command);
+      expect(this.command.amiName).toBe('ami-1235');
+      expect(result.dirty.amiName).toBeUndefined();
+      expect(this.command.virtualizationType).toBe('pv');
+    });
+
 
   });
 

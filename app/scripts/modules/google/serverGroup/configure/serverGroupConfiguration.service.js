@@ -8,12 +8,13 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
   require('../../../core/cache/cacheInitializer.js'),
   require('../../../core/loadBalancer/loadBalancer.read.service.js'),
   require('../../../core/network/network.read.service.js'),
+  require('../../../core/subnet/subnet.read.service.js'),
   require('../../image/image.reader.js'),
-  require('../../instance/gceInstanceTypeService.js'),
+  require('../../instance/gceInstanceType.service.js'),
 ])
   .factory('gceServerGroupConfigurationService', function(gceImageReader, accountService, securityGroupReader,
                                                           gceInstanceTypeService, cacheInitializer,
-                                                          $q, loadBalancerReader, networkReader, _) {
+                                                          $q, loadBalancerReader, networkReader, subnetReader, _) {
 
     var persistentDiskTypes = [
       'pd-standard',
@@ -54,9 +55,10 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
       }
 
       return $q.all({
-        regionsKeyedByAccount: accountService.getRegionsKeyedByAccount('gce'),
+        credentialsKeyedByAccount: accountService.getCredentialsKeyedByAccount('gce'),
         securityGroups: securityGroupReader.getAllSecurityGroups(),
         networks: networkReader.listNetworksByProvider('gce'),
+        subnets: subnetReader.listSubnetsByProvider('gce'),
         loadBalancers: loadBalancerReader.listLoadBalancers('gce'),
         packageImages: imageLoader,
         instanceTypes: gceInstanceTypeService.getAllTypesByRegion(),
@@ -66,7 +68,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
         var loadBalancerReloader = $q.when(null);
         var securityGroupReloader = $q.when(null);
         var networkReloader = $q.when(null);
-        backingData.accounts = _.keys(backingData.regionsKeyedByAccount);
+        backingData.accounts = _.keys(backingData.credentialsKeyedByAccount);
         backingData.filtered = {};
         command.backingData = backingData;
         configureImages(command);
@@ -177,8 +179,18 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
     }
 
     function configureZones(command) {
-      command.backingData.filtered.zones =
-        command.backingData.regionsKeyedByAccount[command.credentials].regions[command.region];
+      var result = { dirty: {} };
+      var filteredData = command.backingData.filtered;
+      if (command.region === null) {
+        return result;
+      }
+      filteredData.zones =
+        command.backingData.credentialsKeyedByAccount[command.credentials].regions[command.region];
+      if (!_(filteredData.zones).contains(command.zone)) {
+        command.zone = '';
+        result.dirty.zone = true;
+      }
+      return result;
     }
 
     function getLoadBalancerNames(command) {
@@ -229,6 +241,24 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
           }
         });
       });
+    }
+
+    function configureSubnets(command) {
+      var result = { dirty: {} };
+      var filteredData = command.backingData.filtered;
+      if (command.region === null) {
+        return result;
+      }
+      filteredData.subnets = _(command.backingData.subnets)
+        .filter({ account: command.credentials, network: command.network, region: command.region })
+        .pluck('name')
+        .valueOf();
+
+      if (!_(filteredData.subnets).contains(command.subnet)) {
+        command.subnet = '';
+        result.dirty.subnet = true;
+      }
+      return result;
     }
 
     function getSecurityGroups(command) {
@@ -321,11 +351,10 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
       command.regionChanged = function regionChanged() {
         var result = { dirty: {} };
         var filteredData = command.backingData.filtered;
+        angular.extend(result.dirty, configureSubnets(command).dirty);
         if (command.region) {
           angular.extend(result.dirty, configureInstanceTypes(command).dirty);
-
-          configureZones(command);
-
+          angular.extend(result.dirty, configureZones(command).dirty);
           angular.extend(result.dirty, configureLoadBalancerOptions(command).dirty);
           angular.extend(result.dirty, configureImages(command).dirty);
         } else {
@@ -334,7 +363,6 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
 
         command.viewState.dirty = command.viewState.dirty || {};
         angular.extend(command.viewState.dirty, result.dirty);
-
         return result;
       };
 
@@ -342,7 +370,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
         var result = { dirty: {} };
         var backingData = command.backingData;
         if (command.credentials) {
-          backingData.filtered.regions = Object.keys(backingData.regionsKeyedByAccount[command.credentials].regions);
+          backingData.filtered.regions = Object.keys(backingData.credentialsKeyedByAccount[command.credentials].regions);
           if (backingData.filtered.regions.indexOf(command.region) === -1) {
             command.region = null;
             result.dirty.region = true;
@@ -370,6 +398,17 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
       command.networkChanged = function networkChanged() {
         var result = { dirty: {} };
 
+        command.viewState.autoCreateSubnets = _(command.backingData.networks)
+          .filter({ account: command.credentials, name: command.network })
+          .pluck('autoCreateSubnets')
+          .head();
+
+        command.viewState.subnets = _(command.backingData.networks)
+          .filter({ account: command.credentials, name: command.network })
+          .pluck('subnets')
+          .head();
+
+        angular.extend(result.dirty, configureSubnets(command).dirty);
         angular.extend(result.dirty, configureSecurityGroupOptions(command).dirty);
 
         command.viewState.dirty = command.viewState.dirty || {};
@@ -384,6 +423,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
       configureInstanceTypes: configureInstanceTypes,
       configureImages: configureImages,
       configureZones: configureZones,
+      configureSubnets: configureSubnets,
       configureLoadBalancerOptions: configureLoadBalancerOptions,
       refreshLoadBalancers: refreshLoadBalancers,
       refreshSecurityGroups: refreshSecurityGroups,

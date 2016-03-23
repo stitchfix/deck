@@ -19,9 +19,9 @@ module.exports = angular.module('spinnaker.core.pipeline.config.controller', [
     };
 
     this.initialize = () => {
-      this.pipelineConfig = _.find(application.pipelineConfigs, { id: $stateParams.pipelineId });
+      this.pipelineConfig = _.find(application.pipelineConfigs.data, { id: $stateParams.pipelineId });
       if (!this.pipelineConfig) {
-          this.pipelineConfig = _.find(application.strategyConfigs, { id: $stateParams.pipelineId });
+          this.pipelineConfig = _.find(application.strategyConfigs.data, { id: $stateParams.pipelineId });
           if(!this.pipelineConfig) {
             this.state.notFound = true;
           }
@@ -29,10 +29,8 @@ module.exports = angular.module('spinnaker.core.pipeline.config.controller', [
       this.state.pipelinesLoaded = true;
     };
 
-    if (!application.pipelineConfigs || !application.pipelineConfigs.length) {
-      application.pipelineConfigRefreshStream.take(1).subscribe(this.initialize);
-    } else {
-      this.initialize();
+    if (!application.notFound) {
+      application.pipelineConfigs.ready().then(this.initialize);
     }
 
     function getWarningMessage() {

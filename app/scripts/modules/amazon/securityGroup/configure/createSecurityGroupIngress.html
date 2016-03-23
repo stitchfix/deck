@@ -1,4 +1,4 @@
-  <form role="form" class="container-fluid form-horizontal" name="form" novalidate>
+  <div class="container-fluid form-horizontal">
     <div class="modal-body">
       <div class="row">
         <div class="col-md-12" ng-if="state.removedRules.length">
@@ -41,7 +41,7 @@
                   <account-tag account="rule.accountName" ng-if="rule.accountName !== securityGroup.accountName"></account-tag>
                   {{rule.name}}
                 </span>
-                <ui-select ng-if="!rule.existing" ng-model="rule.name" class="form-control input-sm" style="width: 244px">
+                <ui-select ng-if="!rule.existing" ng-model="rule.name" class="form-control input-sm" required style="width: 244px">
                   <ui-select-match>{{$select.selected}}</ui-select-match>
                   <ui-select-choices repeat="securityGroup as securityGroup in availableSecurityGroups | filter: $select.search | limitTo: state.infiniteScroll.currentItems"
                                      infinite-scroll="ctrl.addMoreItems()"
@@ -51,7 +51,7 @@
                 </ui-select>
               </td>
               <td><select class="form-control input-sm" ng-model="rule.type"
-                          ng-options="protocol as protocol.toUpperCase() for protocol in ['tcp', 'udp', 'icmp']"></select></td>
+                          ng-options="protocol as protocol.toUpperCase() for protocol in ['tcp', 'udp', 'icmp']" required></select></td>
               <td><input class="form-control input-sm" type="number" min="0" ng-model="rule.startPort" required/></td>
               <td><input class="form-control input-sm" type="number" min="0" ng-model="rule.endPort" required/></td>
               <td><a class="btn btn-link sm-label"
@@ -86,15 +86,4 @@
         </div>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-default pull-left"
-              ng-click="ctrl.cancel()">Cancel
-      </button>
-      <button class="btn btn-default"
-              ng-click="wizard.previousPage()">
-        <span class="glyphicon glyphicon-chevron-left"></span> Back
-      </button>
-      <submit-button is-disabled="form.$invalid || !wizard.isComplete() || state.submitting"
-                     submitting="state.submitting" on-click="ctrl.upsert()" is-new="isNew"></submit-button>
-    </div>
-  </form>
+  </div>

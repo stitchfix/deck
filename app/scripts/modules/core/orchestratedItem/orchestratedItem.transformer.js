@@ -6,6 +6,50 @@ module.exports = angular.module('spinnaker.core.orchestratedItem.transformer', [
   require('../utils/moment.js')
 ])
   .factory('orchestratedItemTransformer', function(momentService, $log) {
+
+    function getOrchestrationException(task) {
+      var katoTasks = task.getValueFor('kato.tasks');
+      if (katoTasks && katoTasks.length) {
+        var steps = katoTasks[katoTasks.length - 1].history;
+        var exception = katoTasks[katoTasks.length - 1].exception;
+        if (exception) {
+          return exception.message;
+        }
+        if (steps && steps.length) {
+          return steps[steps.length - 1].status;
+        }
+      }
+      return null;
+    }
+
+    function getGeneralException(task) {
+      var generalException = task.getValueFor('exception');
+      if (generalException) {
+        if (generalException.details && generalException.details.errors && generalException.details.errors.length) {
+          return generalException.details.errors.join(', ');
+        }
+        if (generalException.details && generalException.details.error) {
+          return generalException.details.error;
+        }
+      }
+      return null;
+    }
+
+    function getMigrationException(task) {
+      let tideTask = task.getValueFor('tide.task');
+      if (tideTask && tideTask.taskComplete && tideTask.taskComplete.status === 'failure') {
+        return tideTask.taskComplete.message;
+      }
+      return null;
+    }
+
+    function calculateRunningTime(item) {
+      return function() {
+        let normalizedNow = Math.max(new Date().getTime(), item.startTime);
+        return (parseInt(item.endTime) || normalizedNow) - parseInt(item.startTime);
+      };
+    }
+
     function defineProperties(item) {
       if (!item || typeof item !== 'object') {
         return;
@@ -15,11 +59,27 @@ module.exports = angular.module('spinnaker.core.orchestratedItem.transformer', [
         return;
       }
 
+      item.getValueFor = function(key) {
+        if (item.context) {
+          return item.context[key];
+        }
+        if (!item.variables) {
+          return null;
+        }
+        var [matching] = item.variables.filter((item) => item.key === key).map((variable) => variable.value);
+        return matching;
+      };
+
       item.originalStatus = item.status;
       Object.defineProperties(item, {
+        failureMessage: {
+          get: function() {
+            return getGeneralException(item) || getMigrationException(item) || getOrchestrationException(item) || null;
+          }
+        },
         isCompleted: {
           get: function() {
-            return item.status === 'COMPLETED';
+            return item.status === 'SUCCEEDED';
           },
         },
         isRunning: {
@@ -29,7 +89,7 @@ module.exports = angular.module('spinnaker.core.orchestratedItem.transformer', [
         },
         isFailed: {
           get: function() {
-            return item.status === 'FAILED';
+            return item.status === 'TERMINAL';
           },
         },
         isActive: {
@@ -58,7 +118,7 @@ module.exports = angular.module('spinnaker.core.orchestratedItem.transformer', [
           }
         },
         status: {
-          // Returns either COMPLETED, RUNNING, FAILED, CANCELED, or NOT_STARTED
+          // Returns either SUCCEEDED, RUNNING, FAILED, CANCELED, or NOT_STARTED
           get: function() { return normalizeStatus(item); },
           set: function(status) {
             item.originalStatus = status;
@@ -73,10 +133,22 @@ module.exports = angular.module('spinnaker.core.orchestratedItem.transformer', [
           }
         },
         runningTimeInMs: {
-          get: function() {
-            let normalizedNow = Math.max(new Date().getTime(), item.startTime);
-            return (parseInt(item.endTime) || normalizedNow) - parseInt(item.startTime);
-          }
+          get: calculateRunningTime(item)
+        }
+      });
+    }
+
+    function addRunningTime(item) {
+      if (!item || typeof item !== 'object') {
+        return;
+      }
+      var testDescriptor = Object.getOwnPropertyDescriptor(item, 'runningTime');
+      if (testDescriptor && !testDescriptor.enumerable) {
+        return;
+      }
+      Object.defineProperties(item, {
+        runningTimeInMs: {
+          get: calculateRunningTime(item)
         }
       });
     }
@@ -85,14 +157,14 @@ module.exports = angular.module('spinnaker.core.orchestratedItem.transformer', [
       switch(item.originalStatus) {
         case 'COMPLETED':
         case 'SUCCEEDED':
-          return 'COMPLETED';
+          return 'SUCCEEDED';
         case 'STARTED':
         case 'EXECUTING':
         case 'RUNNING':
           return 'RUNNING';
         case 'FAILED':
         case 'TERMINAL':
-          return 'FAILED';
+          return 'TERMINAL';
         case 'STOPPED':
           return 'STOPPED';
         case 'SUSPENDED':
@@ -118,5 +190,6 @@ module.exports = angular.module('spinnaker.core.orchestratedItem.transformer', [
 
     return {
       defineProperties: defineProperties,
+      addRunningTime: addRunningTime,
     };
   });

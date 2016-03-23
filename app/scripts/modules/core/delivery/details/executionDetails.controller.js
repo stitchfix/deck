@@ -9,6 +9,8 @@ module.exports = angular.module('spinnaker.executionDetails.controller', [
   .controller('executionDetails', function($scope, $stateParams, $state, pipelineConfig) {
     var controller = this;
 
+    controller.standalone = $scope.standalone || false;
+
     function getCurrentStage() {
       return parseInt($stateParams.stage);
     }
@@ -41,19 +43,6 @@ module.exports = angular.module('spinnaker.executionDetails.controller', [
 
     controller.closeDetails = function() {
       $state.go('.', { step: null });
-    };
-
-    controller.getException = function(stage) {
-      if (stage.context) {
-        if (stage.context.exception && stage.context.exception.details.errors.length) {
-          return stage.context.exception.details.errors.join(', ');
-        }
-        if (stage.context['kato.tasks'] && stage.context['kato.tasks'].length) {
-          var lastTask = stage.context['kato.tasks'][stage.context['kato.tasks'].length - 1];
-          return lastTask.exception ? lastTask.exception.message : null;
-        }
-      }
-      return null;
     };
 
     controller.getDetailsSourceUrl = function() {

@@ -24,17 +24,17 @@ module.exports = angular.module('spinnaker.azure', [
   require('./instance/details/instance.details.controller.js'),
   require('./securityGroup/details/securityGroupDetail.controller.js'),
   require('./securityGroup/configure/CreateSecurityGroupCtrl.js'),
-  require('./keyPairs/keyPairs.read.service.js'),
   require('./securityGroup/configure/EditSecurityGroupCtrl.js'),
   require('./securityGroup/securityGroup.transformer.js'),
   require('./securityGroup/securityGroup.reader.js'),
   require('./subnet/subnet.module.js'),
-  require('./vpc/vpc.module.js'),
   require('./image/image.reader.js'),
   require('./cache/cacheConfigurer.service.js'),
 ])
   .config(function(cloudProviderRegistryProvider) {
     cloudProviderRegistryProvider.registerProvider('azure', {
+      v2wizard: true,
+      name: 'Azure',
       logo: {
         path: require('./logo_azure.png'),
       },

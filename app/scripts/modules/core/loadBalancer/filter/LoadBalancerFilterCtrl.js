@@ -22,18 +22,18 @@ module.exports = angular.module('spinnaker.core.loadBalancer.filter.controller',
     };
 
     function getHeadingsForOption(option) {
-      return _.compact(_.uniq(_.pluck(app.loadBalancers, option))).sort();
+      return _.compact(_.uniq(_.pluck(app.loadBalancers.data, option))).sort();
     }
 
     function getAvailabilityZones() {
-      var attached = _(app.loadBalancers)
+      var attached = _(app.loadBalancers.data)
         .pluck('instances')
         .flatten()
         .pluck('zone')
         .compact()
         .unique()
         .valueOf(),
-        detached = _(app.loadBalancers)
+        detached = _(app.loadBalancers.data)
           .pluck('detachedInstances')
           .flatten()
           .pluck('zone')
@@ -52,16 +52,17 @@ module.exports = angular.module('spinnaker.core.loadBalancer.filter.controller',
     this.initialize = function() {
       ctrl.accountHeadings = getHeadingsForOption('account');
       ctrl.regionHeadings = getHeadingsForOption('region');
-      ctrl.stackHeadings = getHeadingsForOption('stack');
+      ctrl.stackHeadings = ['(none)'].concat(getHeadingsForOption('stack'));
       ctrl.providerTypeHeadings = getHeadingsForOption('type');
       ctrl.availabilityZoneHeadings = getAvailabilityZones();
       ctrl.clearFilters = clearFilters;
-      $scope.loadBalancers = app.loadBalancers;
     };
 
-    this.initialize();
+    if (app.loadBalancers.loaded) {
+      this.initialize();
+    }
 
-    app.registerAutoRefreshHandler(this.initialize, $scope);
+    app.loadBalancers.onRefresh($scope, this.initialize);
 
     $scope.$on('$destroy', $rootScope.$on('$locationChangeSuccess', () => {
       LoadBalancerFilterModel.activate();
