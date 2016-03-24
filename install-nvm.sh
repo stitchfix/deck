@@ -6,7 +6,7 @@ nvm_has() {
   type "$1" > /dev/null 2>&1
 }
 
-NVM_DIR="deck/nvm"
+NVM_DIR="nvm"
 
 #if [ -z "$NVM_DIR" ]; then
 #  NVM_DIR="$HOME/.nvm"
