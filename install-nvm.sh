@@ -6,9 +6,11 @@ nvm_has() {
   type "$1" > /dev/null 2>&1
 }
 
-if [ -z "$NVM_DIR" ]; then
-  NVM_DIR="$HOME/.nvm"
-fi
+NVM_DIR="deck/nvm"
+
+#if [ -z "$NVM_DIR" ]; then
+#  NVM_DIR="$HOME/.nvm"
+#fi
 
 nvm_latest_version() {
   echo "v0.27.1"
