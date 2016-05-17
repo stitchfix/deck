@@ -104,18 +104,14 @@ html {
     overflow-x: hidden;
 
     display: flex;
-    display: -webkit-flex;
     flex-direction: column;
-    -webkit-flex-direction: column;
 
     > .header {
       flex: 0 0 auto;
-      -webkit-flex: 0 0 auto;
     }
 
     > .content {
       flex: 1 1 100px;
-      -webkit-flex: 1 1 100px;
       overflow-y: auto;
     }
   }
@@ -361,6 +357,24 @@ html {
   .pulsing(1.0);
 }
 
+.glyphicon-Failed-triangle {
+  &:before {
+    content: "\2717";
+    font-weight: 900;
+    color: @unhealthy_red;
+    font-size: 120%;
+  }
+}
+
+.glyphicon-Succeeded-triangle {
+  &:before {
+    content: "\2713";
+    font-weight: 900;
+    color: @healthy_green_border;
+    font-size: 120%;
+  }
+}
+
 dl {
   word-break: break-word;
 }
@@ -561,7 +575,20 @@ body > .container {
   overflow-x: hidden;
   overflow-y: hidden;
   border-radius: 3px;
+  ::-webkit-scrollbar {
+    background: transparent;
+    width: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+  :hover {
+    ::-webkit-scrollbar-thumb {
+      background: #bdbdbd;
+    }
+  }
 }
+
 
 .modal-pages {
   width:1200px;
@@ -674,14 +701,14 @@ tfoot .add-new {
 .error-message {
   text-align: left;
   display: block;
-  font-weight: bold;
+  font-weight: 600;
   color: @state-danger-text;
 }
 
 .warn-message {
   text-align: left;
   display: block;
-  font-weight: bold;
+  font-weight: 600;
   color: @state-warning-text
 }
 
@@ -796,6 +823,44 @@ tfoot .add-new {
   .details {
     border-top: 1px solid #c4c4c4;
     background-color: #ffffff;
+  }
+}
+
+.collapsible-subsection {
+  a.section-subheading {
+    color: #000000;
+  }
+  h4.collapsible-subheading {
+    padding: 10px 15px;
+    background-color: @lightest_grey;
+    margin: 0;
+    .glyphicon {
+      font-size: 70%;
+      opacity: 0.7;
+      margin-right: 4px;
+      font-weight: 200;
+    }
+    font-size: 115%;
+    font-weight: 200;
+  }
+  .content-body {
+    .fade-in(0.15);
+    .clearfix;
+    padding-left: 17px;
+    margin: 10px 0 20px 0;
+    ul {
+      list-style-type: none;
+      padding-left: 0;
+    }
+  }
+  padding: 0;
+
+  &:last-child {
+    border-bottom-width: 0;
+  }
+
+  &:first-child {
+    padding-top: 0;
   }
 }
 
@@ -1002,6 +1067,11 @@ select.input-sm {
   padding-right: 0;
 }
 
+.select-placeholder {
+  display: inline-block;
+  padding-left: 14px;
+}
+
 html {
   overflow: hidden;
 }
@@ -1015,29 +1085,24 @@ body, html {
 
 .spinnaker-container {
   display: flex;
-  display: -webkit-flex;
   flex-direction: column;
-  -webkit-flex-direction: column;
   width: 100%;
   height: 100%;
   .spinnaker-header {
     flex: 0 0 auto;
-    -webkit-flex: 0 0 auto;
     border-radius: 0;
     margin-bottom: 0;
   }
   .spinnaker-content {
     display: flex;
-    display: -webkit-flex;
+    justify-content: center;
     flex: 1 1 auto;
-    -webkit-flex: 1 1 auto;
     overflow-y: auto;
     > .container {
       display: flex;
-      display: -webkit-flex;
       flex-direction: column;
-      -webkit-flex-direction: column;
       padding: 0;
+      margin: 0;
       @media (min-width: 768px) and (max-width: 992px) {
         margin: 0;
         width: 100%;
@@ -1045,24 +1110,17 @@ body, html {
     }
     .scrollable-columns {
       flex: 1 1 auto;
-      -webkit-flex: 1 1 auto;
       display: flex;
-      display: -webkit-flex;
       >div {
         display: flex;
-        display: -webkit-flex;
         flex: 1 1 auto;
-        -webkit-flex: 1 1 auto;
       }
       .insight {
         display: flex;
-        display: -webkit-flex;
         flex: 0 0 auto;
-        -webkit-flex: 0 0 auto;
         padding: 20px 30px 0;
         >div {
           display: flex;
-          display: -webkit-flex;
         }
       }
     }
@@ -1071,7 +1129,7 @@ body, html {
 
 .ui-select-multiple {
   .select2-drop {
-    width: calc(~"100% - 30px");
+    width: calc(~"100% - 40px");
     margin-left: 1px;
   }
 }
@@ -1186,4 +1244,9 @@ ul.checkmap {
   border-top: 1px solid #D0D0D0;
   margin-top: 2px;
   margin-bottom: 5px;
+}
+
+.bottom-border {
+  border-bottom: 1px solid @light_grey;
+  padding-bottom: 10px;
 }

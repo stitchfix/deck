@@ -74,6 +74,8 @@ module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.conf
           livenessProbe: null,
           readinessProbe: null,
           envVars: [],
+          command: [],
+          args: [],
           volumeMounts: [],
         };
       };
@@ -131,20 +133,6 @@ module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.conf
       return result;
     }
 
-    /* TODO(lwander) To be incorporated later.
-    function refreshNamespaces(command) {
-      return accountService.getAccountDetails(command.account).then(function(details) {
-        command.backingData.filtered.namespaces = details.namespaces;
-      });
-    }
-
-    function refreshDockerRegistries(command) {
-      return accountService.getAccountDetails(command.account).then(function(details) {
-        command.backingData.filtered.dockerRegistries = details.dockerRegistries;
-      });
-    }
-    */
-
     function refreshLoadBalancers(command, skipCommandReconfiguration) {
       return cacheInitializer.refreshCache('loadBalancers').then(function() {
         return loadBalancerReader.listLoadBalancers('kubernetes').then(function(loadBalancers) {
@@ -177,9 +165,11 @@ module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.conf
     function configureAccount(command) {
       var result = { dirty: {} };
       command.backingData.account = command.backingData.accountMap[command.account];
-      angular.extend(result.dirty, configureDockerRegistries(command).dirty);
-      angular.extend(result.dirty, configureNamespaces(command).dirty);
-      angular.extend(result.dirty, configureSecurityGroups(command).dirty);
+      if (command.backingData.account) {
+        angular.extend(result.dirty, configureDockerRegistries(command).dirty);
+        angular.extend(result.dirty, configureNamespaces(command).dirty);
+        angular.extend(result.dirty, configureSecurityGroups(command).dirty);
+      }
       return result;
     }
 

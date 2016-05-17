@@ -7,7 +7,7 @@
     <div class="col-md-9">
       <ui-select ng-model="container.imageDescription" class="form-control input-sm">
         <ui-select-match>{{container.imageDescription.imageId}}</ui-select-match>
-        <ui-select-choices repeat="container.imageDescription as container in command.backingData.filtered.containers | filter: { imageDescription: { imageId: $select.search } }" group-by="command.groupByRegistry">
+        <ui-select-choices repeat="container.imageDescription as container in command.backingData.filtered.containers | filter: { imageDescription: { imageId: $select.search } } | orderBy:'imageDescription.imageId'" group-by="command.groupByRegistry">
           <span ng-bind-html="container.imageDescription.imageId | highlight: $select.search"></span>
         </ui-select-choices>
       </ui-select>
@@ -32,7 +32,57 @@
     </div>
   </div>
 
-  <collapsible-section heading="Basic Settings" expanded="false">
+  <collapsible-section heading="Basic Settings" expanded="false" subsection="true">
+    <div class="form-group">
+      <div class="sm-label-left">
+        <b>Commands</b>
+        <help-field key="kubernetes.containers.command"></help-field>
+      </div>
+      <div>
+        <table class="table table-condensed packed tags">
+          <tr ng-repeat="command in container.command track by $index">
+            <td><input class="form-control input-sm" type="text" 
+              ng-model="container.command[$index]"></td>
+            <td><a class="btn btn-link sm-label"
+                   ng-click="containerController.removeCommand($index)"><span
+              class="glyphicon glyphicon-trash"></span></a></td>
+          </tr>
+          <tfoot>
+          <tr>
+            <td colspan="1">
+              <button class="add-new col-md-12" ng-click="containerController.addCommand()"><span
+                class="glyphicon glyphicon-plus-sign"></span> Add Command
+              </button>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="sm-label-left">
+        <b>Args</b>
+        <help-field key="kubernetes.containers.arg"></help-field>
+      </div>
+      <div>
+        <table class="table table-condensed packed tags">
+          <tr ng-repeat="arg in container.args track by $index">
+            <td><input class="form-control input-sm" type="text" 
+              ng-model="container.args[$index]"></td>
+            <td><a class="btn btn-link sm-label"
+                   ng-click="containerController.removeArg($index)"><span
+              class="glyphicon glyphicon-trash"></span></a></td>
+          </tr>
+          <tfoot>
+          <tr>
+            <td colspan="1">
+              <button class="add-new col-md-12" ng-click="containerController.addArg()"><span
+                class="glyphicon glyphicon-plus-sign"></span> Add Arg
+              </button>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
     <div class="form-group">
       <div class="sm-label-left">
         <b>Environment Variables</b>
@@ -61,9 +111,8 @@
         <tfoot>
         <tr>
           <td colspan="3">
-            <button class="btn btn-block btn-sm add-new" ng-click="containerController.addEnvVar()">
-              <span class="glyphicon glyphicon-plus-sign"></span>
-              Add Environment Variable
+            <button class="add-new col-md-12" ng-click="containerController.addEnvVar()"><span
+              class="glyphicon glyphicon-plus-sign"></span> Add Environment Variable
             </button>
           </td>
         </tr>
@@ -72,7 +121,7 @@
     </div>
   </collapsible-section>
 
-  <collapsible-section heading="Resources" expanded="false">
+  <collapsible-section heading="Resources" expanded="false" subsection="true">
     <div class="form-group">
       <div class="col-md-3">
       </div>
@@ -117,7 +166,7 @@
     </div>
   </collapsible-section>
 
-  <collapsible-section heading="Ports" expanded="false">
+  <collapsible-section heading="Ports" expanded="false" subsection="true">
     <div ng-repeat="port in container.ports">
       <hr ng-if="$index > 0">
       <div class="form-group">
@@ -177,7 +226,7 @@
       class="glyphicon glyphicon-plus-sign"></span> Add New Port
     </button>
   </collapsible-section>
-  <collapsible-section heading="Volume Mounts" expanded="false">
+  <collapsible-section heading="Volume Mounts" expanded="false" subsection="true">
     <div ng-repeat="mount in container.volumeMounts">
       <div class="form-group">
         <div class="col-md-3 sm-label-right">
@@ -220,7 +269,7 @@
       class="glyphicon glyphicon-plus-sign"></span> Add New Volume Mount
     </button>
   </collapsible-section>
-  <collapsible-section heading="Probes" expanded="false">
+  <collapsible-section heading="Probes" expanded="false" subsection="true">
     <kubernetes-container-probe container="container" command="command" probetype="'readinessProbe'" heading="'Readiness'"></kubernetes-container-probe>
     <hr>
     <kubernetes-container-probe container="container" command="command" probetype="'livenessProbe'" heading="'Liveness'"></kubernetes-container-probe>

@@ -16,7 +16,7 @@ describe('Controller: azureCreateLoadBalancerCtrl', function () {
     this.$scope = $rootScope.$new();
     this.ctrl = $controller('azureCreateLoadBalancerCtrl', {
       $scope: this.$scope,
-      $modalInstance: { dismiss: angular.noop, result: { then: angular.noop } },
+      $uibModalInstance: { dismiss: angular.noop, result: { then: angular.noop } },
       application: {name: 'app'},
       loadBalancer: null,
       isNew: true
@@ -34,7 +34,7 @@ describe('Controller: azureCreateLoadBalancerCtrl', function () {
     expect(lb.probes.length).toEqual(1);
     expect(lb.loadBalancingRules.length).toEqual(1);
 
-    expect(lb.loadBalancingRules[0].protocol).toEqual('TCP');
+    expect(lb.loadBalancingRules[0].protocol).toEqual('HTTP');
 
     expect(this.$scope.existingLoadBalancerNames).toEqual(undefined);
     expect(lb.providerType).toEqual(undefined);
@@ -48,10 +48,6 @@ describe('Controller: azureCreateLoadBalancerCtrl', function () {
     $http.when('GET', '/subnets').respond([]);
 
     $http.expectGET('/loadBalancers?provider=azure');
-    $http.expectGET('/securityGroups');
-    $http.expectGET('/credentials');
-    $http.expectGET('/credentials/azure-test');
-    $http.expectGET('/subnets');
     $http.flush();
   });
 

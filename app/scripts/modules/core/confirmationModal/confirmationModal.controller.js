@@ -8,7 +8,7 @@ module.exports = angular
     require('../application/modal/platformHealthOverride.directive.js'),
     require('../task/monitor/taskMonitorService.js'),
   ])
-  .controller('ConfirmationModalCtrl', function($scope, $modalInstance, taskMonitorService, params) {
+  .controller('ConfirmationModalCtrl', function($scope, $uibModalInstance, taskMonitorService, params) {
     $scope.params = params;
 
     $scope.state = {
@@ -16,10 +16,16 @@ module.exports = angular
     };
 
     if (params.taskMonitorConfig) {
-      params.taskMonitorConfig.modalInstance = $modalInstance;
+      params.taskMonitorConfig.modalInstance = $uibModalInstance;
 
       $scope.taskMonitor = taskMonitorService.buildTaskMonitor(params.taskMonitorConfig);
     }
+
+    if (params.taskMonitors) {
+      params.taskMonitors.forEach(monitor => monitor.modalInstance = $uibModalInstance);
+      $scope.taskMonitors = params.taskMonitors.map(taskMonitorService.buildTaskMonitor);
+    }
+
 
     $scope.verification = {
       required: !!params.account || (params.verificationLabel && params.textToVerify !== undefined),
@@ -39,17 +45,19 @@ module.exports = angular
     this.confirm = function () {
       if (!this.formDisabled()) {
         $scope.state.submitting = true;
-        if ($scope.taskMonitor) {
+        if ($scope.taskMonitors) {
+          $scope.taskMonitors.forEach(monitor => monitor.callPreconfiguredSubmit({reason: params.reason}));
+        } else if ($scope.taskMonitor) {
           $scope.taskMonitor.submit(() => { return params.submitMethod({interestingHealthProviderNames: params.interestingHealthProviderNames, reason: params.reason}); });
         } else {
           if (params.submitMethod) {
-            params.submitMethod(params.interestingHealthProviderNames).then($modalInstance.close, showError);
+            params.submitMethod(params.interestingHealthProviderNames).then($uibModalInstance.close, showError);
           } else {
-            $modalInstance.close();
+            $uibModalInstance.close();
           }
         }
       }
     };
 
-    this.cancel = $modalInstance.dismiss;
+    this.cancel = $uibModalInstance.dismiss;
   });

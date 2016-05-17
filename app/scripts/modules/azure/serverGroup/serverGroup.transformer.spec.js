@@ -2,7 +2,7 @@
 
 describe('azureServerGroupTransformer', function () {
 
-  var transformer, $scope;
+  var transformer;
 
   beforeEach(
     window.module(
@@ -11,9 +11,8 @@ describe('azureServerGroupTransformer', function () {
   );
 
   beforeEach(function () {
-    window.inject(function (_azureServerGroupTransformer_, $rootScope) {
+    window.inject(function (_azureServerGroupTransformer_) {
       transformer = _azureServerGroupTransformer_;
-      $scope = $rootScope.$new();
     });
   });
 
@@ -67,7 +66,7 @@ describe('azureServerGroupTransformer', function () {
 
     it('it sets name correctly with only detail', function () {
       var command = {
-        details: 'd1',
+        freeFormDetails: 'd1',
         application: 'theApp',
         sku:{
           capacity: 1,
@@ -91,7 +90,7 @@ describe('azureServerGroupTransformer', function () {
     it('it sets name correctly with both stack and detail', function () {
       var command = {
         stack: 's1',
-        details: 'd1',
+        freeFormDetails: 'd1',
         application: 'theApp',
         sku:{
           capacity: 1,

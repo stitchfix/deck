@@ -12,9 +12,11 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.details.controller',
   require('../../../core/insight/insightFilterState.model.js'),
   require('../../../core/presentation/collapsibleSection/collapsibleSection.directive.js'),
   require('../../../core/utils/selectOnDblClick.directive.js'),
+  require('../../../core/subnet/subnet.read.service'),
 ])
-  .controller('awsLoadBalancerDetailsCtrl', function ($scope, $state, $uibModal, loadBalancer, app, InsightFilterStateModel,
-                                                   securityGroupReader, _, confirmationModalService, loadBalancerWriter, loadBalancerReader, $q) {
+  .controller('awsLoadBalancerDetailsCtrl', function ($scope, $state, $uibModal, $q, loadBalancer, app, InsightFilterStateModel,
+                                                   securityGroupReader, _, confirmationModalService, loadBalancerWriter,
+                                                      loadBalancerReader, subnetReader) {
 
     $scope.state = {
       loading: true
@@ -23,24 +25,18 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.details.controller',
     $scope.InsightFilterStateModel = InsightFilterStateModel;
 
     function extractLoadBalancer() {
-      if (!loadBalancer.vpcId) {
-        loadBalancer.vpcId = null;
-      }
-      $scope.loadBalancer = app.loadBalancers.data.filter(function (test) {
-        var testVpc = test.vpcId || null;
-        return test.name === loadBalancer.name && test.region === loadBalancer.region && test.account === loadBalancer.accountId && testVpc === loadBalancer.vpcId;
-      })[0];
+      let [appLoadBalancer] = app.loadBalancers.data.filter(function (test) {
+        return test.name === loadBalancer.name && test.region === loadBalancer.region && test.account === loadBalancer.accountId;
+      });
 
-      if ($scope.loadBalancer) {
-        var detailsLoader = loadBalancerReader.getLoadBalancerDetails($scope.loadBalancer.provider, loadBalancer.accountId, loadBalancer.region, loadBalancer.name);
+      if (appLoadBalancer) {
+        var detailsLoader = loadBalancerReader.getLoadBalancerDetails('aws', loadBalancer.accountId, loadBalancer.region, loadBalancer.name);
         return detailsLoader.then(function(details) {
+          $scope.loadBalancer = appLoadBalancer;
           $scope.state.loading = false;
           var securityGroups = [];
-          var filtered = details.filter(function(test) {
-            return test.vpcid === loadBalancer.vpcId || (!test.vpcid && !loadBalancer.vpcId);
-          });
-          if (filtered.length) {
-            $scope.loadBalancer.elb = filtered[0];
+          if (details.length) {
+            $scope.loadBalancer.elb = details[0];
             $scope.loadBalancer.account = loadBalancer.accountId;
 
             if ($scope.loadBalancer.elb.availabilityZones) {
@@ -54,6 +50,17 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.details.controller',
               }
             });
             $scope.securityGroups = _.sortBy(securityGroups, 'name');
+
+            if ($scope.loadBalancer.subnets) {
+              $scope.loadBalancer.subnetDetails = $scope.loadBalancer.subnets.reduce( (detailList, subnetId) => {
+                subnetReader.getSubnetByIdAndProvider(subnetId, $scope.loadBalancer.provider)
+                  .then( (subnetDetail) => {
+                    detailList.push(subnetDetail);
+                  });
+
+                return detailList;
+              }, []);
+            }
           }
         },
           autoClose
@@ -81,6 +88,10 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.details.controller',
         app.loadBalancers.onRefresh($scope, extractLoadBalancer);
       }
     });
+
+    this.getFirstSubnetPurpose = function(subnetDetailsList = []) {
+      return _.first(subnetDetailsList.map(subnet => subnet.purpose)) || '';
+    };
 
     this.editLoadBalancer = function editLoadBalancer() {
       $uibModal.open({

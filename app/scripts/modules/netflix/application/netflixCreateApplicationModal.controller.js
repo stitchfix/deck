@@ -11,7 +11,7 @@ module.exports = angular
     require('../../core/account/account.service.js'),
     require('../../core/config/settings.js'),
   ])
-  .controller('netflixCreateApplicationModalCtrl', function($controller, $scope, $q, $log, $state, $modalInstance,
+  .controller('netflixCreateApplicationModalCtrl', function($controller, $scope, $q, $log, $state, $uibModalInstance,
                                                             settings,
                                                             accountService, applicationWriter, applicationReader, _) {
 
@@ -20,7 +20,7 @@ module.exports = angular
       $q: $q,
       $log: $log,
       $state: $state,
-      $modalInstance: $modalInstance,
+      $uibModalInstance: $uibModalInstance,
       accountService: accountService,
       applicationWriter: applicationWriter,
       applicationReader: applicationReader,
@@ -32,7 +32,7 @@ module.exports = angular
     if (this.chaosEnabled) {
       this.application.chaosMonkey = {
         enabled: true,
-        meanTimeBetweenKillsInWorkDays: 5,
+        meanTimeBetweenKillsInWorkDays: 2,
         minTimeBetweenKillsInWorkDays: 1,
         grouping: 'cluster',
         regionsAreIndependent: true,

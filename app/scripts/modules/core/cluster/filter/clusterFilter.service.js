@@ -5,14 +5,14 @@ let angular = require('angular');
 module.exports = angular
   .module('cluster.filter.service', [
     require('angular-ui-router'),
-    require('exports?"debounce"!angular-debounce'),
-    require('./clusterFilter.model.js'),
-    require('../../utils/lodash.js'),
-    require('../../utils/waypoints/waypoint.service.js'),
-    require('../../filterModel/filter.model.service.js'),
+    require('./clusterFilter.model'),
+    require('./multiselect.model'),
+    require('../../utils/lodash'),
+    require('../../utils/waypoints/waypoint.service'),
+    require('../../filterModel/filter.model.service'),
   ])
-  .factory('clusterFilterService', function (ClusterFilterModel, _, waypointService, $log, $stateParams, $state,
-                                             filterModelService, debounce) {
+  .factory('clusterFilterService', function (ClusterFilterModel, MultiselectModel, _, waypointService, $log, $stateParams, $state,
+                                             filterModelService) {
 
     var lastApplication = null;
 
@@ -111,15 +111,16 @@ module.exports = angular
         .value();
 
       updateMultiselectInstanceGroups(result);
+      updateMultiselectServerGroups(result);
       return result;
     }
 
     function updateMultiselectInstanceGroups(serverGroups) {
       // removes instance groups, selection of instances that are no longer visible;
       // adds new instance ids if selectAll is enabled for an instance group
-      if (ClusterFilterModel.sortFilter.listInstances) {
+      if (ClusterFilterModel.sortFilter.listInstances && ClusterFilterModel.sortFilter.multiselect) {
         let instancesSelected = 0;
-        ClusterFilterModel.multiselectInstanceGroups.forEach((instanceGroup) => {
+        MultiselectModel.instanceGroups.forEach((instanceGroup) => {
           let [match] = serverGroups.filter((serverGroup) => {
             return serverGroup.name === instanceGroup.serverGroup &&
               serverGroup.region === instanceGroup.region &&
@@ -143,10 +144,27 @@ module.exports = angular
             instancesSelected += instanceGroup.instanceIds.length;
           }
         });
-        ClusterFilterModel.multiselectInstancesStream.onNext();
-        ClusterFilterModel.syncNavigation();
+        MultiselectModel.instancesStream.onNext();
+        MultiselectModel.syncNavigation();
       } else {
-        ClusterFilterModel.multiselectInstanceGroups.length = 0;
+        MultiselectModel.instanceGroups.length = 0;
+      }
+    }
+
+    function updateMultiselectServerGroups(serverGroups) {
+      if (ClusterFilterModel.sortFilter.multiselect) {
+        if (MultiselectModel.serverGroups.length) {
+          let remainingKeys = serverGroups.map(MultiselectModel.makeServerGroupKey);
+          let toRemove = [];
+          MultiselectModel.serverGroups.forEach((group, index) => {
+            if (remainingKeys.indexOf(group.key) < 0) {
+              toRemove.push(index);
+            }
+          });
+          toRemove.reverse().forEach((index) => MultiselectModel.serverGroups.splice(index, 1));
+        }
+        MultiselectModel.serverGroupsStream.onNext();
+        MultiselectModel.syncNavigation();
       }
     }
 
@@ -210,7 +228,7 @@ module.exports = angular
      * Grouping logic
      */
     // this gets called every time the URL changes, so we debounce it a tiny bit
-    var updateClusterGroups = debounce((application) => {
+    var updateClusterGroups = _.debounce((application) => {
       if (!application) {
         application = lastApplication;
         if (!lastApplication) {
@@ -223,24 +241,44 @@ module.exports = angular
       var filter = ClusterFilterModel.sortFilter.filter.toLowerCase();
       var serverGroups = filterServerGroupsForDisplay(application.serverGroups.data, filter);
 
-      var grouped = _.groupBy(serverGroups, 'account');
+      var accountGroupings = _.groupBy(serverGroups, 'account');
 
-      _.forOwn(grouped, function(group, key) {
-        var subGroupings = _.groupBy(group, 'cluster'),
-          subGroups = [];
+      _.forOwn(accountGroupings, function(accountGroup, accountKey) {
+        var categoryGroupings = _.groupBy(accountGroup, 'category'),
+          clusterGroups = [];
 
-        _.forOwn(subGroupings, function(subGroup, subKey) {
-          var subGroupings = _.groupBy(subGroup, 'region'),
-            subSubGroups = [];
+        _.forOwn(categoryGroupings, function(categoryGroup, categoryKey) {
+          var clusterGroupings = _.groupBy(categoryGroup, 'cluster');
 
-          _.forOwn(subGroupings, function(subSubGroup, subSubKey) {
-            subSubGroups.push( { heading: subSubKey, serverGroups: subSubGroup } );
+          _.forOwn(clusterGroupings, function(clusterGroup, clusterKey) {
+            var regionGroupings = _.groupBy(clusterGroup, 'region'),
+              regionGroups = [];
+
+            _.forOwn(regionGroupings, function(regionGroup, regionKey) {
+              regionGroups.push( {
+                heading: regionKey,
+                serverGroups: regionGroup,
+                category: categoryKey
+              } );
+            });
+
+            var cluster = getCluster(application, clusterKey, accountKey, categoryKey);
+            if (cluster) {
+              clusterGroups.push( {
+                heading: clusterKey,
+                category: categoryKey,
+                subgroups: _.sortBy(regionGroups, 'heading'),
+                cluster: cluster
+              } );
+            }
           });
-          subGroups.push( { heading: subKey, subgroups: _.sortBy(subSubGroups, 'heading'), cluster: getCluster(application, subKey, key) } );
+
         });
 
-        groups.push( { heading: key, subgroups: _.sortBy(subGroups, 'heading') } );
-
+        groups.push( {
+          heading: accountKey,
+          subgroups: _.sortByAll(clusterGroups, ['heading', 'category']),
+        } );
       });
 
       sortGroupsByHeading(groups);
@@ -251,15 +289,17 @@ module.exports = angular
       return groups;
     }, 25);
 
-    function getCluster(application, clusterName, account) {
-      return _.find(application.clusters, {account: account, name: clusterName });
+    function getCluster(application, clusterName, account, category) {
+      let [match] = (application.clusters || []).filter(c => c.account === account && c.name === clusterName && c.category === category);
+      return match;
     }
 
     function diffSubgroups(oldGroups, newGroups) {
       var groupsToRemove = [];
-
       oldGroups.forEach(function(oldGroup, idx) {
-        var newGroup = _.find(newGroups, { heading: oldGroup.heading });
+        var [newGroup] = (newGroups || []).filter(group =>
+            group.heading === oldGroup.heading &&
+            group.category === oldGroup.category);
         if (!newGroup) {
           groupsToRemove.push(idx);
         } else {
@@ -286,15 +326,19 @@ module.exports = angular
     }
 
     function diffServerGroups(oldGroup, newGroup) {
+      if (oldGroup.category !== newGroup.category) {
+        return;
+      }
+
       var toRemove = [];
       oldGroup.serverGroups.forEach(function(serverGroup, idx) {
         var newServerGroup = _.find(newGroup.serverGroups, { name: serverGroup.name, account: serverGroup.account, region: serverGroup.region });
         if (!newServerGroup) {
-          $log.debug('server group no longer found, removing:', serverGroup.name, serverGroup.account, serverGroup.region);
+          $log.debug('server group no longer found, removing:', serverGroup.name, serverGroup.account, serverGroup.region, serverGroup.category);
           toRemove.push(idx);
         } else {
           if (serverGroup.stringVal !== newServerGroup.stringVal) {
-            $log.debug('change detected, updating server group:', serverGroup.name, serverGroup.account, serverGroup.region);
+            $log.debug('change detected, updating server group:', serverGroup.name, serverGroup.account, serverGroup.region, serverGroup.category);
             oldGroup.serverGroups[idx] = newServerGroup;
           }
           if (serverGroup.executions || newServerGroup.executions) {
@@ -361,6 +405,11 @@ module.exports = angular
           detail[result.detail] = true;
           ClusterFilterModel.sortFilter.detail = detail;
         }
+        if (result.category) {
+          var category = {};
+          category[result.category] = true;
+          ClusterFilterModel.sortFilter.category = category;
+        }
         if ($stateParams.application === result.application) {
           updateClusterGroups();
         }
@@ -375,7 +424,6 @@ module.exports = angular
     return {
       updateClusterGroups: updateClusterGroups,
       filterServerGroupsForDisplay: filterServerGroupsForDisplay,
-      sortGroupsByHeading: sortGroupsByHeading,
       clearFilters: clearFilters,
       shouldShowInstance: shouldShowInstance,
       overrideFiltersForUrl: overrideFiltersForUrl,

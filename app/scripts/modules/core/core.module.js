@@ -39,6 +39,8 @@ module.exports = angular
     require('exports?"ui.select"!ui-select'),
     require('imports?define=>false!exports?"angularSpinner"!angular-spinner'),
 
+    require('./projects/projects.module.js'),
+
     require('./application/application.module.js'),
 
     require('./account/accountLabelColor.directive.js'),
@@ -51,6 +53,7 @@ module.exports = angular
     require('./cloudProvider/cloudProviderLabel.directive.js'),
     require('./cloudProvider/serviceDelegate.service.js'),
     require('./cluster/cluster.module.js'),
+    require('./config/versionCheck.service.js'),
     require('./config/settings.js'),
     require('./confirmationModal/confirmationModal.service.js'),
 
@@ -101,12 +104,14 @@ module.exports = angular
     require('./pipeline/config/stages/manualJudgment/manualJudgmentStage.module.js'),
     require('./pipeline/config/stages/pipeline/pipelineStage.module.js'),
     require('./pipeline/config/stages/resizeAsg/resizeAsgStage.module.js'),
+    require('./pipeline/config/stages/runJob/runJobStage.module.js'),
     require('./pipeline/config/stages/scaleDownCluster/scaleDownClusterStage.module.js'),
     require('./pipeline/config/stages/script/scriptStage.module.js'),
     require('./pipeline/config/stages/shrinkCluster/shrinkClusterStage.module.js'),
     require('./pipeline/config/stages/wait/waitStage.module.js'),
     require('./pipeline/config/stages/waitForParentTasks/waitForParentTasks.js'),
     require('./pipeline/config/stages/createLoadBalancer/createLoadBalancerStage.module.js'),
+    require('./pipeline/config/stages/applySourceServerGroupCapacity/applySourceServerGroupCapacityStage.module.js'),
     require('./pipeline/config/preconditions/preconditions.module.js'),
     require('./pipeline/config/preconditions/types/clusterSize/clusterSize.precondition.type.module.js'),
     require('./pipeline/config/preconditions/types/expression/expression.precondition.type.module.js'),
@@ -115,6 +120,7 @@ module.exports = angular
     require('./search/search.module.js'),
     require('./securityGroup/securityGroup.module.js'),
     require('./serverGroup/serverGroup.module.js'),
+    require('./job/job.module.js'),
 
     require('./task/task.module.js'),
 
@@ -161,18 +167,6 @@ module.exports = angular
       });
     });
   })
-  .run(function($templateCache) {
-    $templateCache.put('template/popover/popover.html',
-      '<div tooltip-animation-class="fade"' +
-      '  uib-tooltip-classes' +
-      '  ng-class="{ in: isOpen() }">' +
-      '  <div class="arrow"></div>' +
-      '  <div class="popover-inner">' +
-      '      <h3 class="popover-title" ng-bind="title" ng-if="title"></h3>' +
-      '      <div class="popover-content" ng-bind-html="content"></div>' +
-      '  </div>' +
-      '  </div>');
-  })
   .config(function ($logProvider, statesProvider) {
     statesProvider.setStates();
     $logProvider.debugEnabled(true);
@@ -185,9 +179,9 @@ module.exports = angular
       'mouseenter focus': 'mouseleave blur'
     });
   })
-  .config(function($modalProvider) {
-    $modalProvider.options.backdrop = 'static';
-    $modalProvider.options.keyboard = false;
+  .config(function($uibModalProvider) {
+    $uibModalProvider.options.backdrop = 'static';
+    $uibModalProvider.options.keyboard = false;
   })
   .config(function(RestangularProvider, settings) {
     RestangularProvider.setBaseUrl(settings.gateUrl);
@@ -199,7 +193,7 @@ module.exports = angular
     };
   })
   .config(function($compileProvider) {
-    $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|mailto|hipchat):/);
+    $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|mailto|hipchat|slack):/);
   })
   .config(function($animateProvider) {
     $animateProvider.classNameFilter(/animated/);

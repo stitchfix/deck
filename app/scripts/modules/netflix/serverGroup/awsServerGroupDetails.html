@@ -33,7 +33,7 @@
           <button type="button" class="btn btn-sm btn-primary dropdown-toggle" uib-dropdown-toggle>
             Server Group Actions <span class="caret"></span>
           </button>
-          <ul class="uib-dropdown-menu" role="menu">
+          <ul class="dropdown-menu" uib-dropdown-menu role="menu">
             <li><a href ng-if="!ctrl.serverGroup.isDisabled" ng-click="ctrl.rollbackServerGroup()">Rollback</a></li>
             <li role="presentation" class="divider" ng-if="!ctrl.serverGroup.isDisabled"></li>
             <li><a href ng-click="ctrl.resizeServerGroup()">Resize</a></li>
@@ -48,7 +48,7 @@
           <button type="button" class="btn btn-sm btn-default dropdown-toggle" uib-dropdown-toggle>
             Insight <span class="caret"></span>
           </button>
-          <ul class="uib-dropdown-menu" role="menu">
+          <ul class="dropdown-menu" uib-dropdown-menu role="menu">
             <li ng-repeat="action in ctrl.serverGroup.insightActions"><a target=_blank href="{{action.url}}">{{action.label}}</a></li>
           </ul>
         </div>
@@ -221,9 +221,13 @@
     <collapsible-section heading="Networking">
       <nflx-server-group-networking server-group="ctrl.serverGroup" application="ctrl.application"></nflx-server-group-networking>
     </collapsible-section>
-    <collapsible-section heading="Scaling Policies" ng-if="ctrl.serverGroup.scalingPolicies.length">
-      <p>Scaling Policies can be modified via the AWS Console.</p>
-      <scaling-policy ng-repeat="policy in ctrl.serverGroup.scalingPolicies" policy="policy"></scaling-policy>
+    <collapsible-section heading="Scaling Policies">
+      <scaling-policy-summary ng-repeat="policy in ctrl.scalingPolicies track by policy.policyARN"
+                      policy="policy"
+                      server-group="ctrl.serverGroup"
+                      application="ctrl.application"></scaling-policy-summary>
+      <add-scaling-policy-button server-group="ctrl.serverGroup"
+                                 application="ctrl.application"></add-scaling-policy-button>
     </collapsible-section>
     <collapsible-section heading="Scheduled Actions">
       <scheduled-action ng-repeat="action in ctrl.serverGroup.scheduledActions" action="action"></scheduled-action>
@@ -278,13 +282,23 @@
     <collapsible-section heading="Edda Links">
       <ul>
         <li>
-          <a target="_blank" ng-href="http://edda-main.{{ctrl.serverGroup.region}}.{{ctrl.serverGroup.account}}.netflix.net:7001/REST/v2/aws/autoScalingGroups/{{ctrl.serverGroup.name}}">
+          <a target="_blank" ng-href="http://edda-{{ctrl.serverGroup.accountDetails.accountId}}.{{ctrl.serverGroup.region}}.{{ctrl.serverGroup.accountDetails.environment}}.netflix.net:7001/REST/v2/aws/autoScalingGroups/{{ctrl.serverGroup.name}}">
             ASG ({{ctrl.serverGroup.name}})
           </a>
         </li>
         <li>
-          <a target="_blank" ng-href="http://edda-main.{{ctrl.serverGroup.region}}.{{ctrl.serverGroup.account}}.netflix.net:7001/REST/v2/group/clusters/{{ctrl.serverGroup.cluster}}">
+          <a target="_blank" ng-href="http://edda-{{ctrl.serverGroup.accountDetails.accountId}}.{{ctrl.serverGroup.region}}.{{ctrl.serverGroup.accountDetails.environment}}.netflix.net:7001/REST/v2/group/clusters/{{ctrl.serverGroup.cluster}}">
             Cluster ({{ctrl.serverGroup.cluster}})
+          </a>
+        </li>
+        <li>
+          <a target="_blank" ng-href="http://edda-{{ctrl.serverGroup.accountDetails.accountId}}.{{ctrl.serverGroup.region}}.{{ctrl.serverGroup.accountDetails.environment}}.netflix.net:7001/REST/v2/aws/launchConfigurations/{{ctrl.serverGroup.launchConfig.launchConfigurationName}}">
+            Launch Configuration ({{ctrl.serverGroup.launchConfig.launchConfigurationName}})
+          </a>
+        </li>
+        <li>
+          <a target="_blank" ng-href="http://edda-{{ctrl.serverGroup.accountDetails.accountId}}.{{ctrl.serverGroup.region}}.{{ctrl.serverGroup.accountDetails.environment}}.netflix.net:7001/REST/v2/aws/images/{{ctrl.serverGroup.launchConfig.imageId}}">
+            AMI ({{ctrl.serverGroup.launchConfig.imageId}})
           </a>
         </li>
       </ul>

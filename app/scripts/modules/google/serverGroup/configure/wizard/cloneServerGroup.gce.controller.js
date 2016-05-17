@@ -6,7 +6,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
   require('angular-ui-router'),
   require('../../../../core/application/modal/platformHealthOverride.directive.js'),
 ])
-  .controller('gceCloneServerGroupCtrl', function($scope, $modalInstance, _, $q, $state,
+  .controller('gceCloneServerGroupCtrl', function($scope, $uibModalInstance, _, $q, $state,
                                                   serverGroupWriter, v2modalWizardService, taskMonitorService,
                                                   gceServerGroupConfigurationService,
                                                   serverGroupCommand, application, title) {
@@ -17,6 +17,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
       securityGroups: require('./securityGroups/securityGroups.html'),
       instanceType: require('./instanceType/instanceType.html'),
       capacity: require('./capacity/capacity.html'),
+      zones: require('./capacity/zones.html'),
       advancedSettings: require('./advancedSettings/advancedSettings.html'),
     };
 
@@ -70,7 +71,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
     $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
       application: application,
       title: 'Creating your server group',
-      modalInstance: $modalInstance,
+      modalInstance: $uibModalInstance,
       onTaskComplete: onTaskComplete,
     });
 
@@ -143,7 +144,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
         ($scope.command.viewState.disableImageSelection || $scope.command.image) &&
         ($scope.command.application) &&
         ($scope.command.credentials) && ($scope.command.instanceType) &&
-        ($scope.command.region) && ($scope.command.zone) &&
+        ($scope.command.region) && ($scope.command.regional || $scope.command.zone) &&
         ($scope.command.capacity.desired !== null) &&
         $scope.form.$valid &&
         v2modalWizardService.isComplete();
@@ -192,7 +193,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
       $scope.command.capacity.max = $scope.command.capacity.desired;
 
       if ($scope.command.viewState.mode === 'editPipeline' || $scope.command.viewState.mode === 'createPipeline') {
-        return $modalInstance.close($scope.command);
+        return $uibModalInstance.close($scope.command);
       }
       $scope.taskMonitor.submit(
         function() {
@@ -208,7 +209,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
     };
 
     this.cancel = function () {
-      $modalInstance.dismiss();
+      $uibModalInstance.dismiss();
     };
 
     if (!$scope.state.requiresTemplateSelection) {

@@ -6,6 +6,7 @@ var bakeryDetailUrl = process.env.BAKERY_DETAIL_URL || 'http://bakery.test.netfl
 var authEndpoint = process.env.AUTH_ENDPOINT || 'https://spinnaker-api-prestaging.prod.netflix.net/auth/info';
 
 window.spinnakerSettings = {
+  checkForUpdates: true,
   defaultProviders: ['aws', 'gce', 'azure', 'cf', 'kubernetes', 'titan'],
   feedbackUrl: feedbackUrl,
   gateUrl: gateHost,
@@ -13,6 +14,7 @@ window.spinnakerSettings = {
   authEndpoint: authEndpoint,
   pollSchedule: 30000,
   defaultTimeZone: process.env.TIMEZONE || 'America/Los_Angeles', // see http://momentjs.com/timezone/docs/#/data-utilities/
+  defaultCategory: 'serverGroup',
   providers: {
     azure: {
       defaults: {
@@ -41,7 +43,7 @@ window.spinnakerSettings = {
     },
     titan: {
       defaults: {
-        account: 'titustest',
+        account: 'titustestvpc',
         region: 'us-east-1'
       },
     },
@@ -56,8 +58,25 @@ window.spinnakerSettings = {
     gistId: '32526cd608db3d811b38',
     fileName: 'news.md',
   },
+  notifications: {
+    email: {
+      enabled: true,
+    },
+    hipchat: {
+      enabled: true,
+      botName: 'Skynet T-800'
+    },
+    sms: {
+      enabled: true,
+    },
+    slack: {
+      enabled: true,
+      botName: 'spinnakerbot'
+    }
+  },
   authEnabled: process.env.AUTH === 'enabled',
   gitSources: ['stash', 'github'],
+  triggerTypes: ['git', 'pipeline', 'docker', 'cron', 'jenkins'],
   feature: {
     pipelines: true,
     notifications: false,
@@ -68,5 +87,6 @@ window.spinnakerSettings = {
     netflixMode: false,
     // whether stages affecting infrastructure (like "Create Load Balancer") should be enabled or not
     infrastructureStages: process.env.INFRA_STAGES === 'enabled',
+    jobs: false,
   },
 };

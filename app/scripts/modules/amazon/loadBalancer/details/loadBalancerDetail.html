@@ -31,7 +31,7 @@
           <button type="button" class="btn btn-sm btn-primary dropdown-toggle" uib-dropdown-toggle>
             Load Balancer Actions <span class="caret"></span>
           </button>
-          <ul class="uib-dropdown-menu" role="menu">
+          <ul class="dropdown-menu" uib-dropdown-menu role="menu">
             <li><a href ng-click="ctrl.editLoadBalancer()">Edit Load Balancer</a></li>
             <!--<li><a href ng-click="ctrl.cloneLoadBalancer()">Clone Load Balancer</a></li>-->
             <li ng-if="!loadBalancer.instances.length"><a href ng-click="ctrl.deleteLoadBalancer()">Delete Load Balancer</a></li>
@@ -52,6 +52,8 @@
         <dd><account-tag account="loadBalancer.account" pad="right"></account-tag> {{loadBalancer.region}}</dd>
         <dt>VPC</dt>
         <dd><vpc-tag vpc-id="loadBalancer.elb.vpcid"></vpc-tag></dd>
+        <dt>Subnet</dt>
+        <dd>{{ctrl.getFirstSubnetPurpose(loadBalancer.subnetDetails)}}</dd>
       </dl>
       <dl ng-class="InsightFilterStateModel.filtersExpanded ? '' : 'dl-horizontal dl-wide'">
         <dt>Availability Zones</dt>
@@ -79,10 +81,10 @@
       <dl ng-class="InsightFilterStateModel.filtersExpanded ? '' : 'dl-horizontal dl-wide'">
         <dt ng-if="loadBalancer.elb.dnsname">DNS Name</dt>
         <dd>
-          <a target=_blank href="http://{{loadBalancer.elb.dnsname}}">{{loadBalancer.elb.dnsname}}</a>
+          <a target=_blank href="//{{loadBalancer.elb.dnsname}}">{{loadBalancer.elb.dnsname}}</a>
           <copy-to-clipboard
               class="copy-to-clipboard copy-to-clipboard-sm"
-              text="http://{{loadBalancer.elb.dnsname}}"
+              text="{{loadBalancer.elb.dnsname}}"
               tool-tip="Copy DNS Name to clipboard">
           </copy-to-clipboard>
         </dd>
@@ -109,6 +111,24 @@
           </a>
         </li>
       </ul>
+    </collapsible-section>
+    <collapsible-section heading="Subnets">
+      <div ng-if="loadBalancer.subnetDetails.length === 0">
+        <h5>No subnets</h5>
+      </div>
+      <div ng-repeat="subnet in loadBalancer.subnetDetails" ng-class="{'bottom-border': !$last}">
+        <h5><strong>{{subnet.id}}</strong></h5>
+        <dl class="dl-horizontal dl-wide">
+          <dt>Purpose</dt>
+          <dd>{{subnet.purpose}}</dt>
+
+          <dt>State</dt>
+          <dd>{{subnet.state}}</dd>
+
+          <dt>Cidr Block</dt>
+          <dd>{{subnet.cidrBlock}}</dd>
+        </dl>
+      </div>
     </collapsible-section>
     <collapsible-section heading="Health Checks">
       <dl ng-class="InsightFilterStateModel.filtersExpanded ? '' : 'dl-horizontal dl-wide'">

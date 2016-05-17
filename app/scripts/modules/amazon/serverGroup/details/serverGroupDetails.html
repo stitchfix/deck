@@ -33,7 +33,7 @@
           <button type="button" class="btn btn-sm btn-primary dropdown-toggle" uib-dropdown-toggle>
             Server Group Actions <span class="caret"></span>
           </button>
-          <ul class="uib-dropdown-menu" role="menu">
+          <ul class="dropdown-menu" uib-dropdown-menu role="menu">
             <li><a href ng-if=" !ctrl.serverGroup.isDisabled" ng-click="ctrl.rollbackServerGroup()">Rollback</a></li>
             <li role="presentation" class="divider" ng-if=" !ctrl.serverGroup.isDisabled"></li>
             <li><a href ng-click="ctrl.resizeServerGroup()">Resize</a></li>
@@ -48,7 +48,7 @@
           <button type="button" class="btn btn-sm btn-default dropdown-toggle" uib-dropdown-toggle>
             Insight <span class="caret"></span>
           </button>
-          <ul class="uib-dropdown-menu" role="menu">
+          <ul class="dropdown-menu" uib-dropdown-menu role="menu">
             <li ng-repeat="action in ctrl.serverGroup.insightActions"><a target=_blank href="{{action.url}}">{{action.label}}</a></li>
           </ul>
         </div>
@@ -218,9 +218,13 @@
         </li>
       </ul>
     </collapsible-section>
-    <collapsible-section heading="Scaling Policies" ng-if="ctrl.serverGroup.scalingPolicies.length">
-      <p>Scaling Policies can be modified via the AWS Console.</p>
-      <scaling-policy ng-repeat="policy in ctrl.serverGroup.scalingPolicies" policy="policy"></scaling-policy>
+    <collapsible-section heading="Scaling Policies">
+      <scaling-policy-summary ng-repeat="policy in ctrl.scalingPolicies track by policy.policyARN"
+                      policy="policy"
+                      server-group="ctrl.serverGroup"
+                      application="ctrl.application"></scaling-policy-summary>
+      <add-scaling-policy-button server-group="ctrl.serverGroup"
+                                 application="ctrl.application"></add-scaling-policy-button>
     </collapsible-section>
     <collapsible-section heading="Scheduled Actions">
       <scheduled-action ng-repeat="action in ctrl.serverGroup.scheduledActions" action="action"></scheduled-action>

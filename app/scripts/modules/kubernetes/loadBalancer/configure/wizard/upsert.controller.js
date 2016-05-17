@@ -13,7 +13,7 @@ module.exports = angular.module('spinnaker.loadBalancer.kubernetes.create.contro
   require('../../../namespace/selectField.directive.js'),
   require('../../transformer.js'),
 ])
-  .controller('kubernetesUpsertLoadBalancerController', function($scope, $modalInstance, $state,
+  .controller('kubernetesUpsertLoadBalancerController', function($scope, $uibModalInstance, $state,
                                                                  application, loadBalancer, isNew, loadBalancerReader,
                                                                  accountService, kubernetesLoadBalancerTransformer,
                                                                  _, searchService, v2modalWizardService, loadBalancerWriter, taskMonitorService) {
@@ -37,7 +37,7 @@ module.exports = angular.module('spinnaker.loadBalancer.kubernetes.create.contro
       if ($scope.$$destroyed) {
         return;
       }
-      $modalInstance.close();
+      $uibModalInstance.close();
       var newStateParams = {
         name: $scope.loadBalancer.name,
         accountId: $scope.loadBalancer.account,
@@ -59,7 +59,7 @@ module.exports = angular.module('spinnaker.loadBalancer.kubernetes.create.contro
     $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
       application: application,
       title: (isNew ? 'Creating ' : 'Updating ') + 'your load balancer',
-      modalInstance: $modalInstance,
+      modalInstance: $uibModalInstance,
       onTaskComplete: onTaskComplete,
     });
 
@@ -115,6 +115,7 @@ module.exports = angular.module('spinnaker.loadBalancer.kubernetes.create.contro
     if (loadBalancer) {
       $scope.loadBalancer = kubernetesLoadBalancerTransformer.convertLoadBalancerForEditing(loadBalancer);
       initializeEditMode();
+      initializeCreateMode();
     } else {
       $scope.loadBalancer = kubernetesLoadBalancerTransformer.constructNewLoadBalancerTemplate();
       initializeLoadBalancerNames();
@@ -163,6 +164,6 @@ module.exports = angular.module('spinnaker.loadBalancer.kubernetes.create.contro
     };
 
     this.cancel = function () {
-      $modalInstance.dismiss();
+      $uibModalInstance.dismiss();
     };
   });

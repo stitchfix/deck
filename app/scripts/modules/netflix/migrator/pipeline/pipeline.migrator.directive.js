@@ -29,7 +29,7 @@ module.exports = angular
       controllerAs: 'migratorActionCtrl',
     };
   })
-  .controller('PipelineMigratorActionCtrl', function ($scope, $uibModal, vpcReader, settings) {
+  .controller('PipelineMigratorActionCtrl', function ($scope, $uibModal, $state, vpcReader, settings) {
 
     $scope.showAction = false;
 
@@ -39,7 +39,7 @@ module.exports = angular
 
     function testCluster(stage) {
       return function(cluster) {
-        if (!cluster.subnetType && cluster.provider === 'aws') {
+        if (!cluster.subnetType && (!cluster.provider || cluster.provider === 'aws')) {
           $scope.showAction = true;
           if (cluster.strategy !== '') {
             actionableDeployStages.push({strategy: cluster.strategy, name: stage.name});
@@ -49,6 +49,10 @@ module.exports = angular
     }
 
     if (settings.feature.vpcMigrator) {
+      let [migrated] = $scope.application.pipelineConfigs.data.filter(test => test.name === $scope.pipeline.name + ' - vpc0');
+      if (migrated) {
+        $scope.migrated = migrated;
+      }
       var stages = $scope.pipeline.stages || [];
       stages.forEach((stage) => {
         if (stage.type === 'deploy') {
@@ -66,6 +70,10 @@ module.exports = angular
     }
 
     this.previewMigration = function () {
+      if ($scope.migrated) {
+        $state.go('^.pipelineConfig', {pipelineId: $scope.migrated.id});
+        return;
+      }
       $uibModal.open({
         templateUrl: require('./pipeline.migrator.modal.html'),
         controller: 'PipelineMigratorCtrl as vm',
@@ -84,7 +92,7 @@ module.exports = angular
     };
   })
   .controller('PipelineMigratorCtrl', function ($scope, pipeline, application, actionableDeployStages,
-                                                $modalInstance, taskReader, $timeout, $state,
+                                                $uibModalInstance, taskReader, $timeout, $state,
                                                 migratorService, pipelineConfigService, scrollToService,
                                                 cacheInitializer) {
 
@@ -97,6 +105,7 @@ module.exports = angular
       executing: false,
       error: false,
       migrationComplete: false,
+      targetName: pipeline.name + ' - vpc0',
     };
 
     // shared component used by "submitting" overlay to indicate what's being operated against
@@ -126,16 +135,11 @@ module.exports = angular
       taskReader.waitUntilTaskCompletes(application.name, task).then(dryRunComplete, errorMode);
     };
 
-    let reinitialize = () => {
-      pipelineConfigService.getPipelinesForApplication(application.name).then((pipelines) => {
-        application.pipelines = pipelines;
-        // TODO: pipeline ID is not yet populated in the task result from Tide, so build it out based on name
-        var [newPipeline] = pipelines.filter(function(test) {
-          return test.name.indexOf(pipeline.name + ' - vpc0') === 0;
-        });
-        if (newPipeline) {
-          $state.go('^.pipelineConfig', {pipelineId: newPipeline.id});
-        }
+    let migrationComplete = () => {
+      application.pipelineConfigs.refresh().then(() => {
+        this.viewState.executing = false;
+        this.viewState.migrationComplete = true;
+
         if (this.preview.securityGroups && this.preview.securityGroups.length) {
           cacheInitializer.refreshCache('securityGroups');
         }
@@ -143,12 +147,6 @@ module.exports = angular
           cacheInitializer.refreshCache('loadBalancers');
         }
       });
-    };
-
-    let migrationComplete = () => {
-      this.viewState.executing = false;
-      this.viewState.migrationComplete = true;
-      reinitialize();
     };
 
     let migrationStarted = (task) => {
@@ -160,7 +158,8 @@ module.exports = angular
         target = { vpcName: 'vpc0', };
 
     this.migrationOptions = {
-      allowIngressFromClassic: true
+      allowIngressFromClassic: true,
+      subnetType: 'internal',
     };
 
     var migrationConfig = {
@@ -178,15 +177,23 @@ module.exports = angular
 
     executor.then(dryRunStarted, errorMode);
 
+    this.close = () => {
+      var [newPipeline] = application.pipelineConfigs.data.filter(test => {
+        return test.name.indexOf(this.viewState.targetName) === 0;
+      });
+      $state.go('^.pipelineConfig', {pipelineId: newPipeline.id});
+    };
+
     this.cancel = () => {
       $timeout.cancel(this.task.poller);
-      $modalInstance.dismiss();
+      $uibModalInstance.dismiss();
     };
 
     this.submit = () => {
       this.viewState.executing = true;
       migrationConfig.dryRun = false;
       migrationConfig.allowIngressFromClassic = this.migrationOptions.allowIngressFromClassic;
+      migrationConfig.target.subnetType = this.migrationOptions.subnetType;
       let executor = migratorService.executeMigration(migrationConfig);
       executor.then(migrationStarted, errorMode);
     };

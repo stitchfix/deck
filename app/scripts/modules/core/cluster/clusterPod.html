@@ -5,10 +5,12 @@
         <div class="col-md-12">
           <div class="rollup-title-cell">
             <h5>
-              <account-label-color account="{{parentHeading}}"></account-label-color>
-              <span class="glyphicon glyphicon-th"></span>
-              {{grouping.heading}}
-              <health-counts container="grouping.cluster.instanceCounts"></health-counts>
+              <div class="{{grouping.cluster.category}}">
+                <account-label-color account="{{parentHeading}}"></account-label-color>
+                <span class="glyphicon glyphicon-th"></span>
+                {{grouping.heading}}
+                <health-counts container="grouping.cluster.instanceCounts"></health-counts>
+              </div>
             </h5>
           </div>
         </div>
@@ -21,12 +23,22 @@
           sticky-header added-offset-height="39">{{subgroup.heading}}</h6>
       <server-group
         ng-repeat="serverGroup in subgroup.serverGroups | orderBy:'-name'"
+        ng-if="grouping.cluster.category === 'serverGroup'"
         server-group="serverGroup"
         cluster="serverGroup.cluster"
         application="application"
         has-discovery="grouping.hasDiscovery"
         has-load-balancers="grouping.hasLoadBalancers"
         parent-heading="subgroup.heading"></server-group>
+      <job
+        ng-repeat="serverGroup in subgroup.serverGroups | orderBy:'-name'"
+        ng-if="grouping.cluster.category === 'job'"
+        job="serverGroup"
+        cluster="serverGroup.cluster"
+        application="application"
+        has-discovery="grouping.hasDiscovery"
+        has-load-balancers="grouping.hasLoadBalancers"
+        parent-heading="subgroup.heading"></job>
     </div>
     <div class="permalinks text-right">
       <a ng-href="{{permalink}}" target="_blank">Permalink</a>

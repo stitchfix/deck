@@ -7,14 +7,15 @@ module.exports = angular.module('spinnaker.core.pipeline.create.controller', [
   require('../../pipeline/config/services/pipelineConfigService.js'),
 ])
   .controller('CreatePipelineModalCtrl', function($scope, application,
-                                                  _, pipelineConfigService, $modalInstance, $log) {
+                                                  _, pipelineConfigService, $uibModalInstance, $log) {
 
     var noTemplate = {
       name: 'None',
       stages: [],
       triggers: [],
       application: application.name,
-      limitConcurrent: true
+      limitConcurrent: true,
+      keepWaitingPipelines: false
     };
 
     $scope.viewState = {};
@@ -31,7 +32,7 @@ module.exports = angular.module('spinnaker.core.pipeline.create.controller', [
       strategy: false,
     };
 
-    this.cancel = $modalInstance.dismiss;
+    this.cancel = $uibModalInstance.dismiss;
 
     this.createPipeline = () => {
       var template = $scope.command.template;
@@ -53,6 +54,7 @@ module.exports = angular.module('spinnaker.core.pipeline.create.controller', [
           template.limitConcurrent = false;
       }
 
+      $scope.viewState.submitting = true;
       return pipelineConfigService.savePipeline(template).then(
         function() {
           template.isNew = true;
@@ -62,13 +64,15 @@ module.exports = angular.module('spinnaker.core.pipeline.create.controller', [
               $log.warn('Could not find new pipeline after save succeeded.');
               $scope.viewState.saveError = true;
               $scope.viewState.errorMessage = 'Sorry, there was an error retrieving your new pipeline. Please refresh the browser.';
+              $scope.viewState.submitting = false;
             } else {
-              $modalInstance.close(newPipeline.id);
+              $uibModalInstance.close(newPipeline.id);
             }
           });
         },
         function(response) {
           $log.warn(response);
+          $scope.viewState.submitting = false;
           $scope.viewState.saveError = true;
           var message = response && response.data && response.data.message ? response.data.message : 'No message provided';
           $scope.viewState.errorMessage = message;

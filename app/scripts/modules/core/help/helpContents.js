@@ -46,6 +46,10 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'aws.securityGroup.vpc': '<p>The VPC to which this security group will apply.</p>' +
       '<p>If you wish to use VPC but are unsure which VPC to use, the most common one is "Main".</p>' +
       '<p>If you do not wish to use VPC, select "None".</p>',
+    'aws.scalingPolicy.search.restricted': '<p>Resets dimensions to "AutoScalingGroupName: {name of the ASG}" and provides' +
+    ' a simpler, combined input for the namespace and metric name fields.</p>',
+    'aws.scalingPolicy.search.all': '<p>Allows you to edit the dimensions and namespace to find a specific metric for' +
+    ' this alarm.</p>',
     'cf.artifact.repository.options': '<p>You may include {job} and {buildNumber} to dynamically build a path to your artifact.</p>',
     'cluster.search': 'Quickly filter the displayed server groups by the following fields:' +
       '<ul>' +
@@ -131,6 +135,7 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'pipeline.config.checkPreconditions.failPipeline': '' +
       '<p><strong>Checked</strong> - the overall pipeline will fail whenever this precondition is false.</p>' +
       '<p><strong>Unchecked</strong> - the overall pipeline will continue executing but this particular branch will stop.</p>',
+    'pipeline.config.checkPreconditions.expectedSize': 'Number of server groups in the selected cluster',
     'pipeline.config.checkPreconditions.expression': '<p>Value must evaluate to "true".</p>' +
       '<p>Use of the <b>Spring Expression Language</b> allows for complex evaluations.</p>',
     'pipeline.config.deploy.template': '<p>Select an existing cluster to use as a template for this deployment, and we\'ll pre-fill ' +
@@ -179,6 +184,17 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
       '<p>For example, if the user selects "rollback" from this list of options, that branch can be activated by using the ' +
       'expression: ' +
       '<samp class="small">execution.stages[n].context.judgmentInput=="rollback"</samp></p>',
+    'pipeline.config.jenkins.haltPipelineOnFailure': '' +
+    'Immediately halts execution of all running stages and fails the entire execution.',
+    'pipeline.config.jenkins.haltBranchOnFailure': '' +
+    'Prevents any stages that depend on this stage from running, but allows other branches of the pipeline to run.',
+    'pipeline.config.jenkins.ignoreFailure': '' +
+    'Continues execution of dowstream stages, marking this stages as failed/continuing.',
+    'pipeline.config.jenkins.markUnstableAsSuccessful.true': 'If Jenkins reports the build status as UNSTABLE, ' +
+      'Spinnaker will mark the stage as SUCCEEDED and continue execution of the pipeline.',
+    'pipeline.config.jenkins.markUnstableAsSuccessful.false': 'If Jenkins reports the build status as UNSTABLE, ' +
+      'Spinnaker will mark the stage as FAILED; subsequent execution will be determined based on the configuration of the ' +
+      '<b>If build fails</b> option for this stage.',
     'pipeline.config.failPipeline': '' +
     '<p><strong>Checked</strong> - the overall pipeline will fail whenever the stage fails.</p>' +
     '<p><strong>Unchecked</strong> - the overall pipeline will continue executing but this particular branch will stop.</p>',
@@ -216,6 +232,7 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'pipeline.config.fastProperty.rollback': 'Enables the Fast Property to be rolled back to it previous state when the pipeline completes.',
     'pipeline.config.parallel.execution': '<p>Enabling parallel stage execution allows you to run stages only after dependent ' +
       'stages have completed.</p><p>By configuring a pipeline this way, you can reduce the time it takes to run.</p>',
+    'pipeline.config.parallel.cancel.queue': '<p>If concurrent pipeline execution is disabled, then the pipelines that are in the waiting queue will get canceled by default. <br><br>Check this box if you want to keep them in the queue.</p>',
     'pipeline.config.timeout': '<p>Allows you to override the amount of time the stage can run before failing.</p> ' +
     '<p><b>Note:</b> this is not the overall time the stage has, but rather the time for specific tasks.</p>',
     'pipeline.config.timeout.bake': '<p>For the Bake stage, the timeout will apply to both the "Create Bake" and "Monitor Bake" tasks.</p>',
@@ -269,8 +286,12 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'kubernetes.serverGroup.detail': '(Optional) A string of free-form alphanumeric characters and hyphens to describe any other variables.',
     'kubernetes.serverGroup.containers': '(Required) Select at least one image to run in this server group (pod). ' +
       'If multiple images are selected, they will be colocated and replicated equally.',
+    'kubernetes.job.parallelism': '(Required) The number of concurrent pods to run.',
+    'kubernetes.job.completions': '(Required) The number of sucessful completions required for the job to be considered a success.',
+    'kubernetes.job.deadlineSeconds': '(Optional) The number of seconds until the job is considered a failure.',
     'kubernetes.containers.image': 'The image selected under Basic Settings whose container is to be configured.',
     'kubernetes.containers.registry': 'The registry the selected image will be pulled from.',
+    'kubernetes.containers.command': 'The list of commands which to overwrite the docker ENTRYPOINT array.',
     'kubernetes.containers.name': '(Required) The name of the container associated with the above image. Used for resource identification',
     'kubernetes.containers.cpu': '(Optional) The relative CPU shares to allocate this container. If set, it is multiplied by 1024, then ' +
       'passed to Docker as the --cpu-shares flag. Otherwise the default of 1 (1024) is used',
@@ -313,15 +334,17 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
       'when <b>Type</b> is set to <b>LoadBalancer</b>.',
     'kubernetes.service.externalIps': 'IP addresses for which nodes in the cluster also accept traffic. This is not managed by Kubernetes and the ' +
       'responsibility of the user to configure.',
-    'kubernetes.pod.volume': 'A storage volume to be mounted and shared containers in this pod. The lifecycle depends on the volume type selected' +
+    'kubernetes.pod.volume': '<p>A storage volume to be mounted and shared by containers in this pod. The lifecycle depends on the volume type selected.</p>' +
       '<p><b>EMPTYDIR</b>: A transient volume tied to the lifecycle of this pod.</p>' +
       '<p><b>HOSTPATH</b>: A directory on the host node. Most pods do not need this.</p>' +
-      '<p><b>PERSISTENTVOLUMECLAIM</b>: An already created persistent volume claim to be bound by this pod.</p>',
+      '<p><b>PERSISTENTVOLUMECLAIM</b>: An already created persistent volume claim to be bound by this pod.</p>' +
+      '<p><b>SECRET</b>: An already created kubernetes secret to be mounted in this pod.</p>',
     'kubernetes.pod.emptydir.medium': 'The type of storage medium used by this volume type.' +
       '<p><b>DEFAULT</b>: Depends on the storage mechanism backing this pod\'s Kubernetes installation.</p>' +
       '<p><b>MEMORY</b>: A tmpfs (RAM-backed filesystem). Very fast, but usage counts against the memory resource limit, and contents are lost on reboot.</p>',
-    'kubernetes.pod.persistentvolumeclaim.claim': 'The name of the underlying persistent volume claim to request.',
-    'kubernetes.pod.hostpath.path': 'The path on the host node\'s filesystem to mount.',
+    'kubernetes.pod.volume.persistentvolumeclaim.claim': 'The name of the underlying persistent volume claim to request.',
+    'kubernetes.pod.volume.hostpath.path': 'The path on the host node\'s filesystem to mount.',
+    'kubernetes.pod.volume.secret.secretName': 'The name of the secret to mount.',
     'kubernetes.ingress.backend.port': 'The port for the specified load balancer.',
     'kubernetes.ingress.backend.service': 'The load balancer (service) traffic not matching the below rules will be routed to.',
     'kubernetes.ingress.rules.service': 'The load balancer (service) traffic matching this rule will be routed to.',

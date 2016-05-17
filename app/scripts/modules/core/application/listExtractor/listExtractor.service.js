@@ -18,6 +18,7 @@ module.exports = angular
         .map('region')
         .compact()
         .unique()
+        .sort()
         .value();
     };
 
@@ -46,9 +47,9 @@ module.exports = angular
 
     let clusterFilterForCredentialsAndRegion = (credentials, region) => {
       return (cluster) => {
-        let acctFilter = credentials ? cluster.account === credentials : true;
+        let acctFilter = cluster && credentials ? cluster.account === credentials : true;
 
-        let regionFilter = Array.isArray(region) && region.length
+        let regionFilter = cluster && Array.isArray(region) && region.length
           ? _.some( cluster.serverGroups, (sg) => _.some(region, (region) => region === sg.region))
           : _.isString(region) //region is just a string not an array
           ? _.any(cluster.serverGroups, (sg) => sg.region === region)
@@ -113,27 +114,6 @@ module.exports = angular
         .value();
     };
 
-    let getZonesByRegion = (appList, accountFilter = defaultAccountFilter, clusterFilter = defaultClusterFilter, regionFilter = defaultRegionFilter, serverGroupFilter = defaultServerGroupFilter) => {
-      return _(appList)
-        .map('clusters').flatten()
-        .filter( accountFilter )
-        .filter( clusterFilter )
-        .map('serverGroups').flatten()
-        .filter( regionFilter )
-        .filter( serverGroupFilter )
-        .value()
-        .reduce((acc, serverGroup) => {
-          serverGroup['instances'].forEach((instance) => {
-            if (acc[serverGroup.region]) {
-              acc[serverGroup.region] = _.uniq(acc[serverGroup.region].concat(instance.availabilityZone));
-            } else {
-              acc[serverGroup.region] = [instance.availabilityZone];
-            }
-          });
-          return acc;
-        }, {});
-    };
-
     let defaultAvailabilityZoneFilter = (/*instance*/) => true;
 
     let getInstances = (appList, clusterFilter = defaultClusterFilter, serverGroupFilter = defaultServerGroupFilter, availabilityZoneFilter = defaultAvailabilityZoneFilter) => {
@@ -158,7 +138,6 @@ module.exports = angular
       clusterFilterForCredentialsAndZone: clusterFilterForCredentialsAndZone,
       getAsgs: getAsgs,
       getZones: getZones,
-      getZonesByRegion: getZonesByRegion,
       getInstances: getInstances,
     };
 

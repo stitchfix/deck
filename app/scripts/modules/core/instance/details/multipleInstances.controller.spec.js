@@ -4,9 +4,7 @@ describe('Controller: MultipleInstances', function () {
 
   var controller;
   var scope;
-  var rx;
-  var refreshStream;
-  var ClusterFilterModel;
+  var MultiselectModel;
 
   beforeEach(
     window.module(
@@ -16,11 +14,9 @@ describe('Controller: MultipleInstances', function () {
   );
 
   beforeEach(
-    window.inject(function ($rootScope, $controller, _$q_, _rx_, _ClusterFilterModel_, applicationReader) {
+    window.inject(function ($rootScope, $controller, _$q_, _MultiselectModel_, applicationReader) {
       scope = $rootScope.$new();
-      ClusterFilterModel = _ClusterFilterModel_;
-      rx = _rx_;
-      refreshStream = new rx.Subject();
+      MultiselectModel = _MultiselectModel_;
 
       this.createController = function (serverGroups) {
         let application = {};
@@ -50,7 +46,7 @@ describe('Controller: MultipleInstances', function () {
     ]};
 
     this.getInstanceGroup = (serverGroup) => {
-      return ClusterFilterModel.getOrCreateMultiselectInstanceGroup(serverGroup);
+      return MultiselectModel.getOrCreateInstanceGroup(serverGroup);
     };
 
     this.addInstance = (serverGroup, instanceId) => {
@@ -68,7 +64,7 @@ describe('Controller: MultipleInstances', function () {
       this.getInstanceGroup(this.serverGroupC);
       this.createController([this.serverGroupA, this.serverGroupB, this.serverGroupC]);
 
-      expect(ClusterFilterModel.multiselectInstanceGroups.length).toBe(3);
+      expect(MultiselectModel.instanceGroups.length).toBe(3);
       expect(controller.selectedGroups.length).toBe(2);
 
       let groupA = controller.selectedGroups[0],
@@ -96,7 +92,7 @@ describe('Controller: MultipleInstances', function () {
       expect(controller.selectedGroups[0].instances[0].healthState).toBe('Down');
     });
 
-    it('re-retrieves instances when multiselectInstancesStream refreshes', function () {
+    it('re-retrieves instances when instancesStream refreshes', function () {
       this.addInstance(this.serverGroupA, 'i-234');
       this.createController([this.serverGroupA, this.serverGroupB, this.serverGroupC]);
 
@@ -107,7 +103,7 @@ describe('Controller: MultipleInstances', function () {
       // unchanged as stream hasn't emitted new value yet
       expect(controller.selectedGroups[0].instances.length).toBe(1);
 
-      ClusterFilterModel.multiselectInstancesStream.onNext();
+      MultiselectModel.instancesStream.onNext();
 
       expect(controller.selectedGroups[0].instances.length).toBe(2);
     });

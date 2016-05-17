@@ -10,7 +10,7 @@ module.exports = angular.module('spinnaker.securityGroup.aws.edit.controller', [
   require('../../../core/task/monitor/taskMonitorService.js'),
   require('../../../core/securityGroup/securityGroup.write.service.js'),
 ])
-  .controller('awsEditSecurityGroupCtrl', function($scope, $modalInstance, $state,
+  .controller('awsEditSecurityGroupCtrl', function($scope, $uibModalInstance, $state,
                                                 accountService, securityGroupReader,
                                                 taskMonitorService, cacheInitializer, infrastructureCaches,
                                                 _, application, securityGroup, securityGroupWriter, $controller) {
@@ -25,19 +25,22 @@ module.exports = angular.module('spinnaker.securityGroup.aws.edit.controller', [
       refreshingSecurityGroups: false,
     };
 
+    $scope.securityGroup.regions = [$scope.securityGroup.region];
+    $scope.securityGroup.credentials = $scope.securityGroup.accountName;
+
     angular.extend(this, $controller('awsConfigSecurityGroupMixin', {
       $scope: $scope,
-      $modalInstance: $modalInstance,
+      $uibModalInstance: $uibModalInstance,
       application: application,
       securityGroup: securityGroup,
     }));
 
-    $scope.isNew = false;
+    $scope.state.isNew = false;
 
     $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
       application: application,
       title: 'Updating your security group',
-      modalInstance: $modalInstance,
+      modalInstance: $uibModalInstance,
       onTaskComplete: application.securityGroups.refresh,
     });
 
@@ -76,43 +79,9 @@ module.exports = angular.module('spinnaker.securityGroup.aws.edit.controller', [
       .flatten()
       .value();
 
-    this.getSecurityGroupRefreshTime = function() {
-      return infrastructureCaches.securityGroups.getStats().ageMax;
-    };
-
-    this.refreshSecurityGroups = function() {
-      $scope.state.refreshingSecurityGroups = true;
-      return cacheInitializer.refreshCache('securityGroups').then(function() {
-        initializeSecurityGroups().then(function() {
-          $scope.state.refreshingSecurityGroups = false;
-        });
-      });
-    };
-
-
-
-    function initializeSecurityGroups() {
-      return securityGroupReader.getAllSecurityGroups().then(function (securityGroups) {
-        var account = securityGroup.accountName,
-          region = securityGroup.region,
-          vpcId = securityGroup.vpcId || null,
-          availableGroups = _.filter(securityGroups[account].aws[region], { vpcId: vpcId });
-        $scope.availableSecurityGroups = _.pluck(availableGroups, 'name');
-      });
-    }
-
-    this.addRule = function(ruleset) {
-      ruleset.push({});
-    };
-
-    this.removeRule = function(ruleset, index) {
-      ruleset.splice(index, 1);
-    };
-
-    $scope.taskMonitor.onApplicationRefresh = $modalInstance.dismiss;
+    $scope.taskMonitor.onApplicationRefresh = $uibModalInstance.dismiss;
 
     this.upsert = function () {
-
       $scope.taskMonitor.submit(
         function() {
           return securityGroupWriter.upsertSecurityGroup($scope.securityGroup, application, 'Update');
@@ -121,8 +90,8 @@ module.exports = angular.module('spinnaker.securityGroup.aws.edit.controller', [
     };
 
     this.cancel = function () {
-      $modalInstance.dismiss();
+      $uibModalInstance.dismiss();
     };
 
-    initializeSecurityGroups();
+    this.initializeSecurityGroups().then(this.initializeAccounts);
   });
