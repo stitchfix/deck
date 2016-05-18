@@ -2,9 +2,7 @@
 
 executions {
   display: flex;
-  display: -webkit-flex;
   flex: 1 1 auto;
-  -webkit-flex: 1 1 auto;
   .execution-groups-header {
     margin-left: -8px;
     position: relative;
@@ -62,6 +60,10 @@ executions {
   &.execution-marker-terminal {
     fill: @stage-terminal;
     background-color: @stage-terminal;
+  }
+  &.execution-marker-failed_continue {
+    fill: @stage-failed_continue;
+    background-color: @stage-failed_continue;
   }
   &.execution-marker-succeeded {
     fill: @stage-succeeded;

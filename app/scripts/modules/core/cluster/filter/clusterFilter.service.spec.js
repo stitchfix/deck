@@ -5,42 +5,37 @@ describe('Service: clusterFilterService', function () {
 
 
   var service;
+  var clusterService;
   var ClusterFilterModel;
+  var MultiselectModel;
   var applicationJSON;
   var groupedJSON;
-  var _;
   var $timeout;
 
-  beforeEach(
+  beforeEach(function() {
+    spyOn(_, 'debounce').and.callFake(fn => (app) => $timeout(fn(app)));
     window.module(
       require('./clusterFilter.service.js'),
       require('./clusterFilter.model.js'),
+      require('../cluster.service'),
       require('../../../../../../test/mock/mockApplicationData.js')
-    )
-  );
-
-  beforeEach(
+    );
     window.inject(
-      function (clusterFilterService, _ClusterFilterModel_, ___, _$timeout_) {
-        _ = ___;
+      function (clusterFilterService, _ClusterFilterModel_, _MultiselectModel_, _$timeout_, _applicationJSON_, _groupedJSON_, _clusterService_) {
         service = clusterFilterService;
+        clusterService = _clusterService_;
         ClusterFilterModel = _ClusterFilterModel_;
+        MultiselectModel = _MultiselectModel_;
         $timeout = _$timeout_;
         ClusterFilterModel.groups = [];
-      }
-    )
-  );
 
-  beforeEach(
-    window.inject(
-      function (_applicationJSON_, _groupedJSON_) {
         applicationJSON = _applicationJSON_;
         groupedJSON = _groupedJSON_;
         groupedJSON[0].subgroups[0].cluster = applicationJSON.clusters[0];
         groupedJSON[1].subgroups[0].cluster = applicationJSON.clusters[1];
       }
-    )
-  );
+    );
+  });
 
   beforeEach(function() {
     this.verifyTags = function(expectedTags) {
@@ -474,16 +469,17 @@ describe('Service: clusterFilterService', function () {
   describe('multiInstance filtering', function () {
     beforeEach(function() {
       this.navigationSynced = false;
-      spyOn(ClusterFilterModel, 'syncNavigation').and.callFake(() => this.navigationSynced = true);
+      ClusterFilterModel.sortFilter.multiselect = true;
+      spyOn(MultiselectModel, 'syncNavigation').and.callFake(() => this.navigationSynced = true);
     });
 
     it('should remove all instanceIds if server group is no longer visible, and add back when visible again', function () {
       ClusterFilterModel.sortFilter.listInstances = true;
       let serverGroup = applicationJSON.serverGroups.data[0],
-          multiselectGroup = ClusterFilterModel.getOrCreateMultiselectInstanceGroup(serverGroup);
+          multiselectGroup = MultiselectModel.getOrCreateInstanceGroup(serverGroup);
 
       serverGroup.instances.push({id: 'i-1234'});
-      ClusterFilterModel.toggleSelectAll(serverGroup, ['i-1234']);
+      MultiselectModel.toggleSelectAll(serverGroup, ['i-1234']);
       expect(multiselectGroup.instanceIds).toEqual(['i-1234']);
 
       ClusterFilterModel.sortFilter.region['us-east-3'] = true;
@@ -504,17 +500,17 @@ describe('Service: clusterFilterService', function () {
       ClusterFilterModel.sortFilter.listInstances = true;
       let serverGroup = applicationJSON.serverGroups.data[0];
 
-      ClusterFilterModel.toggleMultiselectInstance(serverGroup, 'i-1234');
-      ClusterFilterModel.toggleMultiselectInstance(serverGroup, 'i-2345');
+      MultiselectModel.toggleInstance(serverGroup, 'i-1234');
+      MultiselectModel.toggleInstance(serverGroup, 'i-2345');
       serverGroup.instances.push({id: 'i-1234'});
 
-      expect(ClusterFilterModel.instanceIsMultiselected(serverGroup, 'i-1234')).toBe(true);
-      expect(ClusterFilterModel.instanceIsMultiselected(serverGroup, 'i-2345')).toBe(true);
+      expect(MultiselectModel.instanceIsSelected(serverGroup, 'i-1234')).toBe(true);
+      expect(MultiselectModel.instanceIsSelected(serverGroup, 'i-2345')).toBe(true);
 
       service.updateClusterGroups(applicationJSON);
       $timeout.flush();
-      expect(ClusterFilterModel.instanceIsMultiselected(serverGroup, 'i-1234')).toBe(true);
-      expect(ClusterFilterModel.instanceIsMultiselected(serverGroup, 'i-2345')).toBe(false);
+      expect(MultiselectModel.instanceIsSelected(serverGroup, 'i-1234')).toBe(true);
+      expect(MultiselectModel.instanceIsSelected(serverGroup, 'i-2345')).toBe(false);
 
       expect(this.navigationSynced).toBe(true);
 
@@ -524,15 +520,15 @@ describe('Service: clusterFilterService', function () {
       ClusterFilterModel.sortFilter.listInstances = true;
       let serverGroup = applicationJSON.serverGroups.data[0];
 
-      ClusterFilterModel.getOrCreateMultiselectInstanceGroup(serverGroup).selectAll = true;
-      ClusterFilterModel.toggleMultiselectInstance(serverGroup, 'i-1234');
+      MultiselectModel.getOrCreateInstanceGroup(serverGroup).selectAll = true;
+      MultiselectModel.toggleInstance(serverGroup, 'i-1234');
       serverGroup.instances.push({id: 'i-1234'});
       serverGroup.instances.push({id: 'i-2345'});
 
       service.updateClusterGroups(applicationJSON);
       $timeout.flush();
-      expect(ClusterFilterModel.instanceIsMultiselected(serverGroup, 'i-1234')).toBe(true);
-      expect(ClusterFilterModel.instanceIsMultiselected(serverGroup, 'i-2345')).toBe(true);
+      expect(MultiselectModel.instanceIsSelected(serverGroup, 'i-1234')).toBe(true);
+      expect(MultiselectModel.instanceIsSelected(serverGroup, 'i-2345')).toBe(true);
 
       expect(this.navigationSynced).toBe(true);
     });
@@ -541,13 +537,13 @@ describe('Service: clusterFilterService', function () {
       ClusterFilterModel.sortFilter.listInstances = false;
       let serverGroup = applicationJSON.serverGroups.data[0];
 
-      ClusterFilterModel.toggleMultiselectInstance(serverGroup, 'i-1234');
+      MultiselectModel.toggleInstance(serverGroup, 'i-1234');
 
-      expect(ClusterFilterModel.multiselectInstanceGroups.length).toBe(1);
+      expect(MultiselectModel.instanceGroups.length).toBe(1);
       service.updateClusterGroups(applicationJSON);
       $timeout.flush();
 
-      expect(ClusterFilterModel.multiselectInstanceGroups.length).toBe(0);
+      expect(MultiselectModel.instanceGroups.length).toBe(0);
       expect(this.navigationSynced).toBe(true);
     });
   });
@@ -570,18 +566,22 @@ describe('Service: clusterFilterService', function () {
 
   describe('group diffing', function() {
     beforeEach(function() {
-      this.serverGroup001 = { cluster: 'cluster-a', name: 'cluster-a-v001', account: 'prod', region: 'us-east-1', stringVal: 'original' };
-      this.serverGroup000 = { cluster: 'cluster-a', name: 'cluster-a-v000', account: 'prod', region: 'us-east-1', stringVal: 'should be deleted' };
+      this.clusterA = { account: 'prod', category: 'serverGroup', name: 'cluster-a' };
+      this.clusterB = { account: 'prod', category: 'serverGroup', name: 'cluster-b' };
+      this.serverGroup001 = { cluster: 'cluster-a', name: 'cluster-a-v001', account: 'prod', region: 'us-east-1', stringVal: 'original', category: 'serverGroup', instances: [] };
+      this.serverGroup000 = { cluster: 'cluster-a', name: 'cluster-a-v000', account: 'prod', region: 'us-east-1', stringVal: 'should be deleted', category: 'serverGroup', instances: [] };
       ClusterFilterModel.groups = [
         {
           heading: 'prod',
           subgroups: [
             {
               heading: 'cluster-a',
+              category: 'serverGroup',
               cluster: { name: 'cluster-a' },
               subgroups: [
                 {
                   heading: 'us-east-1',
+                  category: 'serverGroup',
                   serverGroups: [
                     this.serverGroup000,
                     this.serverGroup001,
@@ -599,8 +599,12 @@ describe('Service: clusterFilterService', function () {
         serverGroups: { data: [
           this.serverGroup000,
           this.serverGroup001,
-          { cluster: 'cluster-a', name: 'cluster-a-v003', account: 'test', region: 'us-east-1', stringVal: 'new' },
-        ]}
+          { cluster: 'cluster-a', name: 'cluster-a-v003', account: 'test', region: 'us-east-1', stringVal: 'new', category: 'serverGroup' },
+        ]},
+        clusters: [
+          this.clusterA,
+          { name: 'cluster-a', account: 'test', category: 'serverGroup' },
+        ]
       };
       service.updateClusterGroups(application);
       $timeout.flush();
@@ -619,8 +623,12 @@ describe('Service: clusterFilterService', function () {
         serverGroups: { data: [
           this.serverGroup000,
           this.serverGroup001,
-          { cluster: 'cluster-b', name: 'cluster-a-v003', account: 'prod', region: 'us-east-1', stringVal: 'new' },
-        ]}
+          { cluster: 'cluster-b', name: 'cluster-a-v003', account: 'prod', region: 'us-east-1', stringVal: 'new', category: 'serverGroup' },
+        ]},
+        clusters: [
+          this.clusterA,
+          this.clusterB,
+        ]
       };
       service.updateClusterGroups(application);
       $timeout.flush();
@@ -638,9 +646,10 @@ describe('Service: clusterFilterService', function () {
         serverGroups: { data: [
           this.serverGroup000,
           this.serverGroup001,
-          { cluster: 'cluster-a', name: 'cluster-a-v003', account: 'prod', region: 'us-west-1', stringVal: 'new' },
-        ]}
+          { cluster: 'cluster-a', name: 'cluster-a-v003', account: 'prod', region: 'us-west-1', stringVal: 'new', category: 'serverGroup', instances: [] },
+        ]},
       };
+      application.clusters = clusterService.createServerGroupClusters(application.serverGroups.data);
       service.updateClusterGroups(application);
       $timeout.flush();
       expect(ClusterFilterModel.groups.length).toBe(1);
@@ -656,9 +665,10 @@ describe('Service: clusterFilterService', function () {
         serverGroups: { data: [
           this.serverGroup000,
           this.serverGroup001,
-          { cluster: 'cluster-a', name: 'cluster-a-v003', account: 'prod', region: 'us-east-1', stringVal: 'new' },
+          { cluster: 'cluster-a', name: 'cluster-a-v003', account: 'prod', region: 'us-east-1', stringVal: 'new', category: 'serverGroup', instances: [] },
         ]}
       };
+      application.clusters = clusterService.createServerGroupClusters(application.serverGroups.data);
       service.updateClusterGroups(application);
       $timeout.flush();
       expect(ClusterFilterModel.groups.length).toBe(1);
@@ -673,9 +683,10 @@ describe('Service: clusterFilterService', function () {
         serverGroups: { data: [
           this.serverGroup000,
           this.serverGroup001,
-          { cluster: 'cluster-a', name: 'cluster-a-v003', account: 'test', region: 'us-east-1', stringVal: 'new' },
+          { cluster: 'cluster-a', name: 'cluster-a-v003', account: 'test', region: 'us-east-1', stringVal: 'new', category: 'serverGroup', instances: [] },
         ]}
       };
+      application.clusters = clusterService.createServerGroupClusters(application.serverGroups.data);
       service.updateClusterGroups(application);
       $timeout.flush();
       expect(ClusterFilterModel.groups.length).toBe(2);
@@ -692,9 +703,10 @@ describe('Service: clusterFilterService', function () {
         serverGroups: { data: [
           this.serverGroup000,
           this.serverGroup001,
-          { cluster: 'cluster-b', name: 'cluster-a-v003', account: 'prod', region: 'us-east-1', stringVal: 'new' },
+          { cluster: 'cluster-b', name: 'cluster-a-v003', account: 'prod', region: 'us-east-1', stringVal: 'new', category: 'serverGroup', instances: [] },
         ]}
       };
+      application.clusters = clusterService.createServerGroupClusters(application.serverGroups.data);
       service.updateClusterGroups(application);
       $timeout.flush();
       expect(ClusterFilterModel.groups.length).toBe(1);
@@ -713,9 +725,10 @@ describe('Service: clusterFilterService', function () {
         serverGroups: { data: [
           this.serverGroup000,
           this.serverGroup001,
-          { cluster: 'cluster-a', name: 'cluster-a-v003', account: 'prod', region: 'us-west-1', stringVal: 'new' },
+          { cluster: 'cluster-a', name: 'cluster-a-v003', account: 'prod', region: 'us-west-1', stringVal: 'new', category: 'serverGroup', instances: [] },
         ]}
       };
+      application.clusters = clusterService.createServerGroupClusters(application.serverGroups.data);
       service.updateClusterGroups(application);
       $timeout.flush();
       expect(ClusterFilterModel.groups.length).toBe(1);
@@ -737,6 +750,7 @@ describe('Service: clusterFilterService', function () {
           this.serverGroup001,
         ]}
       };
+      application.clusters = clusterService.createServerGroupClusters(application.serverGroups.data);
       service.updateClusterGroups(application);
       $timeout.flush();
       expect(ClusterFilterModel.groups.length).toBe(1);
@@ -749,10 +763,11 @@ describe('Service: clusterFilterService', function () {
     it('leaves server groups alone when stringVal does not change', function() {
       var application = {
         serverGroups: { data: [
-          { cluster: 'cluster-a', name: 'cluster-a-v000', account: 'prod', region: 'us-east-1', stringVal: 'should be deleted' },
-          { cluster: 'cluster-a', name: 'cluster-a-v001', account: 'prod', region: 'us-east-1', stringVal: 'original' },
+          { cluster: 'cluster-a', name: 'cluster-a-v000', account: 'prod', region: 'us-east-1', stringVal: 'should be deleted', category: 'serverGroup', instances: [] },
+          { cluster: 'cluster-a', name: 'cluster-a-v001', account: 'prod', region: 'us-east-1', stringVal: 'original', category: 'serverGroup', instances: [] },
         ]}
       };
+      application.clusters = clusterService.createServerGroupClusters(application.serverGroups.data);
       service.updateClusterGroups(application);
       $timeout.flush();
       expect(ClusterFilterModel.groups[0].subgroups[0].subgroups[0].serverGroups[0]).toBe(this.serverGroup000);
@@ -762,10 +777,11 @@ describe('Service: clusterFilterService', function () {
     it('replaces server group when stringVal changes', function() {
       var application = {
         serverGroups: { data: [
-          { cluster: 'cluster-a', name: 'cluster-a-v000', account: 'prod', region: 'us-east-1', stringVal: 'mutated' },
-          { cluster: 'cluster-a', name: 'cluster-a-v001', account: 'prod', region: 'us-east-1', stringVal: 'original' },
+          { cluster: 'cluster-a', name: 'cluster-a-v000', account: 'prod', region: 'us-east-1', stringVal: 'mutated', category: 'serverGroup', instances: [] },
+          { cluster: 'cluster-a', name: 'cluster-a-v001', account: 'prod', region: 'us-east-1', stringVal: 'original', category: 'serverGroup', instances: [] },
         ]}
       };
+      application.clusters = clusterService.createServerGroupClusters(application.serverGroups.data);
       service.updateClusterGroups(application);
       $timeout.flush();
       expect(ClusterFilterModel.groups[0].subgroups[0].subgroups[0].serverGroups[0]).not.toBe(this.serverGroup000);
@@ -779,10 +795,11 @@ describe('Service: clusterFilterService', function () {
       var application = {
         serverGroups: { data: [
           { cluster: 'cluster-a', name: 'cluster-a-v001', account: 'prod', region: 'us-east-1', stringVal: 'original',
-            runningTasks: runningTasks, executions: executions,
+            runningTasks: runningTasks, executions: executions, category: 'serverGroup', instances: []
           },
         ]}
       };
+      application.clusters = clusterService.createServerGroupClusters(application.serverGroups.data);
       service.updateClusterGroups(application);
       $timeout.flush();
       expect(ClusterFilterModel.groups[0].subgroups[0].subgroups[0].serverGroups[0]).toBe(this.serverGroup001);

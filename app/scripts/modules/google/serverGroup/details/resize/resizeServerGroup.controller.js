@@ -10,7 +10,7 @@ module.exports = angular.module('spinnaker.google.serverGroup.details.resize.con
   require('./resizeCapacity.directive.js'),
   require('../../../common/footer.directive.js'),
 ])
-  .controller('gceResizeServerGroupCtrl', function($scope, $modalInstance, serverGroupWriter,
+  .controller('gceResizeServerGroupCtrl', function($scope, $uibModalInstance, serverGroupWriter,
                                                    taskMonitorService,
                                                    application, serverGroup) {
     $scope.serverGroup = serverGroup;
@@ -59,14 +59,13 @@ module.exports = angular.module('spinnaker.google.serverGroup.details.resize.con
           serverGroupName: serverGroup.name,
           targetSize: capacity.desired,
           region: serverGroup.region,
-          zone: serverGroup.zones[0],
           interestingHealthProviderNames: $scope.command.interestingHealthProviderNames,
           reason: $scope.command.reason,
         });
       };
 
       var taskMonitorConfig = {
-        modalInstance: $modalInstance,
+        modalInstance: $uibModalInstance,
         application: application,
         title: 'Resizing ' + serverGroup.name,
       };
@@ -77,6 +76,6 @@ module.exports = angular.module('spinnaker.google.serverGroup.details.resize.con
     };
 
     this.cancel = function () {
-      $modalInstance.dismiss();
+      $uibModalInstance.dismiss();
     };
   });

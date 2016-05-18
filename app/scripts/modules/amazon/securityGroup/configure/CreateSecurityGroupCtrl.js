@@ -4,16 +4,16 @@ let angular = require('angular');
 
 module.exports = angular.module('spinnaker.amazon.securityGroup.create.controller', [
   require('angular-ui-router'),
-  require('../../../core/account/account.service.js'),
   require('../../../core/cache/infrastructureCaches.js'),
   require('../../../core/cache/cacheInitializer.js'),
   require('../../../core/task/monitor/taskMonitorService.js'),
   require('../../../core/securityGroup/securityGroup.read.service.js'),
+  require('../../../core/config/settings.js'),
 ])
-  .controller('awsCreateSecurityGroupCtrl', function($scope, $modalInstance, $state, $controller,
-                                                  accountService, securityGroupReader,
+  .controller('awsCreateSecurityGroupCtrl', function($scope, $uibModalInstance, $state, $controller,
+                                                  securityGroupReader,
                                                   taskMonitorService, cacheInitializer, infrastructureCaches,
-                                                  _, application, securityGroup ) {
+                                                  _, application, securityGroup, settings ) {
 
     $scope.pages = {
       location: require('./createSecurityGroupProperties.html'),
@@ -24,26 +24,16 @@ module.exports = angular.module('spinnaker.amazon.securityGroup.create.controlle
 
     angular.extend(this, $controller('awsConfigSecurityGroupMixin', {
       $scope: $scope,
-      $modalInstance: $modalInstance,
+      $uibModalInstance: $uibModalInstance,
       application: application,
       securityGroup: securityGroup,
+      settings: settings,
     }));
 
+    $scope.state.isNew = true;
 
-    accountService.listAccounts('aws').then(function(accounts) {
-      $scope.accounts = accounts;
-      ctrl.accountUpdated();
-    });
+    ctrl.upsert = () => ctrl.mixinUpsert('Create');
 
-    this.getSecurityGroupRefreshTime = function() {
-      return infrastructureCaches.securityGroups.getStats().ageMax;
-    };
-
-
-    ctrl.upsert = function () {
-      ctrl.mixinUpsert('Create');
-    };
-
-    ctrl.initializeSecurityGroups();
+    ctrl.initializeSecurityGroups().then(ctrl.initializeAccounts);
 
   });

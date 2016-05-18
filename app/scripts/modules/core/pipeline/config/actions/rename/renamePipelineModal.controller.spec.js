@@ -16,13 +16,13 @@ describe('Controller: renamePipelineModal', function() {
     this.initializeController = function(application, pipeline) {
       this.$scope = $rootScope.$new();
       this.pipelineConfigService = pipelineConfigService;
-      this.$modalInstance = { close: angular.noop };
+      this.$uibModalInstance = { close: angular.noop };
       this.controller = $controller('RenamePipelineModalCtrl', {
         $scope: this.$scope,
         application: application,
         pipeline: pipeline,
         pipelineConfigService: this.pipelineConfigService,
-        $modalInstance: this.$modalInstance,
+        $uibModalInstance: this.$uibModalInstance,
         $log: $log,
         _: _,
       });
@@ -43,6 +43,7 @@ describe('Controller: renamePipelineModal', function() {
       loader: () => this.$q.when(null),
       onLoad: () => this.$q.when(null),
     }, this.application);
+    this.application.pipelineConfigs.activate();
     this.application.pipelineConfigs.data = [this.pipelines[0], this.pipelines[1], this.pipelines[2]];
     this.initializeController(this.application, this.pipelines[1]);
 
@@ -72,7 +73,7 @@ describe('Controller: renamePipelineModal', function() {
         submittedApplication = applicationName;
         return $q.when(null);
       });
-      spyOn(this.$modalInstance, 'close');
+      spyOn(this.$uibModalInstance, 'close');
 
       this.controller.renamePipeline();
       this.$scope.$digest();

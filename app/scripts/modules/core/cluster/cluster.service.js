@@ -9,19 +9,38 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
   require('exports?"restangular"!imports?_=lodash!restangular'),
   require('../utils/lodash.js'),
   require('../serverGroup/serverGroup.transformer.js'),
+  require('../job/job.transformer.js'),
 ])
-  .factory('clusterService', function ($q, Restangular, _, serverGroupTransformer, namingService) {
+  .factory('clusterService', function ($q, Restangular, _, serverGroupTransformer,
+                                       jobTransformer, namingService) {
 
     function loadServerGroups(applicationName) {
-      var serverGroupLoader = Restangular.one('applications', applicationName).all('serverGroups').getList();
+      var serverGroupLoader = $q.all({
+        serverGroups: Restangular.one('applications', applicationName).all('serverGroups').getList().then(g => g, () => []),
+        jobs: Restangular.one('applications', applicationName).all('jobs').getList().then(jobs => jobs, () => []),
+      });
       return serverGroupLoader.then(function(results) {
-        results.forEach(addHealthStatusCheck);
-        results.forEach(addStackToServerGroup);
-        return $q.all(results.map(serverGroupTransformer.normalizeServerGroup));
+        results.serverGroups = results.serverGroups || [];
+        results.jobs = results.jobs || [];
+
+        results.serverGroups.forEach(addHealthStatusCheck);
+        results.serverGroups.forEach(parseName);
+        results.serverGroups.forEach((serverGroup) =>
+            serverGroup.category = 'serverGroup'
+          );
+
+        results.jobs.forEach(addHealthStatusCheck);
+        results.jobs.forEach(parseName);
+        results.jobs.forEach((job) =>
+            job.category = 'job'
+          );
+
+        return $q.all(results.serverGroups.map(serverGroupTransformer.normalizeServerGroup)
+            .concat(results.jobs.map(jobTransformer.normalizeJob)));
       });
     }
 
-    function addStackToServerGroup(serverGroup) {
+    function parseName(serverGroup) {
       var nameParts = namingService.parseServerGroupName(serverGroup.name);
       serverGroup.stack = nameParts.stack;
       serverGroup.detail = nameParts.freeFormDetails;
@@ -45,18 +64,23 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
         unknown: 0,
         starting: 0,
         outOfService: 0,
+        succeeded: 0,
+        failed: 0,
         total: 0,
       };
-      if (!cluster.serverGroups) {
-        return;
-      }
-      cluster.serverGroups.forEach(function(serverGroup) {
+      var operand = cluster.serverGroups || cluster.jobs || [];
+      operand.forEach(function(serverGroup) {
+        if (!serverGroup.instanceCounts) {
+          return;
+        }
         cluster.instanceCounts.total += serverGroup.instanceCounts.total || 0;
         cluster.instanceCounts.up += serverGroup.instanceCounts.up || 0;
         cluster.instanceCounts.down += serverGroup.instanceCounts.down || 0;
         cluster.instanceCounts.unknown += serverGroup.instanceCounts.unknown || 0;
         cluster.instanceCounts.starting += serverGroup.instanceCounts.starting || 0;
         cluster.instanceCounts.outOfService += serverGroup.instanceCounts.outOfService || 0;
+        cluster.instanceCounts.succeeded += serverGroup.instanceCounts.succeeded || 0;
+        cluster.instanceCounts.failed += serverGroup.instanceCounts.failed || 0;
       });
     }
 
@@ -161,7 +185,6 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
       });
     }
 
-
     function findStagesWithServerGroupInfo(stages) {
       var stagesWithServerGroups = _.filter(stages, function (stage) {
          return ( _.includes(['deploy', 'destroyAsg', 'resizeAsg'], stage.type) && _.has(stage.context, 'deploy.server.groups') ) ||
@@ -215,7 +238,7 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
     function addProvidersAndServerGroupsToInstances(serverGroups) {
       serverGroups.forEach(function(serverGroup) {
         serverGroup.instances.forEach(function(instance) {
-          instance.provider = serverGroup.type;
+          instance.provider = serverGroup.type || serverGroup.provider;
           instance.serverGroup = instance.serverGroup || serverGroup.name;
           instance.vpcId = serverGroup.vpcId;
         });
@@ -226,11 +249,14 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
       var clusters = [];
       var groupedByAccount = _.groupBy(serverGroups, 'account');
       _.forOwn(groupedByAccount, function(accountServerGroups, account) {
-        var groupedByCluster = _.groupBy(accountServerGroups, 'cluster');
-        _.forOwn(groupedByCluster, function(clusterServerGroups, clusterName) {
-          var cluster = {account: account, name: clusterName, serverGroups: clusterServerGroups};
-          addHealthCountsToCluster(cluster);
-          clusters.push(cluster);
+        var groupedByCategory = _.groupBy(accountServerGroups, 'category');
+        _.forOwn(groupedByCategory, function(categoryServerGroups, category) {
+          var groupedByCluster = _.groupBy(categoryServerGroups, 'cluster');
+          _.forOwn(groupedByCluster, function(clusterServerGroups, clusterName) {
+            var cluster = {account: account, category: category, name: clusterName, serverGroups: clusterServerGroups};
+            addHealthCountsToCluster(cluster);
+            clusters.push(cluster);
+          });
         });
       });
       addProvidersAndServerGroupsToInstances(serverGroups);
@@ -267,7 +293,10 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
         let toRemove = [];
         application.serverGroups.data.forEach((serverGroup, idx) => {
           let matches = serverGroups.filter((test) =>
-            test.name === serverGroup.name && test.account === serverGroup.account && test.region === serverGroup.region
+            test.name === serverGroup.name &&
+            test.account === serverGroup.account &&
+            test.region === serverGroup.region &&
+            test.category === serverGroup.category
           );
           if (!matches.length) {
             toRemove.push(idx);
@@ -283,7 +312,10 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
         // add any new ones
         serverGroups.forEach((serverGroup) => {
           if (!application.serverGroups.data.filter((test) =>
-              test.name === serverGroup.name && test.account === serverGroup.account && test.region === serverGroup.region
+              test.name === serverGroup.name &&
+              test.account === serverGroup.account &&
+              test.region === serverGroup.region &&
+              test.category === serverGroup.category
             ).length) {
             application.serverGroups.data.push(serverGroup);
           }

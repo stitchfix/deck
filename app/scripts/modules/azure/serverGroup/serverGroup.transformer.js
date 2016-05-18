@@ -35,6 +35,7 @@ module.exports = angular.module('spinnaker.azure.serverGroup.transformer', [
         application: command.application,
         stack: command.stack,
         detail: command.freeFormDetails,
+        freeFormDetails: command.freeFormDetails,
         account: command.credentials,
         selectedProvider: 'azure',
         capacity: {
@@ -65,9 +66,12 @@ module.exports = angular.module('spinnaker.azure.serverGroup.transformer', [
       if (typeof command.stack !== 'undefined') {
         configuration.name = configuration.name + '-' + command.stack;
       }
-      if (typeof command.details !== 'undefined') {
-        configuration.name = configuration.name + '-' + command.details;
+      if (typeof command.freeFormDetails !== 'undefined') {
+        configuration.name = configuration.name + '-' + command.freeFormDetails;
       }
+
+      // Default to an empty list of health provider names for now.
+      configuration.interestingHealthProviderNames = [];
 
       return configuration;
     }

@@ -13,13 +13,16 @@ templates.keys().forEach(function(key) {
 module.exports = angular.module('spinnaker.kubernetes', [
   require('../core/pipeline/config/stages/findAmi/kubernetes/kubernetesFindAmiStage.js'),
   require('../core/pipeline/config/stages/destroyAsg/kubernetes/kubernetesDestroyAsgStage.js'),
+  require('../core/pipeline/config/stages/disableAsg/kubernetes/kubernetesDisableAsgStage.js'),
   require('../core/pipeline/config/stages/disableCluster/kubernetes/kubernetesDisableClusterStage.js'),
   require('../core/pipeline/config/stages/enableAsg/kubernetes/kubernetesEnableAsgStage.js'),
   require('../core/pipeline/config/stages/resizeAsg/kubernetes/resizeStage.js'),
   require('./cache/configurer.service.js'),
+  require('./cluster/cluster.kubernetes.module.js'),
   require('./container/configurer.directive.js'),
   require('./container/probe.directive.js'),
   require('./instance/details/details.kubernetes.module.js'),
+  require('./job/job.module.js'),
   require('./loadBalancer/configure/configure.kubernetes.module.js'),
   require('./loadBalancer/details/details.kubernetes.module.js'),
   require('./loadBalancer/transformer.js'),
@@ -27,6 +30,7 @@ module.exports = angular.module('spinnaker.kubernetes', [
   require('./namespace/selectField.directive.js'),
   require('./search/resultFormatter.js'),
   require('./securityGroup/configure/configure.kubernetes.module.js'),
+  require('./securityGroup/details/details.kubernetes.module.js'),
   require('./securityGroup/reader.js'),
   require('./securityGroup/transformer.js'),
   require('./serverGroup/configure/CommandBuilder.js'),
@@ -37,7 +41,6 @@ module.exports = angular.module('spinnaker.kubernetes', [
 ])
   .config(function(cloudProviderRegistryProvider) {
     cloudProviderRegistryProvider.registerProvider('kubernetes', {
-      v2wizard: true,
       name: 'Kubernetes',
       cache: {
         configurer: 'kubernetesCacheConfigurer',
@@ -59,16 +62,19 @@ module.exports = angular.module('spinnaker.kubernetes', [
         transformer: 'kubernetesLoadBalancerTransformer',
         detailsTemplateUrl: require('./loadBalancer/details/details.html'),
         detailsController: 'kubernetesLoadBalancerDetailsController',
-        createLoadBalancerTemplateUrl: require('./loadBalancer/configure/wizard/wizard.html'),
+        createLoadBalancerTemplateUrl: require('./loadBalancer/configure/wizard/createWizard.html'),
         createLoadBalancerController: 'kubernetesUpsertLoadBalancerController',
       },
       securityGroup: {
         reader: 'kubernetesSecurityGroupReader',
         transformer: 'kubernetesSecurityGroupTransformer',
-        createSecurityGroupTemplateUrl: require('./securityGroup/configure/wizard/wizard.html'),
+        detailsTemplateUrl: require('./securityGroup/details/details.html'),
+        detailsController: 'kubernetesSecurityGroupDetailsController',
+        createSecurityGroupTemplateUrl: require('./securityGroup/configure/wizard/createWizard.html'),
         createSecurityGroupController: 'kubernetesUpsertSecurityGroupController',
       },
       serverGroup: {
+        skipUpstreamStageCheck: true,
         transformer: 'kubernetesServerGroupTransformer',
         detailsTemplateUrl: require('./serverGroup/details/details.html'),
         detailsController: 'kubernetesServerGroupDetailsController',
@@ -76,6 +82,15 @@ module.exports = angular.module('spinnaker.kubernetes', [
         cloneServerGroupTemplateUrl: require('./serverGroup/configure/wizard/wizard.html'),
         commandBuilder: 'kubernetesServerGroupCommandBuilder',
         configurationService: 'kubernetesServerGroupConfigurationService',
+      },
+      job: {
+        skipUpstreamStageCheck: true,
+        cloneJobController: 'kubernetesCloneJobController',
+        cloneJobTemplateUrl: require('./job/configure/wizard/wizard.html'),
+        commandBuilder: 'kubernetesJobCommandBuilder',
+        detailsTemplateUrl: require('./job/details/details.html'),
+        detailsController: 'kubernetesJobDetailsController',
+        transformer: 'kubernetesJobTransformer',
       },
     });
   });

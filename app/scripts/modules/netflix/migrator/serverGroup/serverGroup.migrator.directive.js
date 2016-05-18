@@ -47,7 +47,7 @@ module.exports = angular
     };
   })
   .controller('MigratorCtrl', function ($scope, $timeout,
-                                        $modalInstance,
+                                        $uibModalInstance,
                                         migratorService, taskReader,
                                         serverGroup, application) {
 
@@ -70,9 +70,10 @@ module.exports = angular
     let errorMode = (error) => {
       this.viewState.computing = false;
       this.viewState.executing = false;
-      this.viewState.error = error || 'An unknown error occurred. Please try again later.';
-      if (!error && this.task) {
+      if (this.task && this.task.failureMessage) {
         this.viewState.error = this.task.failureMessage;
+      } else {
+        this.viewState.error = error || 'An unknown error occurred. Please try again later.';
       }
     };
 
@@ -97,7 +98,8 @@ module.exports = angular
     };
 
     this.migrationOptions = {
-      allowIngressFromClassic: true
+      allowIngressFromClassic: true,
+      subnetType: 'internal',
     };
 
     this.source = {
@@ -134,13 +136,16 @@ module.exports = angular
       this.viewState.executing = true;
       migrationConfig.dryRun = false;
       migrationConfig.allowIngressFromClassic = this.migrationOptions.allowIngressFromClassic;
+      migrationConfig.target.subnetType = this.migrationOptions.subnetType;
       let executor = migratorService.executeMigration(migrationConfig);
       executor.then(migrationStarted, errorMode);
     };
 
     this.cancel = () => {
-      $timeout.cancel(this.task.poller);
-      $modalInstance.dismiss();
+      if (this.task && this.task.poller) {
+        $timeout.cancel(this.task.poller);
+      }
+      $uibModalInstance.dismiss();
     };
 
   });

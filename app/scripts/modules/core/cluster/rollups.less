@@ -16,6 +16,18 @@
 
 @import "../presentation/less/imports/commonImports.less";
 
+server-group {
+  input[type="checkbox"] {
+    font-size: 200%;
+    margin: 0;
+  }
+  .server-group-title {
+    input {
+      margin-right: 3px;
+    }
+  }
+}
+
 .rollup {
   h4 {
     text-transform: uppercase;
@@ -72,9 +84,8 @@
   line-height: 10px;
   border-radius: 2px;
   padding-bottom: 5px;
-  input[type="checkbox"] {
-    font-size: 200%;
-    margin: 0;
+  td:first-child, th:first-child {
+    padding-left: 0;
   }
   a.instance {
     margin: 0;
@@ -175,6 +186,9 @@
     margin: 0;
     font-size: 110%;
     font-weight: 300;
+    .job {
+      background: repeating-linear-gradient(45deg, @dark_blue_background, @dark_blue_background 5px, @dark_grey 5px, @dark_grey 10px);
+    }
   }
   .account-tag {
     .small {
@@ -349,6 +363,10 @@ load-balancers-tag {
   border-bottom-left-radius: 2px;
   border-bottom-right-radius: 2px;
 
+  .section-title {
+    min-height: 24px;
+  }
+
   .clickable-row {
     background-color: #ffffff;
     border: 2px solid transparent;
@@ -377,6 +395,25 @@ load-balancers-tag {
     .rollup-pod-server-group {
       .server-group-title {
         background-color: #ffffff;
+      }
+      &.running {
+        background-color: @active_pod_blue;
+        .pulsing(1.0);
+        .server-group-title {
+          background-color: @active_pod_blue;
+        }
+      }
+      &.failed {
+        background-color: @failed_job;
+        .server-group-title {
+          background-color: @failed_job;
+        }
+      }
+      &.succeeded {
+        background-color: @succeeded_job;
+        .server-group-title {
+          background-color: @succeeded_job;
+        }
       }
       &.active {
         background-color: @active_pod_blue;

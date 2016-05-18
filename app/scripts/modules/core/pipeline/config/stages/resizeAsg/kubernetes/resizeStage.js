@@ -42,8 +42,6 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.kubernetes.resize
       $scope.viewState.accountsLoaded = true;
     });
 
-    $scope.namespaces = ['default'];
-
     $scope.resizeTargets = stageConstants.targetList;
 
     $scope.scaleActions = [
@@ -88,7 +86,7 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.kubernetes.resize
     stage.cloudProviderType = 'kubernetes';
 
     if (stage.isNew && $scope.application.attributes.platformHealthOnly) {
-      stage.interestingHealthProviderNames = ['Kubernetes'];
+      stage.interestingHealthProviderNames = ['KubernetesPod'];
     }
 
     if (!stage.credentials && $scope.application.defaultCredentials.kubernetes) {

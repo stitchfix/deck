@@ -28,13 +28,19 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.jenkinsStage', [
 
     $scope.stage = stage;
     $scope.stage.failPipeline = ($scope.stage.failPipeline === undefined ? true : $scope.stage.failPipeline);
+    $scope.stage.continuePipeline = ($scope.stage.continuePipeline === undefined ? false : $scope.stage.continuePipeline);
 
     $scope.viewState = {
       mastersLoaded: false,
       mastersRefreshing: false,
       jobsLoaded: false,
       jobsRefreshing: false,
+      failureOption: 'fail',
+      markUnstableAsSuccessful: !!stage.markUnstableAsSuccessful
     };
+
+    // Using viewState to avoid marking pipeline as dirty if field is not set
+    this.markUnstableChanged = () => stage.markUnstableAsSuccessful = $scope.viewState.markUnstableAsSuccessful;
 
     function initializeMasters() {
       igorService.listMasters().then(function (masters) {
@@ -101,6 +107,33 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.jenkinsStage', [
        });
       }
     }
+
+    this.failureOptionChanged = function() {
+      if ($scope.viewState.failureOption === 'fail') {
+        $scope.stage.failPipeline = true;
+        $scope.stage.continuePipeline = false;
+      } else if ($scope.viewState.failureOption === 'stop') {
+        $scope.stage.failPipeline = false;
+        $scope.stage.continuePipeline = false;
+      } else if ($scope.viewState.failureOption === 'ignore') {
+        $scope.stage.failPipeline = false;
+        $scope.stage.continuePipeline = true;
+      }
+    };
+
+    function initializeFailureOption() {
+      var initValue = '';
+      if ($scope.stage.failPipeline === true && $scope.stage.continuePipeline === false) {
+        initValue = 'fail';
+      } else if ($scope.stage.failPipeline === false && $scope.stage.continuePipeline === false) {
+        initValue = 'stop';
+      } else if ($scope.stage.failPipeline === false && $scope.stage.continuePipeline === true) {
+        initValue = 'ignore';
+      }
+      $scope.viewState.failureOption = initValue;
+    }
+
+    initializeFailureOption();
 
     $scope.useDefaultParameters = {};
     $scope.userSuppliedParameters = {};

@@ -8,6 +8,52 @@ module.exports = angular.module('spinnaker.aws.serverGroup.transformer', [
   ])
   .factory('awsServerGroupTransformer', function (_, vpcReader) {
 
+    function addComparator(alarm) {
+      if (!alarm.comparisonOperator) {
+        return;
+      }
+      switch(alarm.comparisonOperator) {
+        case 'LessThanThreshold':
+          alarm.comparator = '&lt;';
+          break;
+        case 'GreaterThanThreshold':
+          alarm.comparator = '&gt;';
+          break;
+        case 'LessThanOrEqualToThreshold':
+          alarm.comparator = '&le;';
+          break;
+        case 'GreaterThanOrEqualToThreshold':
+          alarm.comparator = '&ge;';
+          break;
+      }
+    }
+
+    function addAdjustmentAttributes(adjuster) {
+      adjuster.operator = adjuster.scalingAdjustment < 0 ? 'decrease' : 'increase';
+      adjuster.absAdjustment = Math.abs(adjuster.scalingAdjustment);
+    }
+
+    let upperBoundSorter = (a, b) => b.metricIntervalUpperBound - a.metricIntervalUpperBound,
+        lowerBoundSorter = (a, b) => a.metricIntervalLowerBound - b.metricIntervalLowerBound;
+
+    let transformScalingPolicy = (policy) => {
+      policy.alarms = policy.alarms || [];
+      policy.alarms.forEach(addComparator);
+      addAdjustmentAttributes(policy); // simple policies
+      if (policy.stepAdjustments && policy.stepAdjustments.length) {
+        policy.stepAdjustments.forEach(addAdjustmentAttributes); // step policies
+        let sorter = policy.stepAdjustments.every(a => a.metricIntervalUpperBound !== undefined) ?
+          upperBoundSorter : lowerBoundSorter;
+        policy.stepAdjustments.sort(sorter);
+      }
+    };
+
+    function normalizeServerGroupDetails(serverGroup) {
+      if (serverGroup.scalingPolicies) {
+        serverGroup.scalingPolicies.forEach(transformScalingPolicy);
+      }
+    }
+
     function normalizeServerGroup(serverGroup) {
       serverGroup.instances.forEach((instance) => { instance.vpcId = serverGroup.vpcId; });
       return vpcReader.listVpcs().then(addVpcNameToServerGroup(serverGroup));
@@ -32,6 +78,7 @@ module.exports = angular.module('spinnaker.aws.serverGroup.transformer', [
       command.cloudProvider = 'aws';
       command.availabilityZones = {};
       command.availabilityZones[command.region] = base.availabilityZones;
+      command.loadBalancers = (base.loadBalancers || []).concat(base.vpcLoadBalancers || []);
       command.account = command.credentials;
       if (!command.ramdiskId) {
         delete command.ramdiskId; // TODO: clean up in kato? - should ignore if empty string
@@ -52,6 +99,7 @@ module.exports = angular.module('spinnaker.aws.serverGroup.transformer', [
     return {
       convertServerGroupCommandToDeployConfiguration: convertServerGroupCommandToDeployConfiguration,
       normalizeServerGroup: normalizeServerGroup,
+      normalizeServerGroupDetails: normalizeServerGroupDetails,
     };
 
   });

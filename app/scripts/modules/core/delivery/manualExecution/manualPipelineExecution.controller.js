@@ -9,7 +9,7 @@ module.exports = angular.module('spinnaker.core.delivery.manualPipelineExecution
   require('../../utils/lodash.js'),
   require('../../pipeline/config/pipelineConfigProvider.js'),
 ])
-  .controller('ManualPipelineExecutionCtrl', function (_, $modalInstance, pipeline, application, pipelineConfig) {
+  .controller('ManualPipelineExecutionCtrl', function (_, $uibModalInstance, pipeline, application, pipelineConfig) {
 
     this.command = {
       pipeline: pipeline,
@@ -64,7 +64,7 @@ module.exports = angular.module('spinnaker.core.delivery.manualPipelineExecution
 
       this.showRebakeOption = pipeline.stages.some((stage) => stage.type === 'bake');
 
-      if (pipeline.parameterConfig !== undefined && pipeline.parameterConfig.length) {
+      if (pipeline.parameterConfig && pipeline.parameterConfig.length) {
         this.parameters = {};
         pipeline.parameterConfig.forEach((parameter) => {
           this.parameters[parameter.name] = parameter.default;
@@ -84,13 +84,13 @@ module.exports = angular.module('spinnaker.core.delivery.manualPipelineExecution
       command.pipelineName = pipeline.name;
       selectedTrigger.type = 'manual';
 
-      if (pipeline.parameterConfig !== undefined && pipeline.parameterConfig.length) {
+      if (pipeline.parameterConfig && pipeline.parameterConfig.length) {
         selectedTrigger.parameters = this.parameters;
       }
-      $modalInstance.close(command);
+      $uibModalInstance.close(command);
     };
 
-    this.cancel = $modalInstance.dismiss;
+    this.cancel = $uibModalInstance.dismiss;
 
 
     /**
