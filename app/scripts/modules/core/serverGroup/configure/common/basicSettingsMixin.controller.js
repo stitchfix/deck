@@ -64,18 +64,25 @@ module.exports = angular
     this.stackPattern = {
       test: function(stack) {
         var pattern = $scope.command.viewState.templatingEnabled ?
-          /^([a-zA-Z_0-9._]*(\${.+})*)*$/ :
-          /^[a-zA-Z_0-9._]*$/;
-        return pattern.test(stack);
+          /^([a-zA-Z_0-9._${}]*(\${.+})*)*$/ :
+          /^[a-zA-Z_0-9._${}]*$/;
+
+        return isNotExpressionLanguage(stack) ? pattern.test(stack) : true;
       }
     };
 
     this.detailPattern = {
       test: function(detail) {
         var pattern = $scope.command.viewState.templatingEnabled ?
-          /^([a-zA-Z_0-9._-]*(\${.+})*)*$/ :
-          /^[a-zA-Z_0-9._-]*$/;
-        return pattern.test(detail);
+          /^([a-zA-Z_0-9._${}-]*(\${.+})*)*$/ :
+          /^[a-zA-Z_0-9._${}-]*$/;
+
+        return isNotExpressionLanguage(detail) ? pattern.test(detail) : true;
       }
     };
+
+    let isNotExpressionLanguage = (field) => {
+      return field && field.indexOf('${') < 0;
+    };
+
   });

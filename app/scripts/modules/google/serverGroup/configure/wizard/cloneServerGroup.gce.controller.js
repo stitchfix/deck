@@ -91,15 +91,19 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
 
     function initializeWatches() {
       $scope.$watch('command.credentials', createResultProcessor($scope.command.credentialsChanged));
+      $scope.$watch('command.regional', createResultProcessor($scope.command.regionalChanged));
       $scope.$watch('command.region', createResultProcessor($scope.command.regionChanged));
       $scope.$watch('command.network', createResultProcessor($scope.command.networkChanged));
+      $scope.$watch('command.zone', createResultProcessor($scope.command.zoneChanged));
       $scope.$watch('command.viewState.instanceTypeDetails', updateStorageSettingsFromInstanceType());
     }
 
     function initializeSelectOptions() {
       processCommandUpdateResult($scope.command.credentialsChanged());
+      processCommandUpdateResult($scope.command.regionalChanged());
       processCommandUpdateResult($scope.command.regionChanged());
       processCommandUpdateResult($scope.command.networkChanged());
+      processCommandUpdateResult($scope.command.zoneChanged());
       gceServerGroupConfigurationService.configureSubnets($scope.command);
     }
 
@@ -118,6 +122,11 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
       }
       if (result.dirty.availabilityZones) {
         v2modalWizardService.markDirty('capacity');
+      }
+      if (result.dirty.zone) {
+        v2modalWizardService.markIncomplete('zones');
+      } else {
+        v2modalWizardService.markComplete('zones');
       }
     }
 

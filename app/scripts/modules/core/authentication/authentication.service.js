@@ -17,6 +17,7 @@ module.exports = angular.module('spinnaker.authentication.service', [
       if (authenticatedUser) {
         user.name = authenticatedUser;
         user.authenticated = true;
+        user.lastAuthenticated = new Date().getTime();
       }
       onAuthenticationEvents.forEach(function(event) {
         event();
@@ -31,9 +32,14 @@ module.exports = angular.module('spinnaker.authentication.service', [
       onAuthenticationEvents.push(event);
     }
 
+    function authenticationExpired() {
+      user.authenticated = false;
+    }
+
     return {
       setAuthenticatedUser: setAuthenticatedUser,
       getAuthenticatedUser: getAuthenticatedUser,
       onAuthentication: onAuthentication,
+      authenticationExpired: authenticationExpired,
     };
   });

@@ -14,7 +14,8 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
 ])
   .factory('gceServerGroupConfigurationService', function(gceImageReader, accountService, securityGroupReader,
                                                           gceInstanceTypeService, cacheInitializer,
-                                                          $q, loadBalancerReader, networkReader, subnetReader, _) {
+                                                          $q, loadBalancerReader, networkReader, subnetReader,
+                                                          settings, _) {
 
     var persistentDiskTypes = [
       'pd-standard',
@@ -187,14 +188,16 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
       let regions = command.backingData.credentialsKeyedByAccount[command.credentials].regions;
       if (_.isArray(regions)) {
         filteredData.zones = _.find(regions, {name: command.region}).zones;
-        filteredData.truncatedZones = _.take(filteredData.zones, 3);
+        filteredData.truncatedZones = _.takeRight(filteredData.zones.sort(), 3);
       } else {
         // TODO(duftler): Remove this once we finish deprecating the old style regions/zones in clouddriver GCE credentials.
         filteredData.zones = regions[command.region];
       }
       if (!_(filteredData.zones).contains(command.zone)) {
-        command.zone = '';
-        result.dirty.zone = true;
+        delete command.zone;
+        if (!command.regional) {
+          result.dirty.zone = true;
+        }
       }
       return result;
     }
@@ -353,6 +356,26 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
     }
 
     function attachEventHandlers(command) {
+      command.regionalChanged = function regionalChanged() {
+        var result = { dirty: {} };
+        var filteredData = command.backingData.filtered;
+        var defaults = settings.providers.gce.defaults;
+        if (command.regional) {
+          command.zone = null;
+        } else if (!command.zone) {
+          if (command.region === defaults.region) {
+            command.zone = defaults.zone;
+          } else {
+            command.zone = filteredData.zones[0];
+          }
+
+          angular.extend(result.dirty, configureZones(command).dirty);
+        }
+
+        command.viewState.dirty = command.viewState.dirty || {};
+        angular.extend(command.viewState.dirty, result.dirty);
+        return result;
+      };
 
       command.regionChanged = function regionChanged() {
         var result = { dirty: {} };
@@ -426,6 +449,16 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
         command.viewState.dirty = command.viewState.dirty || {};
         angular.extend(command.viewState.dirty, result.dirty);
 
+        return result;
+      };
+
+      command.zoneChanged = function zoneChanged() {
+        var result = { dirty: { } };
+        if (command.zone === undefined && !command.regional) {
+          result.dirty.zone = true;
+        }
+        command.viewState.dirty = command.viewState.dirty || {};
+        angular.extend(command.viewState.dirty, result.dirty);
         return result;
       };
     }

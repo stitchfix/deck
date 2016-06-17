@@ -89,6 +89,9 @@ module.exports = angular.module('spinnaker.core.pipeline.config.pipelineConfigur
       var newStage = { isNew: true };
       $scope.pipeline.stages = $scope.pipeline.stages || [];
       if ($scope.pipeline.parallel) {
+        if (!$scope.pipeline.stageCounter) {
+          $scope.pipeline.stageCounter = Math.max(...$scope.pipeline.stages.map(s => Number(s.refId) || 0)) + 1;
+        }
         $scope.pipeline.stageCounter++;
         newStage.requisiteStageRefIds = [];
         newStage.refId = $scope.pipeline.stageCounter + ''; // needs to be a string
@@ -145,7 +148,9 @@ module.exports = angular.module('spinnaker.core.pipeline.config.pipelineConfigur
         }
       }).result.then(function() {
           $scope.pipeline.name = original.name;
-          $scope.viewState.original = angular.toJson(original);
+          $scope.viewState.original = angular.toJson(getPlain(original));
+          $scope.viewState.originalPipelineName = original.name;
+          markDirty();
         });
     };
 
@@ -214,18 +219,20 @@ module.exports = angular.module('spinnaker.core.pipeline.config.pipelineConfigur
           viewState = $scope.viewState;
 
       $scope.viewState.saving = true;
-      pipelineConfigService.savePipeline(pipeline).then(
-        function() {
-          viewState.original = angular.toJson(getPlain(pipeline));
-          viewState.originalPipelineName = pipeline.name;
-          markDirty();
-          $scope.viewState.saving = false;
-        },
-        function() {
-          $scope.viewState.saveError = true;
-          $scope.viewState.saving = false;
-        }
-      );
+      pipelineConfigService.savePipeline(pipeline)
+        .then($scope.application.pipelineConfigs.refresh)
+        .then(
+          function() {
+            viewState.original = angular.toJson(getPlain(pipeline));
+            viewState.originalPipelineName = pipeline.name;
+            markDirty();
+            $scope.viewState.saving = false;
+          },
+          function() {
+            $scope.viewState.saveError = true;
+            $scope.viewState.saving = false;
+          }
+        );
     };
 
     this.revertPipelineChanges = function() {

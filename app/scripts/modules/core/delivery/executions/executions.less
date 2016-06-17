@@ -14,7 +14,16 @@ executions {
       padding-bottom: 5px;
     }
     .form-group {
-      margin-right: 20px;
+      margin-right: 9px;
+      label {
+        font-weight: 600;
+      }
+    }
+    .checkbox {
+      height: 24px;
+      label {
+        font-weight: normal;
+      }
     }
   }
 }
@@ -84,5 +93,9 @@ executions {
   &.execution-marker-paused {
     fill: @stage-running;
     background-color: @stage-running;
+  }
+  &.execution-marker-skipped {
+    fill: @stage-succeeded;
+    background-color: @stage-succeeded;
   }
 }

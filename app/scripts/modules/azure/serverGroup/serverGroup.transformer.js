@@ -15,15 +15,15 @@ module.exports = angular.module('spinnaker.azure.serverGroup.transformer', [
 
       if(command.viewState.mode === 'editPipeline' || command.viewState.mode === 'createPipeline') {
         tempImage = {
-          imageName: '${imageName}',
-          isCustom: '${isCustom}',
-          publisher: '${publisher}',
-          offer: '${offer}',
-          sku: '${imagesku}',
-          version: '${version}',
+          imageName: '',
+          isCustom: 'true',
+          publisher: '',
+          offer: '',
+          sku: '',
+          version: '',
           region: command.region,
-          uri: '${uri}',
-          ostype: '${ostype}',
+          uri: '',
+          ostype: '',
         };
       } else {
         tempImage = command.selectedImage;
@@ -52,7 +52,7 @@ module.exports = angular.module('spinnaker.azure.serverGroup.transformer', [
         type: 'createServerGroup',
         image: tempImage,
         sku: {
-          name: 'Standard_A1',
+          name: 'Standard_DS1_v2',
           tier: 'Standard',
           capacity: command.sku.capacity,
         },

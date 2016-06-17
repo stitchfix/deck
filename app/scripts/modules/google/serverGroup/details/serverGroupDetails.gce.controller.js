@@ -165,12 +165,11 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
     let prepareAuthScopes = () => {
       if (_.has(this.serverGroup, 'launchConfig.instanceTemplate.properties.serviceAccounts')) {
         let serviceAccounts = this.serverGroup.launchConfig.instanceTemplate.properties.serviceAccounts;
-        let defaultServiceAccount = _.find(serviceAccounts, serviceAccount => {
-          return serviceAccount.email === 'default';
-        });
+        if (serviceAccounts.length) {
+          let serviceAccount = this.serverGroup.launchConfig.instanceTemplate.properties.serviceAccounts[0];
 
-        if (defaultServiceAccount) {
-          this.serverGroup.authScopes = _.map(defaultServiceAccount.scopes, authScope => {
+          this.serverGroup.serviceAccountEmail = serviceAccount.email;
+          this.serverGroup.authScopes = _.map(serviceAccount.scopes, authScope => {
             return authScope.replace('https://www.googleapis.com/auth/', '');
           });
         }
@@ -389,8 +388,9 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
     };
 
     this.showStartupScript = () => {
-      this.userDataModalTitle = 'Startup Script';
-      this.userData = this.serverGroup.startupScript;
+      $scope.userDataModalTitle = 'Startup Script';
+      $scope.serverGroup = { name: this.serverGroup.name };
+      $scope.userData = this.serverGroup.startupScript;
       $uibModal.open({
         templateUrl: require('../../../core/serverGroup/details/userData.html'),
         controller: 'CloseableModalCtrl',
