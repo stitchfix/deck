@@ -9,6 +9,7 @@ module.exports = angular
     require('../filter/executionFilter.service.js'),
     require('../filter/executionFilter.model.js'),
     require('../triggers/triggersTag.directive.js'),
+    require('../triggers/nextRun.component'),
     require('./execution/execution.directive.js'),
   ])
   .directive('executionGroup', function() {
@@ -58,7 +59,6 @@ module.exports = angular
       poll: null,
       canTriggerPipelineManually: this.pipelineConfig,
       canConfigure: this.pipelineConfig,
-      isRetired: ExecutionFilterModel.sortFilter.groupBy === 'name' && !this.pipelineConfig,
       showPipelineName: ExecutionFilterModel.sortFilter.groupBy !== 'name',
     };
 

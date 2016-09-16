@@ -35,7 +35,6 @@ module.exports = angular
     require('angular-ui-router'),
     require('angular-ui-bootstrap'),
     require('exports?"angular.filter"!angular-filter'),
-    require('exports?"restangular"!imports?_=lodash!restangular'),
     require('exports?"ui.select"!ui-select'),
     require('imports?define=>false!exports?"angularSpinner"!angular-spinner'),
 
@@ -44,9 +43,12 @@ module.exports = angular
     require('./application/application.module.js'),
 
     require('./account/accountLabelColor.directive.js'),
+    require('./analytics/analytics.service'),
     require('./authentication/authentication.module.js'),
 
     require('./bootstrap/applicationBootstrap.directive.js'),
+
+    require('./api/api.service'),
 
     require('./cache/caches.module.js'),
     require('./cloudProvider/cloudProviderLogo.directive.js'),
@@ -91,6 +93,7 @@ module.exports = angular
     require('./pipeline/pipelines.module.js'),
     require('./pipeline/config/stages/bake/bakeStage.module.js'),
     require('./pipeline/config/stages/checkPreconditions/checkPreconditionsStage.module.js'),
+    require('./pipeline/config/stages/cloneServerGroup/cloneServerGroupStage.module.js'),
     require('./pipeline/config/stages/core/stage.core.module.js'),
     require('./pipeline/config/stages/deploy/deployStage.module.js'),
     require('./pipeline/config/stages/destroyAsg/destroyAsgStage.module.js'),
@@ -100,8 +103,10 @@ module.exports = angular
     require('./pipeline/config/stages/enableAsg/enableAsgStage.module.js'),
     require('./pipeline/config/stages/executionWindows/executionWindowsStage.module.js'),
     require('./pipeline/config/stages/findAmi/findAmiStage.module.js'),
+    require('./pipeline/config/stages/findImageFromTags/findImageFromTagsStage.module.js'),
     require('./pipeline/config/stages/jenkins/jenkinsStage.module.js'),
     require('./pipeline/config/stages/manualJudgment/manualJudgmentStage.module.js'),
+    require('./pipeline/config/stages/tagImage/tagImageStage.module.js'),
     require('./pipeline/config/stages/pipeline/pipelineStage.module.js'),
     require('./pipeline/config/stages/resizeAsg/resizeAsgStage.module.js'),
     require('./pipeline/config/stages/runJob/runJobStage.module.js'),
@@ -120,7 +125,6 @@ module.exports = angular
     require('./search/search.module.js'),
     require('./securityGroup/securityGroup.module.js'),
     require('./serverGroup/serverGroup.module.js'),
-    require('./job/job.module.js'),
 
     require('./task/task.module.js'),
 
@@ -128,6 +132,7 @@ module.exports = angular
 
     require('./utils/utils.module.js'),
 
+    require('./widgets'),
     require('./validation/validation.module.js'),
   ])
   .run(function($rootScope, $log, $state, settings) {
@@ -182,10 +187,6 @@ module.exports = angular
   .config(function($uibModalProvider) {
     $uibModalProvider.options.backdrop = 'static';
     $uibModalProvider.options.keyboard = false;
-  })
-  .config(function(RestangularProvider, settings) {
-    RestangularProvider.setBaseUrl(settings.gateUrl);
-    RestangularProvider.setDefaultHttpFields({timeout: settings.pollSchedule * 2 + 5000}); // TODO: replace with apiHost call
   })
   .config(function($httpProvider) {
     $httpProvider.defaults.headers.patch = {

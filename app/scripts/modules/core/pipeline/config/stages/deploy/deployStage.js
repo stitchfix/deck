@@ -22,7 +22,7 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.deployStage', [
       validators: [
         {
           type: 'stageBeforeType',
-          stageTypes: ['bake', 'findAmi', 'findImage'],
+          stageTypes: ['bake', 'findAmi', 'findImage', 'findImageFromTags'],
           message: 'You must have a Bake or Find Image stage before any deploy stage.',
           skipValidation: (pipeline, stage) => {
             if (!stage.clusters || !stage.clusters.length) {
@@ -63,6 +63,12 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.deployStage', [
       return stage.clusters.some((cluster) => {
         let cloudProvider = cluster.cloudProvider || cluster.provider || cluster.providerType || 'aws';
         return cloudProviderRegistry.hasValue(cloudProvider, 'subnet');
+      });
+    };
+
+    this.hasInstanceTypeDeployments = () => {
+      return stage.clusters.some((cluster) => {
+        return cluster.instanceType !== undefined;
       });
     };
 

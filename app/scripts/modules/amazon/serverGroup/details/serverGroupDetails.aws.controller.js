@@ -29,6 +29,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
   require('../../../core/utils/selectOnDblClick.directive.js'),
   require('../serverGroup.transformer.js'),
   require('./scalingPolicy/addScalingPolicyButton.component.js'),
+  require('./securityGroup/editSecurityGroups.modal.controller'),
 ])
   .controller('awsServerGroupDetailsCtrl', function ($scope, $state, app, serverGroup, InsightFilterStateModel,
                                                      serverGroupReader, awsServerGroupCommandBuilder, $uibModal,
@@ -86,17 +87,13 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
             .then((details) => {
               cancelLoader();
 
-              var plainDetails = details.plain();
+              var plainDetails = details;
               angular.extend(plainDetails, summary);
               // it's possible the summary was not found because the clusters are still loading
               plainDetails.account = serverGroup.accountId;
 
               this.serverGroup = plainDetails;
               this.applyAccountDetails(this.serverGroup);
-
-              this.runningExecutions = () => {
-                return runningExecutionsService.filterRunningExecutions(this.serverGroup.executions);
-              };
 
               if (!_.isEmpty(this.serverGroup)) {
 
@@ -133,6 +130,12 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
                 this.disabledDate = autoScalingProcessService.getDisabledDate(this.serverGroup);
                 awsServerGroupTransformer.normalizeServerGroupDetails(this.serverGroup);
                 this.scalingPolicies = this.serverGroup.scalingPolicies;
+                this.scalingPoliciesDisabled = this.scalingPolicies.length && this.autoScalingProcesses
+                    .filter(p => !p.enabled)
+                    .some(p => ['Launch','Terminate','AlarmNotification'].indexOf(p.name) > -1);
+                this.scheduledActionsDisabled = this.serverGroup.scheduledActions.length && this.autoScalingProcesses
+                    .filter(p => !p.enabled)
+                    .some(p => ['Launch','Terminate','ScheduledAction'].indexOf(p.name) > -1);
 
               } else {
                 autoClose();
@@ -150,6 +153,22 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
         app.serverGroups.onRefresh($scope, retrieveServerGroup);
       }
     });
+
+    this.runningExecutions = () => {
+      return runningExecutionsService.filterRunningExecutions(this.serverGroup.executions);
+    };
+
+    this.isEnableLocked = () => {
+      if (this.serverGroup.isDisabled) {
+        let resizeTasks = (this.serverGroup.runningTasks || [])
+          .filter(task => _.get(task, 'execution.stages', []).some(
+            stage => stage.type === 'resizeServerGroup'));
+        if (resizeTasks.length) {
+          return true;
+        }
+      }
+      return false;
+    };
 
     this.destroyServerGroup = () => {
       var serverGroup = this.serverGroup;
@@ -170,8 +189,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
         region: serverGroup.region
       };
 
-
-      confirmationModalService.confirm({
+      var confirmationModalParams = {
         header: 'Really destroy ' + serverGroup.name + '?',
         buttonText: 'Destroy ' + serverGroup.name,
         account: serverGroup.account,
@@ -179,6 +197,8 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
         taskMonitorConfig: taskMonitor,
         submitMethod: submitMethod,
         askForReason: true,
+        platformHealthOnlyShowOverride: app.attributes.platformHealthOnlyShowOverride,
+        platformHealthType: 'Amazon',
         body: this.getBodyTemplate(serverGroup, app),
         onTaskComplete: () => {
           if ($state.includes('**.serverGroup', stateParams)) {
@@ -190,7 +210,10 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
             $state.go('^');
           }
         }
-      });
+      };
+
+      confirmationModalService.confirm(confirmationModalParams);
+
     };
 
     this.getBodyTemplate = (serverGroup, app) => {
@@ -232,10 +255,6 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
         askForReason: true
       };
 
-      if (app.attributes.platformHealthOnly) {
-        confirmationModalParams.interestingHealthProviderNames = ['Amazon'];
-      }
-
       confirmationModalService.confirm(confirmationModalParams);
     };
 
@@ -261,10 +280,6 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
         submitMethod: submitMethod,
         askForReason: true
       };
-
-      if (app.attributes.platformHealthOnly) {
-        confirmationModalParams.interestingHealthProviderNames = ['Amazon'];
-      }
 
       confirmationModalService.confirm(confirmationModalParams);
     };
@@ -333,6 +348,18 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
       });
     };
 
+    this.updateSecurityGroups = () => {
+      $uibModal.open({
+        templateUrl: require('./securityGroup/editSecurityGroups.modal.html'),
+        controller: 'EditSecurityGroupsCtrl as $ctrl',
+        resolve: {
+          application: () => app,
+          serverGroup: () => this.serverGroup,
+          securityGroups: () => this.securityGroups
+        }
+      });
+    };
+
     this.showUserData = () => {
       // TODO: Provide a custom controller so we don't have to stick this on the scope
       $scope.userData = window.atob(this.serverGroup.launchConfig.userData);
@@ -345,7 +372,9 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
     };
 
     this.buildJenkinsLink = () => {
-      if (this.serverGroup && this.serverGroup.buildInfo && this.serverGroup.buildInfo.jenkins) {
+      if (this.serverGroup && this.serverGroup.buildInfo && this.serverGroup.buildInfo.buildInfoUrl) {
+        return this.serverGroup.buildInfo.buildInfoUrl;
+      } else if (this.serverGroup && this.serverGroup.buildInfo && this.serverGroup.buildInfo.jenkins) {
         var jenkins = this.serverGroup.buildInfo.jenkins;
         return jenkins.host + 'job/' + jenkins.name + '/' + jenkins.number;
       }

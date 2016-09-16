@@ -28,26 +28,26 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.acaTask.detail
           $scope.baseline = $scope.stage.context.baseline;
           $scope.canaryDeployments = $scope.canary.canaryDeployments;
         }
+
+        $scope.deployment = $scope.stage.context;
+
+        $scope.viewState = {
+          loadingHistory: true,
+          loadingHistoryError: false,
+        };
+
+        executionDetailsSectionService.synchronizeSection($scope.configSections);
+        $scope.detailsSection = $stateParams.details;
+
+
+        $scope.loadHistory();
       });
 
-      $scope.deployment = $scope.stage.context;
-
-      $scope.viewState = {
-        loadingHistory: true,
-        loadingHistoryError: false,
-      };
-
-      executionDetailsSectionService.synchronizeSection($scope.configSections);
-      $scope.detailsSection = $stateParams.details;
-
-
-      $scope.loadHistory();
     }
 
 
     $scope.loadHistory = function () {
-
-      if ($scope.deployment.canary.canaryDeployments.length > 0) {
+      if ( $scope.deployment.canary && $scope.deployment.canary.canaryDeployments.length > 0) {
         $scope.viewState.loadingHistory = true;
         $scope.viewState.loadingHistoryError = false;
 

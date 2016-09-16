@@ -56,8 +56,14 @@ body {
 }
 
 html {
+  .alert {
+    border-radius: 0;
+  }
   a {
     color: @spinnaker-link-color;
+    &.disabled {
+      color: @mid_lighter_grey;
+    }
   }
   .table > tbody > tr.info > td {
     background-color: @active_pod_blue;
@@ -318,6 +324,22 @@ html {
   }
 }
 
+.glyphicon-Warn {
+  &:before {
+    content: "\26A0";
+    color: @unhealthy_red;
+    font-weight: bold;
+  }
+}
+
+.glyphicon-Normal {
+  &:before {
+    content: "\2022";
+    color: @healthy_green_border;
+    font-weight: bold;
+  }
+}
+
 .glyphicon-Up-triangle {
   &:before {
     content: "\25B2";
@@ -338,7 +360,7 @@ html {
     content: "\2666";
     font-weight: 900;
     color: @missing_health;
-    font-size: 120%;
+    font-size: 85%;
   }
   display: inline-block;
   padding-bottom: 3px;
@@ -626,6 +648,11 @@ body > .container {
   margin: 5px 0 20px;
   cursor: pointer;
   background-color: transparent;
+
+  &.small {
+    padding: 4px;
+    font-size: 80%;
+  }
 
   &:hover, &:focus, &:active {
     border-color: #000;
@@ -1249,4 +1276,16 @@ ul.checkmap {
 .bottom-border {
   border-bottom: 1px solid @light_grey;
   padding-bottom: 10px;
+}
+
+.visible-xl-inline {
+  display: none !important;
+}
+@media (min-width: 1400px) {
+  .visible-xl-inline {
+    display: inline !important;
+  }
+  .hidden-xl-inline {
+    display: none !important;
+  }
 }

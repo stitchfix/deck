@@ -14,18 +14,10 @@ module.exports = angular.module('spinnaker.core.pipeline.config.actions.editJson
       delete obj.application;
       delete obj.index;
       delete obj.id;
-      delete obj.stageCounter;
-    }
-
-    function updateStageCounter() {
-      if (pipeline.parallel) {
-        let stageIds = pipeline.stages.map((stage) => Number(stage.refId));
-        stageIds.forEach((stageId) => pipeline.stageCounter = Math.max(pipeline.stageCounter, stageId));
-      }
     }
 
     this.initialize = function() {
-      var toCopy = pipeline.hasOwnProperty('plain') ? pipeline.plain() : pipeline;
+      var toCopy = pipeline;
       var pipelineCopy = _.cloneDeep(toCopy, function (value) {
         if (value && value.$$hashKey) {
           delete value.$$hashKey;
@@ -47,8 +39,6 @@ module.exports = angular.module('spinnaker.core.pipeline.config.actions.editJson
 
         removeImmutableFields(parsed);
         angular.extend(pipeline, parsed);
-        updateStageCounter();
-
         $uibModalInstance.close();
       } catch (e) {
         $scope.command.invalid = true;

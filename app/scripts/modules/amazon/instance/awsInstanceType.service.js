@@ -3,13 +3,13 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.aws.instanceType.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
+  require('../../core/api/api.service'),
   require('../../core/cache/deckCacheFactory.js'),
   require('../../core/utils/lodash.js'),
   require('../../core/config/settings.js'),
   require('../../core/cache/infrastructureCaches.js'),
 ])
-  .factory('awsInstanceTypeService', function ($http, $q, settings, _, Restangular, infrastructureCaches) {
+  .factory('awsInstanceTypeService', function ($http, $q, settings, _, API, infrastructureCaches) {
 
     var m3 = {
       type: 'm3',
@@ -199,8 +199,8 @@ module.exports = angular.module('spinnaker.aws.instanceType.service', [
       if (cached) {
         return $q.when(cached);
       }
-      return Restangular.all('instanceTypes')
-        .getList().then(function (types) {
+      return API.one('instanceTypes').get()
+        .then(function (types) {
           var result = _(types)
             .map(function (type) {
               return { region: type.region, account: type.account, name: type.name, key: [type.region, type.account, type.name].join(':') };
@@ -234,12 +234,16 @@ module.exports = angular.module('spinnaker.aws.instanceType.service', [
 
     let families = {
       paravirtual: ['c1', 'c3', 'hi1', 'hs1', 'm1', 'm2', 'm3', 't1'],
-      hvm: ['c3', 'c4', 'd2', 'i2', 'g2', 'r3', 'm3', 'm4', 't2']
+      hvm: ['c3', 'c4', 'd2', 'i2', 'g2', 'm3', 'm4', 'r3', 't2', 'x1'],
+      vpcOnly: ['c4', 'm4', 't2', 'x1'],
     };
 
-    function filterInstanceTypesByVirtualizationType(instanceTypes, virtualizationType) {
+    function filterInstanceTypes(instanceTypes, virtualizationType, vpcOnly) {
       return instanceTypes.filter((instanceType) => {
         let [family] = instanceType.split('.');
+        if (!vpcOnly && families.vpcOnly.indexOf(family) > -1) {
+          return false;
+        }
         return families[virtualizationType].indexOf(family) > -1;
       });
     }
@@ -248,7 +252,7 @@ module.exports = angular.module('spinnaker.aws.instanceType.service', [
       getCategories: getCategories,
       getAvailableTypesForRegions: getAvailableTypesForRegions,
       getAllTypesByRegion: getAllTypesByRegion,
-      filterInstanceTypesByVirtualizationType: filterInstanceTypesByVirtualizationType,
+      filterInstanceTypes: filterInstanceTypes,
     };
   }
 );

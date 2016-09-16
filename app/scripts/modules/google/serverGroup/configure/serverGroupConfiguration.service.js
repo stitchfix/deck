@@ -11,11 +11,15 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
   require('../../../core/subnet/subnet.read.service.js'),
   require('../../image/image.reader.js'),
   require('../../instance/gceInstanceType.service.js'),
+  require('./../../instance/custom/customInstanceBuilder.gce.service.js'),
+  require('../../loadBalancer/elSevenUtils.service.js'),
+  require('../../httpHealthCheck/httpHealthCheck.reader.js'),
 ])
   .factory('gceServerGroupConfigurationService', function(gceImageReader, accountService, securityGroupReader,
                                                           gceInstanceTypeService, cacheInitializer,
                                                           $q, loadBalancerReader, networkReader, subnetReader,
-                                                          settings, _) {
+                                                          settings, _, gceCustomInstanceBuilderService, elSevenUtils,
+                                                          gceHttpHealthCheckReader) {
 
     var persistentDiskTypes = [
       'pd-standard',
@@ -65,10 +69,12 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
         instanceTypes: gceInstanceTypeService.getAllTypesByRegion(),
         persistentDiskTypes: $q.when(angular.copy(persistentDiskTypes)),
         authScopes: $q.when(angular.copy(authScopes)),
+        httpHealthChecks: gceHttpHealthCheckReader.listHttpHealthChecks(),
       }).then(function(backingData) {
         var loadBalancerReloader = $q.when(null);
         var securityGroupReloader = $q.when(null);
         var networkReloader = $q.when(null);
+        var httpHealthCheckReloader = $q.when(null);
         backingData.accounts = _.keys(backingData.credentialsKeyedByAccount);
         backingData.filtered = {};
         command.backingData = backingData;
@@ -76,7 +82,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
 
         if (command.loadBalancers && command.loadBalancers.length) {
           // Verify all load balancers are accounted for; otherwise, try refreshing load balancers cache.
-          var loadBalancerNames = getLoadBalancerNames(command);
+          var loadBalancerNames = _.pluck(getLoadBalancers(command), 'name');
           if (_.intersection(loadBalancerNames, command.loadBalancers).length < command.loadBalancers.length) {
             loadBalancerReloader = refreshLoadBalancers(command, true);
           }
@@ -95,8 +101,18 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
             networkReloader = refreshNetworks(command);
           }
         }
+        if (command.autoHealingPolicy) {
+          command.enableAutoHealing = true;
+        }
+        if (_.has(command, 'autoHealingPolicy.healthCheck')) {
+          // Verify http health check is accounted for; otherwise, try refreshing http health checks cache.
+          var httpHealthChecks = getHttpHealthChecks(command);
+          if (!_(httpHealthChecks).contains(command.autoHealingPolicy.healthCheck)) {
+            httpHealthCheckReloader = refreshHttpHealthChecks(command, true);
+          }
+        }
 
-        return $q.all([loadBalancerReloader, securityGroupReloader, networkReloader]).then(function() {
+        return $q.all([loadBalancerReloader, securityGroupReloader, networkReloader, httpHealthCheckReloader]).then(function() {
           attachEventHandlers(command);
         });
       });
@@ -123,23 +139,82 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
 
       return gceImageReader.findImages({
         provider: command.selectedProvider,
-        q: packageBase + '-*',
+        q: packageBase + '*',
       });
     }
 
     function configureInstanceTypes(command) {
-      var result = { dirty: {} };
+      let result = { dirty : {} };
       if (command.region) {
-        var filtered = gceInstanceTypeService.getAvailableTypesForRegions(command.backingData.instanceTypes, [command.region]);
-        filtered = sortInstanceTypes(filtered);
-        if (command.instanceType && filtered.indexOf(command.instanceType) === -1) {
-          command.instanceType = null;
-          result.dirty.instanceType = true;
-        }
-        command.backingData.filtered.instanceTypes = filtered;
+        let results = [ result.dirty ];
+
+        results.push(configureCustomInstanceTypes(command).dirty);
+        results.push(configureStandardInstanceTypes(command).dirty);
+
+        angular.extend(...results);
       } else {
         command.backingData.filtered.instanceTypes = [];
       }
+      return result;
+    }
+
+    function configureStandardInstanceTypes(command) {
+      let result = { dirty: {} };
+      let locations = command.regional ? [ command.region ] : [ command.zone ];
+      let filtered = gceInstanceTypeService.getAvailableTypesForLocations(command.backingData.instanceTypes, locations);
+      if (locations.every(l => !l)) {
+        return result;
+      }
+
+      filtered = sortInstanceTypes(filtered);
+      let instanceType = command.instanceType;
+      if (_.every([ instanceType, !_.startsWith(instanceType, 'custom'), !_.contains(filtered, instanceType) ])) {
+        result.dirty.instanceType = command.instanceType;
+        command.instanceType = null;
+      }
+      command.backingData.filtered.instanceTypes = filtered;
+      return result;
+    }
+
+    function configureCustomInstanceTypes(command) {
+      let result = { dirty: {} },
+        vCpuCount = _.get(command, 'viewState.customInstance.vCpuCount'),
+        memory = _.get(command, 'viewState.customInstance.memory');
+      let { zone, regional, region } = command;
+      let location = regional ? region : zone;
+      if (!location) {
+        return result;
+      }
+
+      if (zone || regional) {
+        _.set(command,
+          'backingData.customInstanceTypes.vCpuList',
+          gceCustomInstanceBuilderService.generateValidVCpuListForLocation(location)
+        );
+      }
+
+      // initializes vCpuCount so that memory selector will be populated.
+      if (_.some([ !vCpuCount, !gceCustomInstanceBuilderService.vCpuCountForLocationIsValid(vCpuCount, location)] )) {
+        vCpuCount = _.get(command, 'backingData.customInstanceTypes.vCpuList[0]');
+        _.set(command, 'viewState.customInstance.vCpuCount', vCpuCount);
+      }
+
+      _.set(
+        command,
+        'backingData.customInstanceTypes.memoryList',
+        gceCustomInstanceBuilderService.generateValidMemoryListForVCpuCount(vCpuCount)
+      );
+
+      if (_.every([ memory, vCpuCount, !gceCustomInstanceBuilderService.memoryIsValid(memory, vCpuCount) ])) {
+        _.set(
+          command,
+          'viewState.customInstance.memory',
+          undefined
+        );
+        result.dirty.instanceType = command.instanceType;
+        command.instanceType = null;
+      }
+
       return result;
     }
 
@@ -202,36 +277,92 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
       return result;
     }
 
-    function getLoadBalancerNames(command) {
+    function getHttpHealthChecks(command) {
+      return _(command.backingData.httpHealthChecks[0].results)
+        .filter({provider: 'gce', account: command.credentials})
+        .pluck('name')
+        .valueOf();
+    }
+
+    function configureHttpHealthChecks(command) {
+      var result = { dirty: {} };
+      var filteredData = command.backingData.filtered;
+
+      if (command.credentials === null) {
+        return result;
+      }
+
+      filteredData.httpHealthChecks = getHttpHealthChecks(command);
+
+      if (_.has(command, 'autoHealingPolicy.healthCheck') && !_(filteredData.httpHealthChecks).contains(command.autoHealingPolicy.healthCheck)) {
+        delete command.autoHealingPolicy.healthCheck;
+        result.dirty.autoHealingPolicy = true;
+      } else {
+        result.dirty.autoHealingPolicy = null;
+      }
+
+      return result;
+    }
+
+    function getLoadBalancers(command) {
       return _(command.backingData.loadBalancers)
         .pluck('accounts')
         .flatten(true)
         .filter({name: command.credentials})
         .pluck('regions')
         .flatten(true)
-        .filter({name: command.region})
         .pluck('loadBalancers')
         .flatten(true)
-        .pluck('name')
+        .filter(_.curry(isRelevantLoadBalancer)(command))
         .unique()
         .valueOf();
+    }
+
+    function isRelevantLoadBalancer(command, loadBalancer) {
+      return elSevenUtils.isElSeven(loadBalancer) || loadBalancer.region === command.region;
     }
 
     function configureLoadBalancerOptions(command) {
       var results = { dirty: {} };
       var current = command.loadBalancers;
-      var newLoadBalancers = getLoadBalancerNames(command);
+      var newLoadBalancerObjects = getLoadBalancers(command);
+      command.backingData.filtered.loadBalancerIndex = _.indexBy(newLoadBalancerObjects, 'name');
+      command.backingData.filtered.loadBalancers = _.map(newLoadBalancerObjects, 'name');
 
       if (current && command.loadBalancers) {
-        var matched = _.intersection(newLoadBalancers, command.loadBalancers);
+        var matched = _.intersection(command.backingData.filtered.loadBalancers, command.loadBalancers);
         var removed = _.xor(matched, current);
         command.loadBalancers = matched;
+        configureBackendServiceOptions(command);
+
         if (removed.length) {
           results.dirty.loadBalancers = removed;
         }
       }
-      command.backingData.filtered.loadBalancers = newLoadBalancers;
       return results;
+    }
+
+    function configureBackendServiceOptions(command) {
+      /*
+        a server group has a list of backend services, but there's no mapping from l7 -> backend service
+        for the server group. this will not populate the wizard perfectly,
+        but it is the best we can do with the given data.
+      */
+
+      let backendsFromMetadata = command.backendServiceMetadata;
+      let lbIndex = command.backingData.filtered.loadBalancerIndex;
+
+      let backendServices = command.loadBalancers.reduce((backendServices, lbName) => {
+        if (elSevenUtils.isElSeven(lbIndex[lbName])) {
+          backendServices[lbName] = _.intersection(lbIndex[lbName].backendServices, backendsFromMetadata);
+        }
+        return backendServices;
+      }, {});
+
+      if (Object.keys(backendServices).length > 0) {
+        command.backendServices = backendServices;
+      }
+
     }
 
     function extractFilteredImages(command) {
@@ -250,6 +381,19 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
           }
         });
       });
+    }
+
+    function refreshHttpHealthChecks(command, skipCommandReconfiguration) {
+      return cacheInitializer.refreshCache('httpHealthChecks')
+        .then(function() {
+          return gceHttpHealthCheckReader.listHttpHealthChecks();
+        })
+        .then(function(httpHealthChecks) {
+          command.backingData.httpHealthChecks = httpHealthChecks;
+          if (!skipCommandReconfiguration) {
+            configureHttpHealthChecks(command);
+          }
+        });
     }
 
     function configureSubnets(command) {
@@ -420,6 +564,8 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
           } else {
             angular.extend(result.dirty, command.networkChanged().dirty);
           }
+
+          angular.extend(result.dirty, configureHttpHealthChecks(command).dirty);
         } else {
           command.region = null;
         }
@@ -459,6 +605,16 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
         }
         command.viewState.dirty = command.viewState.dirty || {};
         angular.extend(command.viewState.dirty, result.dirty);
+        angular.extend(command.viewState.dirty, configureInstanceTypes(command).dirty);
+        return result;
+      };
+
+      command.customInstanceChanged = function customInstanceChanged() {
+        var result = { dirty : { } };
+
+        command.viewState.dirty = command.viewState.dirty || {};
+        angular.extend(result, command.viewState.dirty, configureCustomInstanceTypes(command).dirty);
+
         return result;
       };
     }
@@ -473,6 +629,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.configurati
       refreshLoadBalancers: refreshLoadBalancers,
       refreshSecurityGroups: refreshSecurityGroups,
       refreshInstanceTypes: refreshInstanceTypes,
+      refreshHttpHealthChecks: refreshHttpHealthChecks,
     };
 
 

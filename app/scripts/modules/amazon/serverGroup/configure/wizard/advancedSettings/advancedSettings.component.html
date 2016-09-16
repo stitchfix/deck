@@ -57,7 +57,7 @@
   <div class="form-group">
     <div class="col-md-5 sm-label-right"><b>Key Name</b></div>
     <div class="col-md-6">
-      <ui-select ng-model="$ctrl.command.keyPair" class="form-control input-sm">
+      <ui-select ng-model="$ctrl.command.keyPair" class="form-control input-sm" required on-select="$ctrl.fieldChanged()">
         <ui-select-match>{{$select.selected}}</ui-select-match>
         <ui-select-choices repeat="regionalKeyPair in $ctrl.command.backingData.filtered.keyPairs | filter: $select.search">
           <span ng-bind-html="regionalKeyPair"></span>
@@ -139,7 +139,7 @@
       </div>
     </div>
   </div>
-  <div class="form-group" ng-if="application.attributes.platformHealthOnlyShowOverride">
+  <div class="form-group" ng-if="$ctrl.application.attributes.platformHealthOnlyShowOverride">
     <div class="col-md-5 sm-label-right"><b>Task Completion</b></div>
     <div class="col-md-6">
       <platform-health-override command="$ctrl.command"

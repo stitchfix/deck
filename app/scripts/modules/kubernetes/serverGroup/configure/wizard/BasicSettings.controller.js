@@ -30,7 +30,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.basi
     var imageSearchResultsStream = new rx.Subject();
 
     imageSearchResultsStream
-      .throttle(250)
+      .debounce(250)
       .flatMapLatest(searchImages)
       .subscribe();
 
@@ -45,13 +45,4 @@ module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.basi
       $uibModalStack: $uibModalStack,
       $state: $state,
     }));
-
-    $scope.$watch('form.$valid', function(newVal) {
-      if (newVal) {
-        v2modalWizardService.markClean('location');
-        v2modalWizardService.markComplete('location');
-      } else {
-        v2modalWizardService.markIncomplete('location');
-      }
-    });
   });

@@ -3,7 +3,6 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
   require('../../../core/account/account.service.js'),
   require('../../../core/subnet/subnet.read.service.js'),
   require('../../../core/instance/instanceTypeService.js'),
@@ -11,7 +10,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
   require('./serverGroupConfiguration.service.js'),
   require('../../../core/utils/lodash.js'),
 ])
-  .factory('awsServerGroupCommandBuilder', function (settings, Restangular, $q,
+  .factory('awsServerGroupCommandBuilder', function (settings, $q,
                                                      accountService, subnetReader, namingService, instanceTypeService,
                                                      awsServerGroupConfigurationService, _) {
 
@@ -35,6 +34,9 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
           var keyPair = credentials ? credentials.defaultKeyPair : null;
           var applicationAwsSettings = _.get(application, 'attributes.providerSettings.aws', {});
 
+          var defaultIamRole = settings.providers.aws.defaults.iamRole || 'BaseIAMRole';
+          defaultIamRole = defaultIamRole.replace('{{application}}', application.name);
+
           var command = {
             application: application.name,
             credentials: defaultCredentials,
@@ -52,7 +54,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
             instanceMonitoring: false,
             ebsOptimized: false,
             selectedProvider: 'aws',
-            iamRole: 'BaseIAMRole', // TODO: should not be hard coded here
+            iamRole: defaultIamRole,
             terminationPolicies: ['Default'],
             vpcId: null,
             availabilityZones: availabilityZones,
@@ -71,10 +73,6 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
               dirty: {},
             },
           };
-
-          if (application && application.attributes && application.attributes.platformHealthOnly) {
-            command.interestingHealthProviderNames = ['Amazon'];
-          }
 
           return command;
         });
@@ -213,10 +211,6 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
             dirty: {},
           },
         };
-
-        if (application && application.attributes && application.attributes.platformHealthOnly) {
-          command.interestingHealthProviderNames = ['Amazon'];
-        }
 
         if (mode === 'clone') {
           command.useSourceCapacity = true;

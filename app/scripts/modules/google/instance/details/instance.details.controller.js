@@ -13,10 +13,13 @@ module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
   require('../../../core/history/recentHistory.service.js'),
   require('../../../core/utils/selectOnDblClick.directive.js'),
   require('../../../core/cloudProvider/cloudProvider.registry.js'),
+  require('../../../core/instance/details/instanceLinks.component'),
+  require('../../loadBalancer/elSevenUtils.service.js')
 ])
   .controller('gceInstanceDetailsCtrl', function ($scope, $state, $uibModal, InsightFilterStateModel,
                                                   instanceWriter, confirmationModalService, recentHistoryService,
-                                                  cloudProviderRegistry, instanceReader, _, instance, app, $q) {
+                                                  cloudProviderRegistry, instanceReader, _, instance, app, $q,
+                                                  elSevenUtils) {
 
     // needed for standalone instances
     $scope.detailsTemplateUrl = cloudProviderRegistry.getValue('gce', 'instance.detailsTemplateUrl');
@@ -27,6 +30,7 @@ module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
     };
 
     $scope.InsightFilterStateModel = InsightFilterStateModel;
+    $scope.application = app;
 
     function extractHealthMetrics(instance, latest) {
       // do not backfill on standalone instances
@@ -118,7 +122,6 @@ module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
         extraData.region = region;
         recentHistoryService.addExtraDataToLatest('instances', extraData);
         return instanceReader.getInstanceDetails(account, region, instance.instanceId).then(function(details) {
-          details = details.plain();
           $scope.state.loading = false;
           extractHealthMetrics(instanceSummary, details);
           $scope.instance = _.defaults(details, instanceSummary);
@@ -126,16 +129,16 @@ module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
           $scope.instance.region = region;
           $scope.instance.vpcId = vpcId;
           $scope.instance.loadBalancers = loadBalancers;
-          $scope.baseIpAddress = details.publicDnsName || details.privateIpAddress;
 
           $scope.instance.internalDnsName = $scope.instance.instanceId;
           $scope.instance.internalIpAddress = $scope.instance.networkInterfaces[0].networkIP;
           $scope.instance.externalIpAddress = $scope.instance.networkInterfaces[0].accessConfigs[0].natIP;
+          $scope.baseIpAddress = $scope.instance.externalIpAddress || $scope.instance.internalIpAddress;
           $scope.instance.network = getNetwork();
           $scope.instance.subnet = getSubnet();
 
           $scope.instance.sshLink =
-            $scope.instance.selfLink.replace(/www.googleapis.com\/compute\/(alpha|v1)/, 'cloudssh.developers.google.com') + '?authuser=0&hl=en_US';
+            $scope.instance.selfLink.replace(/www.googleapis.com\/compute\/(alpha|beta|v1)/, 'cloudssh.developers.google.com') + '?authuser=0&hl=en_US';
 
           var pathSegments = $scope.instance.selfLink.split('/');
           var projectId = pathSegments[pathSegments.indexOf('projects') + 1];
@@ -214,7 +217,17 @@ module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
 
     this.canDeregisterFromLoadBalancer = function() {
       var instance = $scope.instance;
-      if (!instance.loadBalancers || !instance.loadBalancers.length) {
+      // TODO(dpeach): remove when it's possible to degister from l7 load balancer.
+      var attachedToElSeven = _(app.loadBalancers.data)
+        .filter(elSevenUtils.isElSeven)
+        .pluck('name')
+        .intersection(instance.loadBalancers)
+        .valueOf()
+        .length;
+
+      if (!instance.loadBalancers ||
+          !instance.loadBalancers.length ||
+          attachedToElSeven) {
         return false;
       }
       var hasLoadBalancerHealth = instance.health.some(function(health) {

@@ -34,14 +34,52 @@ module.exports = angular.module('spinnaker.securityGroup.aws.details.controller'
       return securityGroupReader.getSecurityGroupDetails(application, securityGroup.accountId, securityGroup.provider, securityGroup.region, securityGroup.vpcId, securityGroup.name).then(function (details) {
         $scope.state.loading = false;
 
-        if (!details || _.isEmpty( details.plain())) {
+        if (!details || _.isEmpty( details )) {
           fourOhFour();
         } else {
           $scope.securityGroup = details;
+          $scope.ipRules = buildIpRulesModel(details);
+          $scope.securityGroupRules = buildSecurityGroupRulesModel(details);
         }
       },
         fourOhFour
       );
+    }
+
+    function buildIpRulesModel(details) {
+      let groupedRangeRules = _.groupBy(details.ipRangeRules, (rule => rule.range.ip + rule.range.cidr));
+      return Object.keys(groupedRangeRules)
+        .map(addr => {
+          return {
+            address: addr,
+            rules: buildRuleModel(groupedRangeRules, addr),
+          };
+        })
+        .filter(rule => rule.rules.length);
+    }
+
+    function buildSecurityGroupRulesModel(details) {
+      let groupedRangeRules = _.groupBy(details.securityGroupRules, (rule => rule.securityGroup.id));
+      return Object.keys(groupedRangeRules)
+        .map(addr => {
+          return {
+            securityGroup: groupedRangeRules[addr][0].securityGroup,
+            rules: buildRuleModel(groupedRangeRules, addr),
+          };
+        })
+        .filter(rule => rule.rules.length);
+    }
+
+    function buildRuleModel(groupedRangeRules, addr) {
+      let rules = [];
+      groupedRangeRules[addr].forEach(rule => {
+        (rule.portRanges || []).forEach(range => {
+          if (range.startPort !== undefined && range.endPort !== undefined) {
+            rules.push({startPort: range.startPort, endPort: range.endPort, protocol: rule.protocol});
+          }
+        });
+      });
+      return rules;
     }
 
     function fourOhFour() {
@@ -67,7 +105,7 @@ module.exports = angular.module('spinnaker.securityGroup.aws.details.controller'
         size: 'lg',
         resolve: {
           securityGroup: function() {
-            return angular.copy($scope.securityGroup.plain());
+            return angular.copy($scope.securityGroup);
           },
           application: function() { return application; }
         }
@@ -82,7 +120,7 @@ module.exports = angular.module('spinnaker.securityGroup.aws.details.controller'
         size: 'lg',
         resolve: {
           securityGroup: function() {
-            var securityGroup = angular.copy($scope.securityGroup.plain());
+            var securityGroup = angular.copy($scope.securityGroup);
             if(securityGroup.region) {
               securityGroup.regions = [securityGroup.region];
             }

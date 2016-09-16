@@ -4,19 +4,17 @@ let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.core.task.write.service', [
-    require('exports?"restangular"!imports?_=lodash!restangular'),
+    require('../api/api.service'),
     require('./task.read.service.js'),
   ])
-  .factory('taskWriter', function(Restangular, taskReader, $q, $timeout) {
-
-    var endpoint = Restangular.all('applications');
+  .factory('taskWriter', function(API, taskReader, $q, $timeout) {
 
     function getEndpoint(application) {
-      return endpoint.all(application).all('tasks');
+      return API.all('applications').all(application).all('tasks');
     }
 
     function postTaskCommand(taskCommand) {
-      return getEndpoint(taskCommand.application).post(taskCommand);
+      return getEndpoint(taskCommand.application || taskCommand.project).post(taskCommand);
     }
 
     function cancelTask(application, taskId) {
@@ -30,7 +28,7 @@ module.exports = angular
     function waitUntilTaskIsDeleted(taskId) {
       // wait until the task is gone, i.e. the promise from the get() is rejected, before succeeding
       var deferred = $q.defer();
-      Restangular.one('tasks', taskId).get().then(
+      API.one('tasks', taskId).get().then(
         () => {
           $timeout(() => {
             // task is still present, try again
@@ -52,7 +50,7 @@ module.exports = angular
     }
 
     function deleteTask(taskId) {
-      return Restangular.one('tasks', taskId).remove().then(() => waitUntilTaskIsDeleted(taskId));
+      return API.one('tasks', taskId).remove().then(() => waitUntilTaskIsDeleted(taskId));
     }
 
     return {

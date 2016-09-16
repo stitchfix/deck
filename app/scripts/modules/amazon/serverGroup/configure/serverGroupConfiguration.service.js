@@ -154,19 +154,30 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
     function configureKeyPairs(command) {
       var result = { dirty: {} };
       if (command.credentials && command.region) {
+        // isDefault is imperfect, since we don't know what the previous account/region was, but probably a safe bet
+        var isDefault = _.some(command.backingData.credentialsKeyedByAccount, c => c.defaultKeyPair && command.keyPair && command.keyPair.indexOf(c.defaultKeyPair.replace('{{region}}', '')) === 0);
         var filtered = _(command.backingData.keyPairs)
           .filter({account: command.credentials, region: command.region})
           .pluck('keyName')
           .valueOf();
-        if (command.keyPair && filtered.indexOf(command.keyPair) === -1) {
-          var acct = command.backingData.credentialsKeyedByAccount[command.credentials] || {regions: [], defaultKeyPair: null};
+        if (command.keyPair && filtered.length && filtered.indexOf(command.keyPair) === -1) {
+          var acct = command.backingData.credentialsKeyedByAccount[command.credentials] || {
+              regions: [],
+              defaultKeyPair: null
+            };
           if (acct.defaultKeyPair) {
             // {{region}} is the only supported substitution pattern
-            command.keyPair = acct.defaultKeyPair.replace('{{region}}', command.region);
+            let defaultKeyPair = acct.defaultKeyPair.replace('{{region}}', command.region);
+            if (isDefault && filtered.indexOf(defaultKeyPair) > -1) {
+              command.keyPair = defaultKeyPair;
+            } else {
+              command.keyPair = null;
+              result.dirty.keyPair = true;
+            }
+          } else {
+            command.keyPair = null;
+            result.dirty.keyPair = true;
           }
-
-          // Note: this will generally be ignored, so we probably won't flag it in the UI
-          result.dirty.keyPair = true;
         }
         command.backingData.filtered.keyPairs = filtered;
       } else {
@@ -180,7 +191,7 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
       if (command.region && (command.virtualizationType || command.viewState.disableImageSelection)) {
         var filtered = awsInstanceTypeService.getAvailableTypesForRegions(command.backingData.instanceTypes, [command.region]);
         if (command.virtualizationType) {
-          filtered = awsInstanceTypeService.filterInstanceTypesByVirtualizationType(filtered, command.virtualizationType);
+          filtered = awsInstanceTypeService.filterInstanceTypes(filtered, command.virtualizationType, !!command.vpcId);
         }
         if (command.instanceType && filtered.indexOf(command.instanceType) === -1) {
           result.dirty.instanceType = command.instanceType;
@@ -364,6 +375,8 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
         command.loadBalancers = _.intersection(newLoadBalancers, matched);
         if (!command.vpcId) {
           command.vpcLoadBalancers = _.intersection(vpcLoadBalancers, matched);
+        } else {
+          delete command.vpcLoadBalancers;
         }
         if (removed.length) {
           result.dirty.loadBalancers = removed;
@@ -395,6 +408,7 @@ module.exports = angular.module('spinnaker.aws.serverGroup.configure.service', [
           .find({purpose: command.subnetType, account: command.credentials, region: command.region});
         command.vpcId = subnet ? subnet.vpcId : null;
       }
+      angular.extend(result.dirty, configureInstanceTypes(command).dirty);
       return result;
     }
 

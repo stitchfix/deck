@@ -78,6 +78,10 @@ pipeline-configurer {
     }
   }
 
+  .pipeline-stage-config-heading p {
+    margin-bottom: 0;
+  }
+
   .stage-details {
     background-color: #ffffff;
   }
@@ -129,8 +133,8 @@ pipeline-configurer {
 
   .permalink {
     position: absolute;
-    top: 34px;
-    right: 245px;
+    top: 36px;
+    right: 345px;
     font-size: 80%;
     .fade-in(0.15, 0.4); // hack: prevent shifting of actions button during sliding animation
   }
@@ -309,6 +313,20 @@ pipeline-config-errors {
   &::after {
     right: 0;
     box-shadow: inset -5px 0 7px #ffffff;
+  }
+}
+
+parameter {
+  display: block;
+  background-color: #ffffff;
+  .name-field {
+    padding: 10px 0;
+    margin: 10px 0;
+    border-bottom: 1px solid @mid_light_grey;
+    border-top: 1px solid @mid_light_grey;
+    .glyphicon-resize-vertical {
+      padding-top: 7px;
+    }
   }
 }
 

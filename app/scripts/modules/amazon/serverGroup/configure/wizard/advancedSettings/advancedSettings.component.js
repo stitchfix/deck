@@ -20,10 +20,19 @@ let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.amazon.serverGroup.configure.wizard.advancedSettings.component', [
+    require('../../../../../core/modal/wizard/v2modalWizard.service.js'),
   ])
   .component('awsServerGroupAdvancedSettings', {
     bindings: {
-      command: '='
+      command: '=',
+      application: '=',
     },
-    templateUrl: require('./advancedSettings.component.html')
+    templateUrl: require('./advancedSettings.component.html'),
+    controller: function(v2modalWizardService) {
+      this.fieldChanged = () => {
+        if (this.command.keyPair) {
+          v2modalWizardService.markComplete('advanced');
+        }
+      };
+    }
   });

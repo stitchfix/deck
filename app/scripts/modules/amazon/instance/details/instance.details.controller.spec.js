@@ -48,13 +48,9 @@ describe('Controller: awsInstanceDetailsCtrl', function () {
       };
 
       spyOn(instanceReader, 'getInstanceDetails').and.returnValue(
-        $q.when({
-          plain: function() {
-            return details;
-          }
-        })
+        $q.when(details)
       );
-      var application = {};
+      var application = { attributes: {} };
 
       applicationReader.addSectionToApplication({key: 'loadBalancers', lazy: true}, application);
       application.loadBalancers.data = [];
@@ -102,7 +98,7 @@ describe('Controller: awsInstanceDetailsCtrl', function () {
         })
       );
 
-      var application = {};
+      var application = { attributes: {} };
 
       applicationReader.addSectionToApplication({key: 'loadBalancers', lazy: true}, application);
       application.loadBalancers.data = [];

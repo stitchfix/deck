@@ -61,6 +61,9 @@ module.exports = angular.module('spinnaker.tasks.monitor.service', [
       monitor.handleTaskSuccess = function (task) {
         let applicationName = monitor.application ? monitor.application.name : 'ad-hoc';
         monitor.task = task;
+        if (_.has(monitor, 'application.runningOrchestrations.refresh')) {
+          monitor.application.runningOrchestrations.refresh();
+        }
         taskReader.waitUntilTaskCompletes(applicationName, task, monitor.monitorInterval)
           .then(monitor.onTaskComplete, monitor.setError);
       };

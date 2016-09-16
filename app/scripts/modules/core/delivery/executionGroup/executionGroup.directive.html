@@ -1,14 +1,22 @@
 <div class="col-md-12">
-  <div class="row clickable" sticky-header added-offset-height="-6" ng-click="vm.toggle()" ng-if="vm.group.heading">
-    <div class="col-md-12 execution-group-heading" ng-class="vm.viewState.isRetired ? 'inactive' : 'active'">
+  <div class="row clickable"
+       sticky-header
+       added-offset-height="-6"
+       analytics-on="click"
+       analytics-category="Pipeline"
+       analytics-event="Group {{vm.viewState.open ? 'collapsed' : 'expanded'}}"
+       analytics-label="{{vm.group.heading}}"
+       ng-click="vm.toggle()"
+       ng-if="vm.group.heading">
+    <div class="col-md-12 execution-group-heading" ng-class="vm.viewState.isRetired  || vm.pipelineConfig.disabled ? 'inactive' : 'active'">
       <div class="row">
         <div class="col-md-5 col-sm-5">
           <h4 class="execution-group-title">
             <span class="glyphicon"
-                  ng-class="{'glyphicon-chevron-up': !vm.viewState.open, 'glyphicon-chevron-down': vm.viewState.open}">
+                  ng-class="{'glyphicon-chevron-right': !vm.viewState.open, 'glyphicon-chevron-down': vm.viewState.open}">
             </span>
             <span class="execution-group-title">
-              {{ vm.group.heading }}
+              {{ vm.group.heading }} <span ng-if="vm.pipelineConfig.disabled">(disabled)</span>
               <span ng-if="vm.group.runningExecutions.length" class="badge">
                 {{vm.group.runningExecutions.length}}
               </span>
@@ -16,19 +24,27 @@
           </h4>
         </div>
         <div class="col-md-7 col-sm-7 text-right execution-group-actions" ng-if="vm.viewState.canConfigure">
-          <h4 ng-if="vm.viewState.isRetired"><span class="label-retired" uib-tooltip="The configuration for this pipeline has been renamed or deleted.">RETIRED</span></h4>
-          <triggers-tag pipeline="vm.pipelineConfig"></triggers-tag>
+          <triggers-tag is-visible="!vm.pipelineConfig.disabled" pipeline="vm.pipelineConfig"></triggers-tag>
+          <next-run-tag ng-if="!vm.pipelineConfig.disabled" pipeline="vm.pipelineConfig"></next-run-tag>
           <h4>
             <a href
                class="btn btn-xs btn-link link-inverse"
+               analytics-on="click"
+               analytics-category="Pipeline"
+               analytics-event="Configure pipeline button clicked"
+               analytics-label="{{vm.group.heading}}"
                ng-click="vm.configure(vm.group.config.id); $event.stopPropagation();">
               <span class="glyphicon glyphicon-cog"></span>
               Configure
             </a>
           </h4>
-          <h4 ng-if="vm.viewState.canTriggerPipelineManually">
+          <h4 ng-if="vm.viewState.canTriggerPipelineManually" is-visible="!vm.pipelineConfig.disabled">
             <a href
                class="btn btn-xs btn-link link-inverse"
+               analytics-on="click"
+               analytics-category="Pipeline"
+               analytics-event="Trigger pipeline button clicked"
+               analytics-label="{{vm.group.heading}}"
                ng-click="vm.triggerPipeline(); $event.stopPropagation();">
               <span ng-if="vm.viewState.triggeringExecution">
                 <span class="glyphicon glyphicon-asterisk glyphicon-spinning"></span> Starting Manual Execution&hellip;

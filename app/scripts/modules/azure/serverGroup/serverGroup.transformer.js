@@ -38,6 +38,8 @@ module.exports = angular.module('spinnaker.azure.serverGroup.transformer', [
         freeFormDetails: command.freeFormDetails,
         account: command.credentials,
         selectedProvider: 'azure',
+        vnet: command.vnet,
+        subnet: command.subnet,
         capacity: {
           useSourceCapacity: false,
           min: command.sku.capacity,
@@ -45,7 +47,7 @@ module.exports = angular.module('spinnaker.azure.serverGroup.transformer', [
         },
         credentials: command.credentials,
         region: command.region,
-        securityGroup: command.securityGroup,
+        securityGroupName: command.securityGroupName,
         loadBalancerName: command.loadBalancerName,
         user: '[anonymous]',
         upgradePolicy: 'Manual',

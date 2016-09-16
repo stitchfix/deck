@@ -4,45 +4,62 @@ let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.subnet.read.service', [
-    require('exports?"restangular"!imports?_=lodash!restangular'),
+    require('../api/api.service'),
     require('../cache/infrastructureCaches.js'),
     require('../utils/lodash')
   ])
-  .factory('subnetReader', function (_, Restangular, infrastructureCaches) {
+  .factory('subnetReader', function ($q, _, API, infrastructureCaches) {
+
+    let cachedSubnets = null;
 
     function listSubnets() {
-      return Restangular.all('subnets')
-        .withHttpConfig({cache: infrastructureCaches.subnets})
+      if (cachedSubnets) {
+        return $q.when(cachedSubnets);
+      }
+      return API
+        .one('subnets')
+        .useCache(infrastructureCaches.subnets)
         .getList()
         .then(function(subnets) {
-          return subnets.map(function(subnet) {
+          let results = subnets.map(subnet => {
             subnet.label = subnet.purpose;
             subnet.deprecated = !!subnet.deprecated;
             if (subnet.deprecated) {
               subnet.label += ' (deprecated)';
             }
-            return subnet.plain();
+            return subnet;
           });
+          cachedSubnets = results;
+          return results;
         });
     }
 
     function listSubnetsByProvider(cloudProvider) {
-      return Restangular.one('subnets', cloudProvider)
-        .withHttpConfig({cache: infrastructureCaches.subnets})
+      return API.one('subnets')
+        .one(cloudProvider)
+        .useCache(infrastructureCaches.subnets)
         .getList();
     }
 
     function getSubnetByIdAndProvider(subnetId, cloudProvider = 'aws') {
       return listSubnetsByProvider(cloudProvider)
         .then((results) => {
-          return _.first(_.filter(results.plain(), subnet => subnet.id === subnetId));
+          return _.first(_.filter(results, subnet => subnet.id === subnetId));
         });
+    }
+
+    function getSubnetPurpose(id) {
+      return listSubnets().then(subnets => {
+        let [match] = subnets.filter(test => test.id === id);
+        return match ? match.purpose : null;
+      });
     }
 
     return {
       listSubnets: listSubnets,
       listSubnetsByProvider: listSubnetsByProvider,
       getSubnetByIdAndProvider: getSubnetByIdAndProvider,
+      getSubnetPurpose: getSubnetPurpose,
     };
 
   });

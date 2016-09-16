@@ -12,9 +12,16 @@ module.exports = angular.module('spinnaker.loadBalancer.gce.details.controller',
   require('../../../core/confirmationModal/confirmationModal.service.js'),
   require('../../../core/insight/insightFilterState.model.js'),
   require('../../../core/utils/selectOnDblClick.directive.js'),
+  require('./hostAndPathRules/hostAndPathRulesButton.component.js'),
+  require('./loadBalancerType/loadBalancerType.component.js'),
+  require('../elSevenUtils.service.js'),
+  require('./healthCheck/healthCheck.component.js'),
+  require('../configure/choice/loadBalancerTypeToWizardMap.constant.js')
 ])
   .controller('gceLoadBalancerDetailsCtrl', function ($scope, $state, $uibModal, loadBalancer, app, InsightFilterStateModel,
-                                                      _, confirmationModalService, accountService, loadBalancerWriter, loadBalancerReader, $q) {
+                                                      _, confirmationModalService, accountService, elSevenUtils,
+                                                      loadBalancerWriter, loadBalancerReader,
+                                                      $q, loadBalancerTypeToWizardMap) {
 
     let application = app;
 
@@ -27,11 +34,11 @@ module.exports = angular.module('spinnaker.loadBalancer.gce.details.controller',
     function extractLoadBalancer() {
       $scope.loadBalancer = application.loadBalancers.data.filter(function (test) {
         var testVpc = test.vpcId || null;
-        return test.name === loadBalancer.name && test.region === loadBalancer.region && test.account === loadBalancer.accountId && testVpc === loadBalancer.vpcId;
+        return test.name === loadBalancer.name && (test.region === loadBalancer.region || test.region === 'global') && test.account === loadBalancer.accountId && testVpc === loadBalancer.vpcId;
       })[0];
 
       if ($scope.loadBalancer) {
-        var detailsLoader = loadBalancerReader.getLoadBalancerDetails($scope.loadBalancer.provider, loadBalancer.accountId, loadBalancer.region, loadBalancer.name);
+        var detailsLoader = loadBalancerReader.getLoadBalancerDetails($scope.loadBalancer.provider, loadBalancer.accountId, $scope.loadBalancer.region, $scope.loadBalancer.name);
         return detailsLoader.then(function(details) {
           $scope.state.loading = false;
           var filtered = details.filter(function(test) {
@@ -42,7 +49,11 @@ module.exports = angular.module('spinnaker.loadBalancer.gce.details.controller',
             $scope.loadBalancer.account = loadBalancer.accountId;
 
             accountService.getCredentialsKeyedByAccount('gce').then(function(credentialsKeyedByAccount) {
-              $scope.loadBalancer.elb.availabilityZones = _.find(credentialsKeyedByAccount[loadBalancer.accountId].regions, { name: loadBalancer.region }).zones.sort();
+              if (elSevenUtils.isElSeven($scope.loadBalancer)) {
+                $scope.loadBalancer.elb.availabilityZones = [ 'All zones' ];
+              } else {
+                $scope.loadBalancer.elb.availabilityZones = _.find(credentialsKeyedByAccount[loadBalancer.accountId].regions, { name: loadBalancer.region }).zones.sort();
+              }
             });
           }
           accountService.getAccountDetails(loadBalancer.accountId).then(function(accountDetails) {
@@ -67,7 +78,7 @@ module.exports = angular.module('spinnaker.loadBalancer.gce.details.controller',
       $state.go('^', null, {location: 'replace'});
     }
 
-    extractLoadBalancer().then(() => {
+    app.loadBalancers.ready().then(extractLoadBalancer).then(() => {
       // If the user navigates away from the view before the initial extractLoadBalancer call completes,
       // do not bother subscribing to the refresh
       if (!$scope.$$destroyed) {
@@ -76,9 +87,12 @@ module.exports = angular.module('spinnaker.loadBalancer.gce.details.controller',
     });
 
     this.editLoadBalancer = function editLoadBalancer() {
+      let lbType = elSevenUtils.isElSeven($scope.loadBalancer) ? 'HTTP(S)' : 'Network';
+      let wizard = loadBalancerTypeToWizardMap[lbType];
+
       $uibModal.open({
-        templateUrl: require('../configure/editLoadBalancer.html'),
-        controller: 'gceCreateLoadBalancerCtrl as ctrl',
+        templateUrl: wizard.editTemplateUrl,
+        controller: `${wizard.controller} as ctrl`,
         size: 'lg',
         resolve: {
           application: function() { return application; },
@@ -104,7 +118,8 @@ module.exports = angular.module('spinnaker.loadBalancer.gce.details.controller',
         loadBalancer.providerType = $scope.loadBalancer.provider;
         return loadBalancerWriter.deleteLoadBalancer(loadBalancer, application, {
           loadBalancerName: loadBalancer.name,
-          region: loadBalancer.region,
+          region: $scope.loadBalancer.region,
+          loadBalancerType: $scope.loadBalancer.loadBalancerType || 'NETWORK',
         });
       };
 
@@ -119,5 +134,6 @@ module.exports = angular.module('spinnaker.loadBalancer.gce.details.controller',
       });
     };
 
+    this.isElSeven = elSevenUtils.isElSeven;
   }
 );

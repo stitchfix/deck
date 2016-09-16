@@ -3,12 +3,12 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.pipeline.config.services.configService', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
+  require('../../../api/api.service'),
   require('../../../utils/lodash.js'),
   require('../../../authentication/authentication.service.js'),
   require('../../../cache/viewStateCache.js'),
 ])
-  .factory('pipelineConfigService', function (_, $q, Restangular, authenticationService, viewStateCache) {
+  .factory('pipelineConfigService', function (_, $q, API, authenticationService, viewStateCache) {
 
     var configViewStateCache = viewStateCache.createCache('pipelineConfig', { version: 1 });
 
@@ -17,15 +17,21 @@ module.exports = angular.module('spinnaker.core.pipeline.config.services.configS
     }
 
     function getPipelinesForApplication(applicationName) {
-      return Restangular.one('applications', applicationName).all('pipelineConfigs').getList().then(function (pipelines) {
+      return API.one('applications').one(applicationName).all('pipelineConfigs').getList().then(function (pipelines) {
+        pipelines.forEach(p => p.stages = p.stages || []);
         return sortPipelines(pipelines);
       });
     }
 
     function getStrategiesForApplication(applicationName) {
-      return Restangular.one('applications', applicationName).all('strategyConfigs').getList().then(function (pipelines) {
+      return API.one('applications').one(applicationName).all('strategyConfigs').getList().then(function (pipelines) {
+        pipelines.forEach(p => p.stages = p.stages || []);
         return sortPipelines(pipelines);
       });
+    }
+
+    function getHistory(id, count = 20) {
+      return API.one('pipelineConfigs', id).all('history').withParams({count: count}).getList();
     }
 
     function sortPipelines(pipelines) {
@@ -51,7 +57,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.services.configS
     }
 
     function deletePipeline(applicationName, pipeline, pipelineName) {
-      return Restangular.all(pipeline.strategy ? 'strategies' : 'pipelines').one(applicationName, pipelineName).remove();
+      return API.one(pipeline.strategy ? 'strategies' : 'pipelines').one(applicationName, pipelineName).remove();
     }
 
     function savePipeline(pipeline) {
@@ -62,23 +68,22 @@ module.exports = angular.module('spinnaker.core.pipeline.config.services.configS
           delete stage.name;
         }
       });
-      return Restangular.all( pipeline.strategy ? 'strategies' : 'pipelines').post(pipeline);
+      return API.one( pipeline.strategy ? 'strategies' : 'pipelines').data(pipeline).post();
     }
 
     function renamePipeline(applicationName, pipeline, currentName, newName) {
       configViewStateCache.remove(buildViewStateCacheKey(applicationName, currentName));
-      return Restangular.all(pipeline.strategy ? 'strategies' : 'pipelines').all('move').post({
+      return API.one(pipeline.strategy ? 'strategies' : 'pipelines').all('move').data({
         application: applicationName,
         from: currentName,
         to: newName
-      });
+      }).post();
     }
 
     function triggerPipeline(applicationName, pipelineName, body) {
       body = body || {};
       body.user = authenticationService.getAuthenticatedUser().name;
-      return Restangular.one('pipelines', applicationName)
-        .customPOST(body, pipelineName);
+      return API.one('pipelines').one(applicationName).one(pipelineName).data(body).post();
     }
 
     function getDownstreamStageIds(pipeline, stage) {
@@ -120,41 +125,28 @@ module.exports = angular.module('spinnaker.core.pipeline.config.services.configS
     }
 
     function enableParallelExecution(pipeline) {
-      pipeline.stageCounter = 0;
-      pipeline.stages.forEach(function(stage) {
-        pipeline.stageCounter++;
-        stage.refId = pipeline.stageCounter + '';
-        if (pipeline.stageCounter > 1) {
-          stage.requisiteStageRefIds = [(pipeline.stageCounter - 1) + ''];
+      pipeline.stages.forEach((stage, index) => {
+        stage.refId = index + '';
+        if (index > 0) {
+          stage.requisiteStageRefIds = [(index - 1) + ''];
         } else {
           stage.requisiteStageRefIds = [];
         }
       });
       pipeline.parallel = true;
-      pipeline.stageCounter = pipeline.stages.length;
-    }
-
-    function disableParallelExecution(pipeline) {
-      delete pipeline.stageCounter;
-      pipeline.stages.forEach(function(stage) {
-        delete stage.refId;
-        delete stage.requisiteStageRefIds;
-      });
-      delete pipeline.parallel;
     }
 
     return {
-      getPipelinesForApplication: getPipelinesForApplication,
-      getStrategiesForApplication: getStrategiesForApplication,
-      savePipeline: savePipeline,
-      deletePipeline: deletePipeline,
-      renamePipeline: renamePipeline,
-      triggerPipeline: triggerPipeline,
-      buildViewStateCacheKey: buildViewStateCacheKey,
-      getDependencyCandidateStages: getDependencyCandidateStages,
-      getAllUpstreamDependencies: getAllUpstreamDependencies,
-      enableParallelExecution: enableParallelExecution,
-      disableParallelExecution: disableParallelExecution,
+      getPipelinesForApplication,
+      getStrategiesForApplication,
+      getHistory,
+      savePipeline,
+      deletePipeline,
+      renamePipeline,
+      triggerPipeline,
+      buildViewStateCacheKey,
+      getDependencyCandidateStages,
+      getAllUpstreamDependencies,
+      enableParallelExecution,
     };
-
   });

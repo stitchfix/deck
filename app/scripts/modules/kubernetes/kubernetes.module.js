@@ -11,18 +11,19 @@ templates.keys().forEach(function(key) {
 });
 
 module.exports = angular.module('spinnaker.kubernetes', [
-  require('../core/pipeline/config/stages/findAmi/kubernetes/kubernetesFindAmiStage.js'),
-  require('../core/pipeline/config/stages/destroyAsg/kubernetes/kubernetesDestroyAsgStage.js'),
-  require('../core/pipeline/config/stages/disableAsg/kubernetes/kubernetesDisableAsgStage.js'),
-  require('../core/pipeline/config/stages/disableCluster/kubernetes/kubernetesDisableClusterStage.js'),
-  require('../core/pipeline/config/stages/enableAsg/kubernetes/kubernetesEnableAsgStage.js'),
-  require('../core/pipeline/config/stages/resizeAsg/kubernetes/resizeStage.js'),
+  require('./pipeline/stages/findAmi/kubernetesFindAmiStage.js'),
+  require('./pipeline/stages/destroyAsg/kubernetesDestroyAsgStage.js'),
+  require('./pipeline/stages/disableAsg/kubernetesDisableAsgStage.js'),
+  require('./pipeline/stages/disableCluster/kubernetesDisableClusterStage.js'),
+  require('./pipeline/stages/enableAsg/kubernetesEnableAsgStage.js'),
+  require('./pipeline/stages/resizeAsg/resizeStage.js'),
+  require('./pipeline/stages/runJob/runJobStage.js'),
   require('./cache/configurer.service.js'),
   require('./cluster/cluster.kubernetes.module.js'),
   require('./container/configurer.directive.js'),
   require('./container/probe.directive.js'),
+  require('./event/event.directive.js'),
   require('./instance/details/details.kubernetes.module.js'),
-  require('./job/job.module.js'),
   require('./loadBalancer/configure/configure.kubernetes.module.js'),
   require('./loadBalancer/details/details.kubernetes.module.js'),
   require('./loadBalancer/transformer.js'),
@@ -82,15 +83,6 @@ module.exports = angular.module('spinnaker.kubernetes', [
         cloneServerGroupTemplateUrl: require('./serverGroup/configure/wizard/wizard.html'),
         commandBuilder: 'kubernetesServerGroupCommandBuilder',
         configurationService: 'kubernetesServerGroupConfigurationService',
-      },
-      job: {
-        skipUpstreamStageCheck: true,
-        cloneJobController: 'kubernetesCloneJobController',
-        cloneJobTemplateUrl: require('./job/configure/wizard/wizard.html'),
-        commandBuilder: 'kubernetesJobCommandBuilder',
-        detailsTemplateUrl: require('./job/details/details.html'),
-        detailsController: 'kubernetesJobDetailsController',
-        transformer: 'kubernetesJobTransformer',
       },
     });
   });

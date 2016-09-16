@@ -5,7 +5,7 @@ let angular = require('angular');
 module.exports = angular
   .module('spinnaker.core.loadBalancer.filter.model', [
     require('../../filterModel/filter.model.service.js'),
-    require('../../navigation/urlParser.service.js'),
+    require('../../navigation/urlParser.service.js')
   ])
   .factory('LoadBalancerFilterModel', function($rootScope, filterModelService, urlParser) {
 

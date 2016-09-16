@@ -1,13 +1,16 @@
 'use strict';
 
-var feedbackUrl = process.env.FEEDBACK_URL || 'https://hootch.test.netflix.net/submit';
-var gateHost = process.env.API_HOST || 'https://spinnaker-api-prestaging.prod.netflix.net';
-var bakeryDetailUrl = process.env.BAKERY_DETAIL_URL || 'http://bakery.test.netflix.net/#/?region={{context.region}}&package={{context.package}}&detail=bake:{{context.status.resourceId}}';
-var authEndpoint = process.env.AUTH_ENDPOINT || 'https://spinnaker-api-prestaging.prod.netflix.net/auth/info';
+var feedbackUrl = process.env.FEEDBACK_URL;
+var gateHost = process.env.API_HOST || 'http://localhost:8084';
+var bakeryHost = process.env.BAKERY_HOST || 'http://localhost:8087';
+var bakeryDetailUrl = process.env.BAKERY_DETAIL_URL || (bakeryHost + '/#/?region={{context.region}}&package={{context.package}}&detail=bake:{{context.status.resourceId}}');
+var authEndpoint = process.env.AUTH_ENDPOINT || (gateHost + '/auth/user');
+var authEnabled = process.env.AUTH_ENABLED === 'false' ? false : true;
+var netflixMode = process.env.NETFLIX_MODE === 'true' ? true : false;
 
 window.spinnakerSettings = {
   checkForUpdates: true,
-  defaultProviders: ['aws', 'gce', 'azure', 'cf', 'kubernetes', 'titan', 'openstack'],
+  defaultProviders: ['aws', 'gce', 'azure', 'cf', 'kubernetes', 'titus', 'openstack'],
   feedbackUrl: feedbackUrl,
   gateUrl: gateHost,
   bakeryDetailUrl: bakeryDetailUrl,
@@ -15,6 +18,7 @@ window.spinnakerSettings = {
   pollSchedule: 30000,
   defaultTimeZone: process.env.TIMEZONE || 'America/Los_Angeles', // see http://momentjs.com/timezone/docs/#/data-utilities/
   defaultCategory: 'serverGroup',
+  defaultInstancePort: 80,
   providers: {
     azure: {
       defaults: {
@@ -25,9 +29,10 @@ window.spinnakerSettings = {
     aws: {
       defaults: {
         account: 'test',
-        region: 'us-east-1'
+        region: 'us-east-1',
+        iamRole: 'BaseIAMRole',
       },
-      defaultSecurityGroups: ['nf-datacenter-vpc', 'nf-infrastructure-vpc', 'nf-datacenter', 'nf-infrastructure'],
+      defaultSecurityGroups: [],
       loadBalancers: {
         // if true, VPC load balancers will be created as internal load balancers if the selected subnet has a purpose
         // tag that starts with "internal"
@@ -42,7 +47,7 @@ window.spinnakerSettings = {
         zone: 'us-central1-f',
       },
     },
-    titan: {
+    titus: {
       defaults: {
         account: 'titustestvpc',
         region: 'us-east-1'
@@ -81,7 +86,7 @@ window.spinnakerSettings = {
       botName: 'spinnakerbot'
     }
   },
-  authEnabled: process.env.AUTH === 'enabled',
+  authEnabled: authEnabled,
   authTtl: 600000,
   gitSources: ['stash', 'github'],
   triggerTypes: ['git', 'pipeline', 'docker', 'cron', 'jenkins'],
@@ -90,11 +95,12 @@ window.spinnakerSettings = {
     notifications: false,
     fastProperty: true,
     vpcMigrator: true,
-    clusterDiff: true,
+    clusterDiff: false,
     roscoMode: false,
-    netflixMode: false,
+    netflixMode: netflixMode,
     // whether stages affecting infrastructure (like "Create Load Balancer") should be enabled or not
     infrastructureStages: process.env.INFRA_STAGES === 'enabled',
     jobs: false,
+    snapshots: false,
   },
 };

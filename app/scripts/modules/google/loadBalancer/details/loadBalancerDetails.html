@@ -50,6 +50,12 @@
         <dt>In</dt>
         <dd><account-tag account="loadBalancer.account" pad="right"></account-tag> {{loadBalancer.region}}</dd>
       </dl>
+      <dl>
+        <dt>Type</dt>
+        <dd>
+          <gce-load-balancer-type load-balancer="loadBalancer"></gce-load-balancer-type>
+        </dd>
+      </dl>
       <dl ng-class="InsightFilterStateModel.filtersExpanded ? '' : 'dl-horizontal dl-wide'">
         <dt>Zones</dt>
         <dd>
@@ -84,6 +90,14 @@
           </copy-to-clipboard>
         </dd>
       </dl>
+      <dl ng-if="loadBalancer.hostRules">
+        <dd>
+          <gce-host-and-path-rules-button default-service="loadBalancer.defaultService"
+                                          load-balancer-name="loadBalancer.name"
+                                          host-rules="loadBalancer.hostRules">
+          </gce-host-and-path-rules-button>
+        </dd>
+      </dl>
     </collapsible-section>
     <collapsible-section heading="Status" expanded="true">
       <health-counts class="pull-left" container="loadBalancer.instanceCounts"></health-counts>
@@ -100,16 +114,13 @@
     </collapsible-section>
     <collapsible-section heading="Health Checks">
       <dl ng-class="InsightFilterStateModel.filtersExpanded ? '' : 'dl-horizontal dl-wide'">
-        <dt>Target</dt>
-        <dd>{{loadBalancer.elb.healthCheck.target}}</dd>
-        <dt>Timeout</dt>
-        <dd>{{loadBalancer.elb.healthCheck.timeout}} seconds</dd>
-        <dt>Interval</dt>
-        <dd>{{loadBalancer.elb.healthCheck.interval}} seconds</dd>
-        <dt>Healthy Threshold</dt>
-        <dd>{{loadBalancer.elb.healthCheck.healthyThreshold}}</dd>
-        <dt>Unhealthy Threshold</dt>
-        <dd>{{loadBalancer.elb.healthCheck.unhealthyThreshold}}</dd>
+        <gce-health-check ng-if="!ctrl.isElSeven(loadBalancer)" health-check="loadBalancer.elb.healthCheck"></gce-health-check>
+        <div ng-if="ctrl.isElSeven(loadBalancer)" ng-repeat="(serviceName, healthCheck) in loadBalancer.elb.backendServiceHealthChecks">
+          <hr ng-if="$index > 0">
+          <dt>Backend Service Name</dt>
+          <dd>{{ serviceName }}</dd>
+          <gce-health-check health-check="healthCheck"></gce-health-check>
+        </div>
       </dl>
     </collapsible-section>
     <collapsible-section heading="Logs">

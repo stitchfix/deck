@@ -4,12 +4,13 @@ let angular = require('angular');
 module.exports = angular.module('spinnaker.core.delivery.executions.service', [
   require('../../cache/deckCacheFactory.js'),
   require('../../utils/appendTransform.js'),
+  require('../../utils/lodash.js'),
   require('../../config/settings.js'),
   require('../filter/executionFilter.model.js'),
   require('./executions.transformer.service.js')
 ])
   .factory('executionService', function($http, $timeout, $q, $log, ExecutionFilterModel, $state,
-                                         settings, appendTransform, executionsTransformer) {
+                                        _, settings, appendTransform, executionsTransformer) {
 
     const activeStatuses = ['RUNNING', 'SUSPENDED', 'PAUSED', 'NOT_STARTED'];
     const runningLimit = 30;
@@ -18,7 +19,7 @@ module.exports = angular.module('spinnaker.core.delivery.executions.service', [
       return getFilteredExecutions(applicationName, {statuses: activeStatuses, limit: runningLimit});
     }
 
-    function getFilteredExecutions(applicationName, {statuses = Object.keys(ExecutionFilterModel.sortFilter.status), limit = ExecutionFilterModel.sortFilter.count} = {}) {
+    function getFilteredExecutions(applicationName, {statuses = Object.keys(_.pick(ExecutionFilterModel.sortFilter.status || {}, _.identity)), limit = ExecutionFilterModel.sortFilter.count} = {}) {
       let url = [ settings.gateUrl, 'applications', applicationName, `pipelines?limit=${limit}`].join('/');
       if (statuses.length) {
         url += '&statuses=' + statuses.map((status) => status.toUpperCase()).join(',');
@@ -244,6 +245,44 @@ module.exports = angular.module('spinnaker.core.delivery.executions.service', [
       }
     }
 
+    function updateExecution(application, execution) {
+      if (application.executions.data && application.executions.data.length) {
+        application.executions.data.forEach((t, idx) => {
+          if (execution.id === t.id) {
+            execution.stringVal = JSON.stringify(execution);
+            if (t.stringVal !== execution.stringVal) {
+              transformExecution(application, execution);
+              application.executions.data[idx] = execution;
+              application.executions.refreshStream.onNext();
+            }
+          }
+        });
+      }
+    }
+
+    function getLastExecutionForApplicationByConfigId(appName, configId) {
+      return getFilteredExecutions(appName, {}, 1 )
+        .then((executions) => {
+          return executions.filter((execution) => {
+            return execution.pipelineConfigId === configId;
+          });
+        })
+        .then((executionsByConfigId) => {
+          return executionsByConfigId[0];
+        });
+    }
+
+    function patchExecution(executionId, stageId, data) {
+      var targetUrl = [settings.gateUrl, 'pipelines', executionId, 'stages', stageId].join('/');
+      var request = {
+        method: 'PATCH',
+        url: targetUrl,
+        data: data,
+        timeout: settings.pollSchedule * 2 + 5000
+      };
+      return $http(request).then(resp => resp.data);
+    }
+
     return {
       getExecutions: getExecutions,
       getExecution: getExecution,
@@ -259,5 +298,8 @@ module.exports = angular.module('spinnaker.core.delivery.executions.service', [
       getSectionCacheKey: getSectionCacheKey,
       getProjectExecutions: getProjectExecutions,
       addExecutionsToApplication: addExecutionsToApplication,
+      updateExecution: updateExecution,
+      getLastExecutionForApplicationByConfigId: getLastExecutionForApplicationByConfigId,
+      patchExecution: patchExecution,
     };
   });

@@ -21,6 +21,14 @@ module.exports = angular.module('spinnaker.core.pipeline.config.pipelineConfigur
 
     this.actionsTemplateUrl = overrideRegistry.getTemplate('pipelineConfigActions', require('./actions/pipelineConfigActions.html'));
 
+    let original = _.cloneDeep($scope.pipeline);
+
+    pipelineConfigService.getHistory($scope.pipeline.id, 2).then(history => {
+      if (history && history.length > 1) {
+        $scope.viewState.hasHistory = true;
+      }
+    });
+
     var configViewStateCache = viewStateCache.pipelineConfig;
 
     function buildCacheKey() {
@@ -47,32 +55,6 @@ module.exports = angular.module('spinnaker.core.pipeline.config.pipelineConfigur
       }, 200 );
     };
 
-    this.enableParallel = function() {
-      $uibModal.open({
-        templateUrl: require('./actions/enableParallel/enableParallel.html'),
-        controller: 'EnableParallelModalCtrl',
-        controllerAs: 'enableParallelModalCtrl',
-        resolve: {
-          pipeline: function() { return $scope.pipeline; },
-        }
-      }).result.then(function() {
-          $scope.$broadcast('pipeline-parallel-changed');
-        });
-    };
-
-    this.disableParallel = function() {
-      $uibModal.open({
-        templateUrl: require('./actions/disableParallel/disableParallel.html'),
-        controller: 'DisableParallelModalCtrl',
-        controllerAs: 'disableParallelModalCtrl',
-        resolve: {
-          pipeline: function() { return $scope.pipeline; },
-        }
-      }).result.then(function() {
-          $scope.$broadcast('pipeline-parallel-changed');
-        });
-    };
-
     this.deletePipeline = function() {
       $uibModal.open({
         templateUrl: require('./actions/delete/deletePipelineModal.html'),
@@ -89,12 +71,8 @@ module.exports = angular.module('spinnaker.core.pipeline.config.pipelineConfigur
       var newStage = { isNew: true };
       $scope.pipeline.stages = $scope.pipeline.stages || [];
       if ($scope.pipeline.parallel) {
-        if (!$scope.pipeline.stageCounter) {
-          $scope.pipeline.stageCounter = Math.max(...$scope.pipeline.stages.map(s => Number(s.refId) || 0)) + 1;
-        }
-        $scope.pipeline.stageCounter++;
+        newStage.refId = Math.max(0, ...$scope.pipeline.stages.map(s => Number(s.refId) || 0)) + 1 + '';
         newStage.requisiteStageRefIds = [];
-        newStage.refId = $scope.pipeline.stageCounter + ''; // needs to be a string
         if ($scope.pipeline.stages.length && $scope.viewState.section === 'stage') {
           newStage.requisiteStageRefIds.push($scope.pipeline.stages[$scope.viewState.stageIndex].refId);
         }
@@ -159,12 +137,53 @@ module.exports = angular.module('spinnaker.core.pipeline.config.pipelineConfigur
         templateUrl: require('./actions/json/editPipelineJsonModal.html'),
         controller: 'EditPipelineJsonModalCtrl',
         controllerAs: 'editPipelineJsonModalCtrl',
+        size: 'lg modal-fullscreen',
         resolve: {
           pipeline: function() { return $scope.pipeline; },
         }
       }).result.then(function() {
-          $scope.$broadcast('pipeline-json-edited');
-        });
+        $scope.$broadcast('pipeline-json-edited');
+      });
+    };
+
+    this.enablePipeline = () => {
+      $uibModal.open({
+        templateUrl: require('./actions/enable/enablePipelineModal.html'),
+        controller: 'EnablePipelineModalCtrl as ctrl',
+        resolve: {
+          pipeline: () => original
+        }
+      }).result.then(disableToggled);
+    };
+
+    this.disablePipeline = () => {
+      $uibModal.open({
+        templateUrl: require('./actions/disable/disablePipelineModal.html'),
+        controller: 'DisablePipelineModalCtrl as ctrl',
+        resolve: {
+          pipeline: () => original
+        }
+      }).result.then(disableToggled);
+    };
+
+    function disableToggled() {
+      $scope.pipeline.disabled = !$scope.pipeline.disabled;
+    }
+
+    this.showHistory = () => {
+      $uibModal.open({
+        templateUrl: require('./actions/history/showHistory.modal.html'),
+        controller: 'ShowHistoryCtrl',
+        controllerAs: 'ctrl',
+        size: 'lg modal-fullscreen',
+        resolve: {
+          pipelineConfigId: () => $scope.pipeline.id,
+          currentConfig: () => $scope.viewState.isDirty ? JSON.parse(angular.toJson($scope.pipeline)) : null,
+        }
+      }).result.then(newConfig => {
+        $scope.pipeline = newConfig;
+        this.savePipeline();
+      });
     };
 
     this.navigateToStage = function(index, event) {
@@ -239,15 +258,15 @@ module.exports = angular.module('spinnaker.core.pipeline.config.pipelineConfigur
       var original = angular.fromJson($scope.viewState.original);
       if (original.parallel) {
         $scope.pipeline.parallel = true;
-        $scope.pipeline.stageCounter = original.stageCounter;
       } else {
         delete $scope.pipeline.parallel;
-        delete $scope.pipeline.stageCounter;
       }
       $scope.pipeline.stages = original.stages;
       $scope.pipeline.triggers = original.triggers;
       $scope.pipeline.notifications = original.notifications;
       $scope.pipeline.persistedProperties = original.persistedProperties;
+      $scope.pipeline.parameterConfig = original.parameterConfig;
+      $scope.pipeline.name = $scope.viewState.originalPipelineName;
 
       // if we were looking at a stage that no longer exists, move to the last stage
       if ($scope.viewState.section === 'stage') {
@@ -270,7 +289,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.pipelineConfigur
     }
 
     function getPlain(pipeline) {
-      var base = pipeline.fromServer ? pipeline.plain() : pipeline;
+      var base = pipeline;
       var copy = _.cloneDeep(base);
       copy.stages.forEach(cleanStageForDiffing);
       return {
@@ -280,7 +299,6 @@ module.exports = angular.module('spinnaker.core.pipeline.config.pipelineConfigur
         appConfig: copy.appConfig || {},
         limitConcurrent: copy.limitConcurrent,
         keepWaitingPipelines: copy.keepWaitingPipelines,
-        stageCounter: copy.stageCounter,
         parameterConfig: copy.parameterConfig,
         notifications: copy.notifications,
         persistedProperties: copy.persistedProperties,

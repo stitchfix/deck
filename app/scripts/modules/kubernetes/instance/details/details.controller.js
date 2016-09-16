@@ -99,7 +99,6 @@ module.exports = angular.module('spinnaker.instance.detail.kubernetes.controller
         extraData.namespace = namespace;
         recentHistoryService.addExtraDataToLatest('instances', extraData);
         return instanceReader.getInstanceDetails(account, namespace, instance.instanceId).then(function(details) {
-          details = details.plain();
           $scope.state.loading = false;
           $scope.instance = _.defaults(details, instanceSummary);
           $scope.instance.account = account;
@@ -260,7 +259,7 @@ module.exports = angular.module('spinnaker.instance.detail.kubernetes.controller
       //     is no point in subscribing to the refresh
       //  2. If this is a standalone instance, there is no application that will refresh
       if (!$scope.$$destroyed && !app.isStandalone) {
-        app.serverGroups.onRefresh(retrieveInstance);
+        app.serverGroups.onRefresh($scope, retrieveInstance);
       }
     });
 

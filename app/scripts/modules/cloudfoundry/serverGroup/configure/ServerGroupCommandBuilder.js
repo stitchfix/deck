@@ -3,14 +3,13 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.cf.serverGroupCommandBuilder.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
   require('../../../core/cache/deckCacheFactory.js'),
   require('../../../core/account/account.service.js'),
   require('../../../core/instance/instanceTypeService.js'),
   require('../../../core/naming/naming.service.js'),
   require('../../../core/utils/lodash.js'),
 ])
-  .factory('cfServerGroupCommandBuilder', function (settings, Restangular, $q,
+  .factory('cfServerGroupCommandBuilder', function (settings, $q,
                                                      accountService, instanceTypeService, namingService, _) {
 
     function populateTags(instanceTemplateTags, command) {
@@ -70,6 +69,7 @@ module.exports = angular.module('spinnaker.cf.serverGroupCommandBuilder.service'
         password: '',
         buildpackUrl: '',
         memory: 1024,
+        disk: 1024,
         viewState: {
           instanceProfile: 'custom',
           allImageSelection: null,
@@ -133,6 +133,7 @@ module.exports = angular.module('spinnaker.cf.serverGroupCommandBuilder.service'
         password: serverGroup.password,
         buildpackUrl: serverGroup.buildpackUrl,
         memory: serverGroup.memory,
+        disk: serverGroup.disk,
         viewState: {
           allImageSelection: null,
           useAllImageSelection: false,
