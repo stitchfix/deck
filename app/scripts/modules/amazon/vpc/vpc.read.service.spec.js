@@ -1,16 +1,20 @@
 'use strict';
 
+import {API_SERVICE} from 'core/api/api.service';
+
 describe('vpcReader', function() {
 
-  var service, $http, $scope;
+  var service, $http, $scope, API;
 
   beforeEach(
     window.module(
-      require('./vpc.read.service.js')
+      require('./vpc.read.service.js'),
+      API_SERVICE
     )
   );
 
-  beforeEach(window.inject(function ($httpBackend, $rootScope, _vpcReader_) {
+  beforeEach(window.inject(function ($httpBackend, $rootScope, _vpcReader_, _API_) {
+    API = _API_;
     service = _vpcReader_;
     $http = $httpBackend;
     $scope = $rootScope.$new();
@@ -21,7 +25,7 @@ describe('vpcReader', function() {
   });
 
   beforeEach(function() {
-    $http.whenGET('/networks/aws').respond(200, [
+    $http.whenGET(API.baseUrl + '/networks/aws').respond(200, [
       { name: 'vpc1', id: 'vpc-1', deprecated: true },
       { name: 'vpc2', id: 'vpc-2', deprecated: false },
       { name: 'vpc3', id: 'vpc-3' },

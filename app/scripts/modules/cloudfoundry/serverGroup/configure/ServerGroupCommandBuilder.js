@@ -1,17 +1,17 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.cf.serverGroupCommandBuilder.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
-  require('../../../core/cache/deckCacheFactory.js'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/instance/instanceTypeService.js'),
-  require('../../../core/naming/naming.service.js'),
-  require('../../../core/utils/lodash.js'),
+  require('core/cache/deckCacheFactory.js'),
+  require('core/account/account.service.js'),
+  require('core/instance/instanceTypeService.js'),
+  require('core/naming/naming.service.js'),
 ])
-  .factory('cfServerGroupCommandBuilder', function (settings, Restangular, $q,
-                                                     accountService, instanceTypeService, namingService, _) {
+  .factory('cfServerGroupCommandBuilder', function (settings, $q,
+                                                     accountService, instanceTypeService, namingService) {
 
     function populateTags(instanceTemplateTags, command) {
       if (instanceTemplateTags && instanceTemplateTags.items) {
@@ -23,16 +23,16 @@ module.exports = angular.module('spinnaker.cf.serverGroupCommandBuilder.service'
 
     function attemptToSetValidCredentials(application, defaultCredentials, command) {
       return accountService.listAccounts('cf').then(function (cfAccounts) {
-        var cfAccountNames = _.pluck(cfAccounts, 'name');
+        var cfAccountNames = _.map(cfAccounts, 'name');
         var firstcfAccount = null;
 
         if (application.accounts.length) {
           firstcfAccount = _.find(application.accounts, function (applicationAccount) {
-            return cfAccountNames.indexOf(applicationAccount) !== -1;
+            return cfAccountNames.includes(applicationAccount);
           });
         }
 
-        var defaultCredentialsAreValid = defaultCredentials && cfAccountNames.indexOf(defaultCredentials) !== -1;
+        var defaultCredentialsAreValid = defaultCredentials && cfAccountNames.includes(defaultCredentials);
 
         command.credentials =
             defaultCredentialsAreValid ? defaultCredentials : (firstcfAccount ? firstcfAccount : 'my-account-name');
@@ -70,6 +70,7 @@ module.exports = angular.module('spinnaker.cf.serverGroupCommandBuilder.service'
         password: '',
         buildpackUrl: '',
         memory: 1024,
+        disk: 1024,
         viewState: {
           instanceProfile: 'custom',
           allImageSelection: null,
@@ -133,6 +134,7 @@ module.exports = angular.module('spinnaker.cf.serverGroupCommandBuilder.service'
         password: serverGroup.password,
         buildpackUrl: serverGroup.buildpackUrl,
         memory: serverGroup.memory,
+        disk: serverGroup.disk,
         viewState: {
           allImageSelection: null,
           useAllImageSelection: false,

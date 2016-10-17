@@ -8,12 +8,12 @@ module.exports = angular
   .module('spinnaker.aws.serverGroup.details.scalingPolicy.upsertScalingPolicy.controller', [
     require('../scalingPolicy.write.service.js'),
     require('exports?"n3-line-chart"!n3-charts/build/LineChart.js'),
-    require('../../../../../core/serverGroup/serverGroup.read.service.js'),
+    require('core/serverGroup/serverGroup.read.service.js'),
     require('./simple/simplePolicyAction.component.js'),
     require('./step/stepPolicyAction.component.js'),
     require('./alarm/alarmConfigurer.component.js'),
   ])
-  .controller('awsUpsertScalingPolicyCtrl', function ($uibModalInstance, _, scalingPolicyWriter,
+  .controller('awsUpsertScalingPolicyCtrl', function ($uibModalInstance, scalingPolicyWriter,
                                                       taskMonitorService,
                                                       serverGroupReader, serverGroup, application, policy) {
 
@@ -91,7 +91,7 @@ module.exports = angular
       let threshold = command.alarm.threshold;
       command.step = {
         estimatedInstanceWarmup: policy.estimatedInstanceWarmup || command.cooldown || 600,
-        metricAggregationType: command.alarm.statistic,
+        metricAggregationType: 'Average',
       };
       command.step.stepAdjustments = policy.stepAdjustments.map((adjustment) => {
         let step = {
@@ -169,6 +169,7 @@ module.exports = angular
         command.step.stepAdjustments.forEach((step) => {
           if (this.viewState.operator === 'Remove') {
             step.scalingAdjustment = 0 - step.scalingAdjustment;
+            delete command.step.estimatedInstanceWarmup;
           }
           if (step.metricIntervalLowerBound !== undefined) {
             step.metricIntervalLowerBound -= command.alarm.threshold;
@@ -185,17 +186,15 @@ module.exports = angular
       return command;
     };
 
+    this.taskMonitor = taskMonitorService.buildTaskMonitor({
+      modalInstance: $uibModalInstance,
+      application: application,
+      title: this.action + ' scaling policy for ' + serverGroup.name,
+    });
+
     this.save = () => {
       let command = prepareCommandForSubmit();
       var submitMethod = () => scalingPolicyWriter.upsertScalingPolicy(application, command);
-
-      var taskMonitorConfig = {
-        modalInstance: $uibModalInstance,
-        application: application,
-        title: this.action + ' scaling policy for ' + serverGroup.name,
-      };
-
-      this.taskMonitor = taskMonitorService.buildTaskMonitor(taskMonitorConfig);
 
       this.taskMonitor.submit(submitMethod);
     };

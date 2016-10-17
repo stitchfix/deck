@@ -1,32 +1,21 @@
-/*
- * Copyright 2014 Netflix, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 'use strict';
+
+import {API_SERVICE} from 'core/api/api.service';
 
 describe('Service: InstanceType', function () {
 
+  let API;
+
   beforeEach(function() {
       window.module(
-        require('./azureInstanceType.service')
+        require('./azureInstanceType.service'),
+        API_SERVICE
       );
   });
 
 
-  beforeEach(window.inject(function (_azureInstanceTypeService_, _$httpBackend_, _settings_, infrastructureCaches) {
-
+  beforeEach(window.inject(function (_azureInstanceTypeService_, _$httpBackend_, _settings_, infrastructureCaches, _API_) {
+    API = _API_;
     this.azureInstanceTypeService = _azureInstanceTypeService_;
     this.$httpBackend = _$httpBackend_;
     this.settings = _settings_;
@@ -52,7 +41,7 @@ describe('Service: InstanceType', function () {
 
     it('returns types, indexed by region', function () {
 
-      this.$httpBackend.expectGET('/instanceTypes').respond(200, this.allTypes);
+      this.$httpBackend.expectGET(API.baseUrl + '/instanceTypes').respond(200, this.allTypes);
 
       var results = null;
       this.azureInstanceTypeService.getAllTypesByRegion().then(function(result) {
@@ -61,7 +50,7 @@ describe('Service: InstanceType', function () {
 
       this.$httpBackend.flush();
       expect(results['us-west-2'].length).toBe(2);
-      expect(_.pluck(results['us-west-2'], 'name').sort()).toEqual(['m1.small', 'm2.xlarge']);
+      expect(_.map(results['us-west-2'], 'name').sort()).toEqual(['m1.small', 'm2.xlarge']);
     });
 
   });
@@ -69,7 +58,7 @@ describe('Service: InstanceType', function () {
   describe('getAvailableTypesForRegions', function() {
 
     it('returns results for a single region', function() {
-      this.$httpBackend.expectGET('/instanceTypes').respond(200, this.allTypes);
+      this.$httpBackend.expectGET(API.baseUrl + '/instanceTypes').respond(200, this.allTypes);
 
       var results = null,
           service = this.azureInstanceTypeService;
@@ -83,7 +72,7 @@ describe('Service: InstanceType', function () {
     });
 
     it('returns empty list for region with no instance types', function() {
-      this.$httpBackend.expectGET('/instanceTypes').respond(200, this.allTypes);
+      this.$httpBackend.expectGET(API.baseUrl + '/instanceTypes').respond(200, this.allTypes);
 
       var results = null,
           service = this.azureInstanceTypeService;
@@ -97,7 +86,7 @@ describe('Service: InstanceType', function () {
     });
 
     it('returns an intersection when multiple regions are provided', function() {
-      this.$httpBackend.expectGET('/instanceTypes').respond(200, this.allTypes);
+      this.$httpBackend.expectGET(API.baseUrl + '/instanceTypes').respond(200, this.allTypes);
 
       var results = null,
           service = this.azureInstanceTypeService;

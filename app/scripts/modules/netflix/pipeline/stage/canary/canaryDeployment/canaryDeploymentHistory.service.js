@@ -1,14 +1,14 @@
 'use strict';
 
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
-module.exports = angular.module('spinnaker.netflix.pipeline.stages.canary.deployment.history.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
-])
-  .factory('canaryDeploymentHistoryService', function (Restangular) {
+module.exports = angular.module('spinnaker.netflix.pipeline.stages.canary.deployment.history.service', [API_SERVICE])
+  .factory('canaryDeploymentHistoryService', function (API) {
 
     function getAnalysisHistory(canaryDeploymentId) {
-      return Restangular.one('canaryDeployments').one(canaryDeploymentId).all('canaryAnalysisHistory').getList();
+      return API.one('canaryDeployments').one(canaryDeploymentId).all('canaryAnalysisHistory').getList();
     }
 
     return {

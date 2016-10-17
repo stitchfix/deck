@@ -1,17 +1,21 @@
 'use strict';
 
+import _ from 'lodash';
+import {Subject} from 'rxjs';
+
+import modalWizardServiceModule from 'core/modal/wizard/v2modalWizard.service';
+
 var angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.amazon.securityGroup.baseConfig.controller', [
     require('angular-ui-router'),
-    require('../../../core/task/monitor/taskMonitorService'),
-    require('../../../core/securityGroup/securityGroup.write.service'),
-    require('../../../core/account/account.service'),
+    require('core/task/monitor/taskMonitorService'),
+    require('core/securityGroup/securityGroup.write.service'),
+    require('core/account/account.service'),
     require('../../vpc/vpc.read.service'),
-    require('../../../core/modal/wizard/v2modalWizard.service'),
-    require('../../../core/utils/lodash'),
-    require('../../../core/config/settings'),
+    modalWizardServiceModule,
+    require('core/config/settings'),
     require('./ingressRuleGroupSelector.component'),
   ])
   .controller('awsConfigSecurityGroupMixin', function ($scope,
@@ -27,7 +31,7 @@ module.exports = angular
                                                        cacheInitializer,
                                                        infrastructureCaches,
                                                        vpcReader,
-                                                       settings, _, rx) {
+                                                       settings) {
 
 
 
@@ -47,7 +51,7 @@ module.exports = angular
 
     $scope.hideClassic = false;
 
-    ctrl.addMoreItems = function() {
+    ctrl.addMoreItems = function () {
       $scope.state.infiniteScroll.currentItems += $scope.state.infiniteScroll.numToAdd;
     };
 
@@ -88,7 +92,7 @@ module.exports = angular
     $scope.securityGroup = securityGroup;
 
     ctrl.initializeAccounts = () => {
-      return accountService.listAccounts('aws').then(function(accounts) {
+      return accountService.listAccounts('aws').then(function (accounts) {
         $scope.accounts = accounts;
         ctrl.accountUpdated();
       });
@@ -96,7 +100,7 @@ module.exports = angular
 
     ctrl.upsert = function () {
       $scope.taskMonitor.submit(
-        function() {
+        function () {
           return securityGroupWriter.upsertSecurityGroup($scope.securityGroup, application, 'Create');
         }
       );
@@ -107,7 +111,7 @@ module.exports = angular
       $scope.existingSecurityGroupNames = [];
     }
 
-    ctrl.accountUpdated = function() {
+    ctrl.accountUpdated = function () {
       accountService.getRegionsForAccount(getAccount()).then(regions => {
         $scope.regions = regions.map(region => region.name);
         clearSecurityGroups();
@@ -118,28 +122,32 @@ module.exports = angular
       });
     };
 
-    ctrl.regionUpdated = function() {
+    ctrl.regionUpdated = function () {
       var account = getAccount(),
-          regions = $scope.securityGroup.regions || [];
-      vpcReader.listVpcs().then(function(vpcs) {
+        regions = $scope.securityGroup.regions || [];
+      vpcReader.listVpcs().then(function (vpcs) {
         var vpcsByName = _.groupBy(vpcs.filter(vpc => vpc.account === account), 'label');
         $scope.allVpcs = vpcs;
         var available = [];
-        _.forOwn(vpcsByName, function(vpcsToTest, label) {
+        _.forOwn(vpcsByName, function (vpcsToTest, label) {
           var foundInAllRegions = regions.every(region => {
             return vpcsToTest.some(test => test.region === region && test.account === account);
           });
           if (foundInAllRegions) {
-            available.push( {
-              ids: vpcsToTest.filter(t => regions.indexOf(t.region) > -1).map(vpc => vpc.id),
+            available.push({
+              ids: vpcsToTest.filter(t => regions.includes(t.region)).map(vpc => vpc.id),
               label: label,
               deprecated: vpcsToTest[0].deprecated,
             });
           }
         });
 
-        $scope.activeVpcs = available.filter(function(vpc) { return !vpc.deprecated; });
-        $scope.deprecatedVpcs = available.filter(function(vpc) { return vpc.deprecated; });
+        $scope.activeVpcs = available.filter(function (vpc) {
+          return !vpc.deprecated;
+        });
+        $scope.deprecatedVpcs = available.filter(function (vpc) {
+          return vpc.deprecated;
+        });
         $scope.vpcs = available;
 
         let lockoutDate = _.get(settings, 'providers.aws.classicLaunchLockout');
@@ -153,23 +161,23 @@ module.exports = angular
           }
         }
 
-        var match = _.find(available, function(vpc) {
-          return vpc.ids.indexOf($scope.securityGroup.vpcId) !== -1;
+        var match = _.find(available, function (vpc) {
+          return vpc.ids.includes($scope.securityGroup.vpcId);
         });
         $scope.securityGroup.vpcId = match ? match.ids[0] : null;
         ctrl.vpcUpdated();
       });
     };
 
-    this.vpcUpdated = function() {
+    this.vpcUpdated = function () {
       var account = getAccount(),
-          regions = $scope.securityGroup.regions;
+        regions = $scope.securityGroup.regions;
       if (account && regions.length) {
         configureFilteredSecurityGroups();
       } else {
         clearSecurityGroups();
       }
-      $scope.coordinatesChanged.onNext();
+      $scope.coordinatesChanged.next();
     };
 
     function configureFilteredSecurityGroups() {
@@ -182,8 +190,8 @@ module.exports = angular
       regions.forEach(function (region) {
         var regionalVpcId = null;
         if (vpcId) {
-          var baseVpc = _.find($scope.allVpcs, { id: vpcId });
-          regionalVpcId = _.find($scope.allVpcs, { account: account, region: region, name: baseVpc.name }).id;
+          var baseVpc = _.find($scope.allVpcs, {id: vpcId});
+          regionalVpcId = _.find($scope.allVpcs, {account: account, region: region, name: baseVpc.name}).id;
         }
 
         var regionalGroupNames = _.get(allSecurityGroups, [account, 'aws', region].join('.'), [])
@@ -206,7 +214,7 @@ module.exports = angular
 
     ctrl.mixinUpsert = function (descriptor) {
       $scope.taskMonitor.submit(
-        function() {
+        function () {
           return securityGroupWriter.upsertSecurityGroup($scope.securityGroup, application, descriptor);
         }
       );
@@ -214,12 +222,12 @@ module.exports = angular
 
     function clearInvalidSecurityGroups() {
       var removed = $scope.state.removedRules,
-          securityGroup = $scope.securityGroup;
+        securityGroup = $scope.securityGroup;
       $scope.securityGroup.securityGroupIngress = securityGroup.securityGroupIngress.filter(rule => {
         if (rule.accountName !== securityGroup.accountName || (rule.vpcId && rule.vpcId !== securityGroup.vpcId)) {
           return true;
         }
-        if (rule.name && $scope.availableSecurityGroups.indexOf(rule.name) === -1 && removed.indexOf(rule.name) === -1) {
+        if (rule.name && !$scope.availableSecurityGroups.includes(rule.name) && !removed.includes(rule.name)) {
           removed.push(rule.name);
           return false;
         }
@@ -230,26 +238,26 @@ module.exports = angular
       }
     }
 
-    ctrl.refreshSecurityGroups = function() {
+    ctrl.refreshSecurityGroups = function () {
       $scope.state.refreshingSecurityGroups = true;
-      return cacheInitializer.refreshCache('securityGroups').then(function() {
-        return ctrl.initializeSecurityGroups().then(function() {
+      return cacheInitializer.refreshCache('securityGroups').then(function () {
+        return ctrl.initializeSecurityGroups().then(function () {
           ctrl.vpcUpdated();
           $scope.state.refreshingSecurityGroups = false;
         });
       });
     };
 
-    this.getSecurityGroupRefreshTime = function() {
+    this.getSecurityGroupRefreshTime = function () {
       return infrastructureCaches.securityGroups.getStats().ageMax;
     };
 
     var allSecurityGroups = {};
 
-    $scope.allSecurityGroupsUpdated = new rx.Subject();
-    $scope.coordinatesChanged = new rx.Subject();
+    $scope.allSecurityGroupsUpdated = new Subject();
+    $scope.coordinatesChanged = new Subject();
 
-    ctrl.initializeSecurityGroups = function() {
+    ctrl.initializeSecurityGroups = function () {
       return securityGroupReader.getAllSecurityGroups().then(function (securityGroups) {
         $scope.state.securityGroupsLoaded = true;
         allSecurityGroups = securityGroups;
@@ -258,15 +266,15 @@ module.exports = angular
         var vpcId = $scope.securityGroup.vpcId || null;
 
         var availableGroups;
-        if(account && region) {
-          availableGroups = _.filter(securityGroups[account].aws[region], { vpcId: vpcId });
+        if (account && region) {
+          availableGroups = _.filter(securityGroups[account].aws[region], {vpcId: vpcId});
         } else {
           availableGroups = securityGroups;
         }
 
-        $scope.availableSecurityGroups = _.pluck(availableGroups, 'name');
+        $scope.availableSecurityGroups = _.map(availableGroups, 'name');
         $scope.allSecurityGroups = securityGroups;
-        $scope.allSecurityGroupsUpdated.onNext();
+        $scope.allSecurityGroupsUpdated.next();
       });
     };
 
@@ -274,11 +282,11 @@ module.exports = angular
       $uibModalInstance.dismiss();
     };
 
-    ctrl.getCurrentNamePattern = function() {
+    ctrl.getCurrentNamePattern = function () {
       return $scope.securityGroup.vpcId ? vpcPattern : classicPattern;
     };
 
-    ctrl.updateName = function() {
+    ctrl.updateName = function () {
       var securityGroup = $scope.securityGroup,
         name = application.name;
       if (securityGroup.detail) {
@@ -289,12 +297,12 @@ module.exports = angular
     };
 
     ctrl.namePattern = {
-      test: function(name) {
+      test: function (name) {
         return ctrl.getCurrentNamePattern().test(name);
       }
     };
 
-    ctrl.addRule = function(ruleset) {
+    ctrl.addRule = function (ruleset) {
       ruleset.push({
         type: 'tcp',
         startPort: 7001,
@@ -302,11 +310,11 @@ module.exports = angular
       });
     };
 
-    ctrl.removeRule = function(ruleset, index) {
+    ctrl.removeRule = function (ruleset, index) {
       ruleset.splice(index, 1);
     };
 
-    ctrl.dismissRemovedRules = function() {
+    ctrl.dismissRemovedRules = function () {
       $scope.state.removedRules = [];
       v2modalWizardService.markClean('Ingress');
       v2modalWizardService.markComplete('Ingress');

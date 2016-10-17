@@ -1,18 +1,21 @@
 'use strict';
 
+import _ from 'lodash';
+import {API_SERVICE} from 'core/api/api.service';
+
 describe('pipelineConfigService', function () {
   beforeEach(
     window.module(
       require('./pipelineConfigService'),
-      require('../../../utils/lodash.js')
+      API_SERVICE
     )
   );
 
-  beforeEach(window.inject(function (pipelineConfigService, $httpBackend, $rootScope, ___) {
-    this._ = ___;
+  beforeEach(window.inject(function (pipelineConfigService, $httpBackend, $rootScope, _API_) {
     this.service = pipelineConfigService;
     this.$http = $httpBackend;
     this.$scope = $rootScope.$new();
+    this.API = _API_;
   }));
 
   describe('savePipeline', function () {
@@ -25,7 +28,7 @@ describe('pipelineConfigService', function () {
         ]
       };
 
-      this.$http.expectPOST('/pipelines').respond(200, '');
+      this.$http.expectPOST(this.API.baseUrl + '/pipelines').respond(200, '');
 
       this.service.savePipeline(pipeline);
       this.$scope.$digest();
@@ -49,7 +52,7 @@ describe('pipelineConfigService', function () {
         { name: 'first', index: 0, stages: []},
         { name: 'third', index: 2, stages: []},
       ];
-      this.$http.expectGET('/applications/app/pipelineConfigs').respond(200, fromServer);
+      this.$http.expectGET(this.API.baseUrl + '/applications/app/pipelineConfigs').respond(200, fromServer);
 
       this.service.getPipelinesForApplication('app').then(function(pipelines) {
         result = pipelines;
@@ -57,7 +60,7 @@ describe('pipelineConfigService', function () {
       this.$scope.$digest();
       this.$http.flush();
 
-      expect(_.pluck(result, 'name')).toEqual(['first', 'second', 'third', 'last']);
+      expect(_.map(result, 'name')).toEqual(['first', 'second', 'third', 'last']);
     });
 
     it('should fix sort order of pipelines on initialization: 0..n, index collisions sorted alphabetically', function() {
@@ -69,12 +72,12 @@ describe('pipelineConfigService', function () {
       ];
 
       var posted = [];
-      this.$http.expectGET('/applications/app/pipelineConfigs').respond(200, fromServer);
-      this.$http.whenPOST('/pipelines', function(data) {
+      this.$http.expectGET(this.API.baseUrl + '/applications/app/pipelineConfigs').respond(200, fromServer);
+      this.$http.whenPOST(this.API.baseUrl + '/pipelines', function(data) {
         var json = JSON.parse(data);
         posted.push({index: json.index, name: json.name});
         return true;
-      }).respond(200, '');
+      }).respond(200, {});
 
       this.service.getPipelinesForApplication('app');
       this.$scope.$digest();

@@ -3,27 +3,29 @@
 
 require('../configure/serverGroup.configure.gce.module.js');
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', [
   require('angular-ui-router'),
   require('../configure/serverGroupCommandBuilder.service.js'),
-  require('../../../core/application/modal/platformHealthOverride.directive.js'),
-  require('../../../core/serverGroup/serverGroup.read.service.js'),
-  require('../../../core/serverGroup/details/serverGroupWarningMessage.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/network/network.read.service.js'),
-  require('../../../core/serverGroup/serverGroup.write.service.js'),
-  require('../../../core/serverGroup/configure/common/runningExecutions.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
+  require('core/application/modal/platformHealthOverride.directive.js'),
+  require('core/serverGroup/serverGroup.read.service.js'),
+  require('core/serverGroup/details/serverGroupWarningMessage.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/network/network.read.service.js'),
+  require('core/serverGroup/serverGroup.write.service.js'),
+  require('core/serverGroup/configure/common/runningExecutions.service.js'),
+  require('core/insight/insightFilterState.model.js'),
   require('./resize/resizeServerGroup.controller'),
   require('./rollback/rollbackServerGroup.controller'),
-  require('./scalingPolicy/scalingPolicy.directive.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
+  require('./autoscalingPolicy/autoscalingPolicy.directive.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
+  require('./autoscalingPolicy/addAutoscalingPolicyButton.component.js')
 ])
   .controller('gceServerGroupDetailsCtrl', function ($scope, $state, $templateCache, $interpolate, app, serverGroup, InsightFilterStateModel,
-                                                     gceServerGroupCommandBuilder, serverGroupReader, $uibModal, confirmationModalService, _, serverGroupWriter,
+                                                     gceServerGroupCommandBuilder, serverGroupReader, $uibModal, confirmationModalService, serverGroupWriter,
                                                      runningExecutionsService, serverGroupWarningMessageService, networkReader) {
 
     this.state = {
@@ -69,19 +71,18 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
       return serverGroupReader.getServerGroup(app.name, serverGroup.accountId, serverGroup.region, serverGroup.name).then((details) => {
         cancelLoader();
 
-        var plainDetails = details.plain();
-        angular.extend(plainDetails, summary);
+        angular.extend(details, summary);
         // it's possible the summary was not found because the clusters are still loading
-        plainDetails.account = serverGroup.accountId;
+        details.account = serverGroup.accountId;
 
-        this.serverGroup = plainDetails;
+        this.serverGroup = details;
         this.runningExecutions = () => {
           return runningExecutionsService.filterRunningExecutions(this.serverGroup.executions);
         };
 
         if (!_.isEmpty(this.serverGroup)) {
           if (details.securityGroups) {
-            this.securityGroups = _(details.securityGroups).map((id) => {
+            this.securityGroups = _.chain(details.securityGroups).map((id) => {
               return _.find(app.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': 'global', 'id': id }) ||
                 _.find(app.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': 'global', 'name': id });
             }).compact().value();
@@ -100,6 +101,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
           findStartupScript();
           prepareDiskDescriptions();
           prepareAvailabilityPolicies();
+          prepareAutoHealingPolicy();
           prepareAuthScopes();
           augmentTagsWithHelp();
         } else {
@@ -162,15 +164,32 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
       }
     };
 
+    let prepareAutoHealingPolicy = () => {
+      if (this.serverGroup.autoHealingPolicy) {
+        let autoHealingPolicy = this.serverGroup.autoHealingPolicy;
+        let healthCheckUrl = autoHealingPolicy.healthCheck;
+
+        this.serverGroup.autoHealingPolicyHealthCheck = healthCheckUrl ? _.last(healthCheckUrl.split('/')) : null;
+        this.serverGroup.initialDelaySec = autoHealingPolicy.initialDelaySec;
+
+        if (autoHealingPolicy.maxUnavailable) {
+          if (typeof autoHealingPolicy.maxUnavailable.percent === 'number') {
+            this.serverGroup.maxUnavailable = autoHealingPolicy.maxUnavailable.percent + '%';
+          } else {
+            this.serverGroup.maxUnavailable = autoHealingPolicy.maxUnavailable.fixed + ' instances';
+          }
+        }
+      }
+    };
+
     let prepareAuthScopes = () => {
       if (_.has(this.serverGroup, 'launchConfig.instanceTemplate.properties.serviceAccounts')) {
         let serviceAccounts = this.serverGroup.launchConfig.instanceTemplate.properties.serviceAccounts;
-        let defaultServiceAccount = _.find(serviceAccounts, serviceAccount => {
-          return serviceAccount.email === 'default';
-        });
+        if (serviceAccounts.length) {
+          let serviceAccount = this.serverGroup.launchConfig.instanceTemplate.properties.serviceAccounts[0];
 
-        if (defaultServiceAccount) {
-          this.serverGroup.authScopes = _.map(defaultServiceAccount.scopes, authScope => {
+          this.serverGroup.serviceAccountEmail = serviceAccount.email;
+          this.serverGroup.authScopes = _.map(serviceAccount.scopes, authScope => {
             return authScope.replace('https://www.googleapis.com/auth/', '');
           });
         }
@@ -193,7 +212,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
 
         this.serverGroup.launchConfig.instanceTemplate.properties.tags.items.forEach(tag => {
           let securityGroupsMatches = _.filter(this.securityGroups, securityGroup => _.includes(securityGroup.targetTags, tag));
-          let securityGroupMatchNames = _.pluck(securityGroupsMatches, 'name');
+          let securityGroupMatchNames = _.map(securityGroupsMatches, 'name');
 
           if (!_.isEmpty(securityGroupMatchNames)) {
             let groupOrGroups = securityGroupMatchNames.length > 1 ? 'groups' : 'group';
@@ -213,10 +232,11 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
 
     let retrieveSubnet = () => {
       networkReader.listNetworksByProvider('gce').then((networks) => {
-        let autoCreateSubnets = _(networks)
+        let autoCreateSubnets = _.chain(networks)
           .filter({ account: this.serverGroup.account, name: this.serverGroup.network })
-          .pluck('autoCreateSubnets')
-          .head();
+          .map('autoCreateSubnets')
+          .head()
+          .value();
 
         if (autoCreateSubnets) {
           this.serverGroup.subnet = '(Auto-select)';
@@ -254,7 +274,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
         region: serverGroup.region
       };
 
-      confirmationModalService.confirm({
+      var confirmationModalParams = {
         header: 'Really destroy ' + serverGroup.name + '?',
         buttonText: 'Destroy ' + serverGroup.name,
         account: serverGroup.account,
@@ -262,6 +282,8 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
         taskMonitorConfig: taskMonitor,
         submitMethod: submitMethod,
         askForReason: true,
+        platformHealthOnlyShowOverride: app.attributes.platformHealthOnlyShowOverride,
+        platformHealthType: 'Google',
         body: this.getBodyTemplate(serverGroup, app),
         onTaskComplete: () => {
           if ($state.includes('**.serverGroup', stateParams)) {
@@ -273,7 +295,13 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
             $state.go('^');
           }
         }
-      });
+      };
+
+      if (app.attributes.platformHealthOnlyShowOverride && app.attributes.platformHealthOnly) {
+        confirmationModalParams.interestingHealthProviderNames = ['Google'];
+      }
+
+      confirmationModalService.confirm(confirmationModalParams);
     };
 
     this.getBodyTemplate = (serverGroup, app) => {
@@ -313,7 +341,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
         askForReason: true,
       };
 
-      if (app.attributes.platformHealthOnly) {
+      if (app.attributes.platformHealthOnlyShowOverride && app.attributes.platformHealthOnly) {
         confirmationModalParams.interestingHealthProviderNames = ['Google'];
       }
 
@@ -341,7 +369,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
         askForReason: true,
       };
 
-      if (app.attributes.platformHealthOnly) {
+      if (app.attributes.platformHealthOnlyShowOverride && app.attributes.platformHealthOnly) {
         confirmationModalParams.interestingHealthProviderNames = ['Google'];
       }
 
@@ -389,17 +417,20 @@ module.exports = angular.module('spinnaker.serverGroup.details.gce.controller', 
     };
 
     this.showStartupScript = () => {
-      this.userDataModalTitle = 'Startup Script';
-      this.userData = this.serverGroup.startupScript;
+      $scope.userDataModalTitle = 'Startup Script';
+      $scope.serverGroup = { name: this.serverGroup.name };
+      $scope.userData = this.serverGroup.startupScript;
       $uibModal.open({
-        templateUrl: require('../../../core/serverGroup/details/userData.html'),
+        templateUrl: require('core/serverGroup/details/userData.html'),
         controller: 'CloseableModalCtrl',
         scope: $scope
       });
     };
 
     this.buildJenkinsLink = () => {
-      if (this.serverGroup && this.serverGroup.buildInfo && this.serverGroup.buildInfo.jenkins) {
+      if (this.serverGroup && this.serverGroup.buildInfo && this.serverGroup.buildInfo.buildInfoUrl) {
+        return this.serverGroup.buildInfo.buildInfoUrl;
+      } else if (this.serverGroup && this.serverGroup.buildInfo && this.serverGroup.buildInfo.jenkins) {
         var jenkins = this.serverGroup.buildInfo.jenkins;
         return jenkins.host + 'job/' + jenkins.name + '/' + jenkins.number;
       }

@@ -1,21 +1,52 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
-module.exports = angular.module('spinnaker.kubernetes.loadBalancer.transformer', [
-])
+module.exports = angular.module('spinnaker.kubernetes.loadBalancer.transformer', [])
   .factory('kubernetesLoadBalancerTransformer', function (settings) {
     function normalizeLoadBalancer(loadBalancer) {
       loadBalancer.provider = loadBalancer.type;
       loadBalancer.instances = [];
+      loadBalancer.instanceCounts = buildInstanceCounts(loadBalancer.serverGroups);
       return loadBalancer;
+    }
+
+    function buildInstanceCounts(serverGroups) {
+      let instanceCounts = _.chain(serverGroups)
+        .map('instances')
+        .flatten()
+        .reduce(
+          (acc, instance) => {
+            acc[_.camelCase(instance.health.state)]++;
+            return acc;
+          },
+          {
+            up: 0,
+            down: 0,
+            outOfService: 0,
+            succeeded: 0,
+            failed: 0,
+            unknown: 0,
+          }
+        )
+        .value();
+
+      instanceCounts.outOfService += _.chain(serverGroups)
+        .map('detachedInstances')
+        .flatten()
+        .value()
+        .length;
+
+      return instanceCounts;
     }
 
     function serverGroupIsInLoadBalancer(serverGroup, loadBalancer) {
       return serverGroup.type === 'kubernetes' &&
         serverGroup.account === loadBalancer.account &&
         serverGroup.namespace === loadBalancer.namespace &&
-        serverGroup.loadBalancers.indexOf(loadBalancer.name) !== -1;
+        serverGroup.loadBalancers.includes(loadBalancer.name);
     }
 
     function constructNewLoadBalancerTemplate() {

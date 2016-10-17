@@ -38,7 +38,7 @@
             <li role="presentation" class="divider" ng-if="!ctrl.serverGroup.isDisabled"></li>
             <li><a href ng-click="ctrl.resizeServerGroup()">Resize</a></li>
             <li><a href ng-if="!ctrl.serverGroup.isDisabled" ng-click="ctrl.disableServerGroup()">Disable</a></li>
-            <li><a href ng-if="ctrl.serverGroup.isDisabled && ctrl.serverGroup.loadBalancers.length" ng-click="ctrl.enableServerGroup()">Enable</a></li>
+            <li><a href ng-if="ctrl.serverGroup.isDisabled && (ctrl.serverGroup.loadBalancers.length || ctrl.serverGroup.discovery)" ng-click="ctrl.enableServerGroup()">Enable</a></li>
             <li><a href ng-click="ctrl.destroyServerGroup()">Destroy</a></li>
             <li><a href ng-click="ctrl.cloneServerGroup(ctrl.serverGroup)">Clone</a></li>
           </ul>
@@ -156,10 +156,12 @@
         <dt>Image</dt>
         <dd>{{ctrl.serverGroup.launchConfig.imageId}}</dd>
         <dt>Instance Type</dt>
-        <dd>{{ctrl.serverGroup.launchConfig.instanceType}}</dd>
+        <dd>{{ctrl.serverGroup.launchConfig.instanceType | customInstanceFilter }}</dd>
         <dt ng-repeat-start="diskDescription in ctrl.serverGroup.diskDescriptions">Disk{{diskDescription.countSuffix}}</dt>
         <dd ng-repeat-end>{{diskDescription.finalLabel}}</dd>
-        <dt ng-if="ctrl.serverGroup.authScopes">Service Account Auth Scopes</dt>
+        <dt ng-if="ctrl.serverGroup.serviceAccountEmail">Service Account</dt>
+        <dd ng-if="ctrl.serverGroup.serviceAccountEmail">{{ctrl.serverGroup.serviceAccountEmail}}</dd>
+        <dt ng-if="ctrl.serverGroup.authScopes">Auth Scopes</dt>
         <dd ng-repeat="authScope in ctrl.serverGroup.authScopes">
           {{authScope}}
           <help-field key="gce.instance.authScopes.{{authScope}}"></help-field>
@@ -182,9 +184,35 @@
         </li>
       </ul>
     </collapsible-section>
-    <collapsible-section heading="Autoscaling" ng-if="ctrl.serverGroup.autoscalingPolicy">
-      <p>Autoscaling can be configured via the Developers Console.</p>
-      <gce-scaling-policy ng-repeat="policy in [ctrl.serverGroup.autoscalingPolicy]" policy="policy"></gce-scaling-policy>
+    <collapsible-section heading="Autoscaling">
+      <gce-add-autoscaling-policy-button ng-if="!ctrl.serverGroup.autoscalingPolicy"
+                                     server-group="ctrl.serverGroup"
+                                     application="ctrl.application">
+      </gce-add-autoscaling-policy-button>
+      <gce-autoscaling-policy ng-repeat="policy in [ctrl.serverGroup.autoscalingPolicy]"
+                          ng-if="ctrl.serverGroup.autoscalingPolicy"
+                          application="ctrl.application"
+                          server-group="ctrl.serverGroup"
+                          policy="policy">
+      </gce-autoscaling-policy>
+    </collapsible-section>
+    <collapsible-section heading="AutoHealing" ng-if="ctrl.serverGroup.autoHealingPolicyHealthCheck">
+      <p>AutoHealing can be configured via the Developers Console.</p>
+      <dt>
+        Health Check
+        <help-field key="gce.serverGroup.autoHealing"></help-field>
+      </dt>
+      <dd>{{ctrl.serverGroup.autoHealingPolicyHealthCheck}}</dd>
+      <dt>
+        Initial Delay
+        <help-field key="gce.serverGroup.initialDelaySec"></help-field>
+      </dt>
+      <dd>{{ctrl.serverGroup.initialDelaySec}} seconds</dd>
+      <dt ng-if="ctrl.serverGroup.maxUnavailable">
+        Max Unavailable
+        <help-field key="gce.serverGroup.maxUnavailable"></help-field>
+      </dt>
+      <dd ng-if="ctrl.serverGroup.maxUnavailable">{{ctrl.serverGroup.maxUnavailable}}</dd>
     </collapsible-section>
     <collapsible-section heading="Custom Metadata">
       <div ng-if="!ctrl.serverGroup.launchConfig.instanceTemplate.properties.metadata.items.length">No custom metadata associated with this server group</div>
@@ -227,9 +255,8 @@
         </dl>
       </div>
     </collapsible-section>
-    <collapsible-section heading="Package">
-      <dl ng-class="ctrl.InsightFilterStateModel.filtersExpanded ? '' : 'dl-horizontal dl-wide'"
-          ng-if="ctrl.serverGroup.buildInfo">
+    <collapsible-section heading="Package" ng-if="ctrl.serverGroup.buildInfo">
+      <dl ng-class="ctrl.InsightFilterStateModel.filtersExpanded ? '' : 'dl-horizontal dl-wide'">
         <dt ng-if="ctrl.serverGroup.buildInfo.jenkins">Job</dt>
         <dd ng-if="ctrl.serverGroup.buildInfo.jenkins">{{ctrl.serverGroup.buildInfo.jenkins.name}}</dd>
         <dt>Package</dt>
@@ -242,6 +269,31 @@
         <dd>{{ctrl.serverGroup.buildInfo.version}}</dd>
         <dt ng-if="ctrl.serverGroup.buildInfo.jenkins">Build Link</dt>
         <dd ng-if="ctrl.serverGroup.buildInfo.jenkins"><a target=_blank href="{{ctrl.buildJenkinsLink()}}">{{ctrl.buildJenkinsLink()}}</a></dd>
+      </dl>
+    </collapsible-section>
+    <collapsible-section heading="Port Name Mapping" ng-if="ctrl.serverGroup.loadBalancingPolicy">
+      <dl ng-class="ctrl.InsightFilterStateModel.filtersExpanded ? '' : 'dl-horizontal dl-wide'"
+          ng-if="ctrl.serverGroup.loadBalancingPolicy.listeningPort">
+        <dd>http &rarr; {{ ctrl.serverGroup.loadBalancingPolicy.listeningPort }}</dd>
+      </dl>
+    </collapsible-section>
+    <collapsible-section heading="Capacity Metrics" ng-if="ctrl.serverGroup.loadBalancingPolicy">
+      <dl ng-class="ctrl.InsightFilterStateModel.filtersExpanded ? '' : 'dl-horizontal dl-wide'"
+          ng-if="ctrl.serverGroup.loadBalancingPolicy.listeningPort">
+        <dt>Balancing Mode</dt>
+        <dd>{{ctrl.serverGroup.loadBalancingPolicy.balancingMode}}</dd>
+        <dt ng-if="ctrl.serverGroup.loadBalancingPolicy.maxRatePerInstance">Max RPS per instance</dt>
+        <dd ng-if="ctrl.serverGroup.loadBalancingPolicy.maxRatePerInstance">
+          {{ctrl.serverGroup.loadBalancingPolicy.maxRatePerInstance}}
+        </dd>
+        <dt ng-if="ctrl.serverGroup.loadBalancingPolicy.maxUtilization">Max CPU Utilization</dt>
+        <dd ng-if="ctrl.serverGroup.loadBalancingPolicy.maxUtilization">
+          {{ctrl.serverGroup.loadBalancingPolicy.maxUtilization | decimalToPercent}}
+        </dd>
+        <dt ng-if="ctrl.serverGroup.loadBalancingPolicy.capacityScaler">Capacity</dt>
+        <dd ng-if="ctrl.serverGroup.loadBalancingPolicy.capacityScaler">
+          {{ctrl.serverGroup.loadBalancingPolicy.capacityScaler | decimalToPercent}}
+        </dd>
       </dl>
     </collapsible-section>
     <collapsible-section heading="Logs">

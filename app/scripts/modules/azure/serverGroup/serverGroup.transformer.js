@@ -15,15 +15,15 @@ module.exports = angular.module('spinnaker.azure.serverGroup.transformer', [
 
       if(command.viewState.mode === 'editPipeline' || command.viewState.mode === 'createPipeline') {
         tempImage = {
-          imageName: '${imageName}',
-          isCustom: '${isCustom}',
-          publisher: '${publisher}',
-          offer: '${offer}',
-          sku: '${imagesku}',
-          version: '${version}',
+          imageName: '',
+          isCustom: 'true',
+          publisher: '',
+          offer: '',
+          sku: '',
+          version: '',
           region: command.region,
-          uri: '${uri}',
-          ostype: '${ostype}',
+          uri: '',
+          ostype: '',
         };
       } else {
         tempImage = command.selectedImage;
@@ -38,6 +38,9 @@ module.exports = angular.module('spinnaker.azure.serverGroup.transformer', [
         freeFormDetails: command.freeFormDetails,
         account: command.credentials,
         selectedProvider: 'azure',
+        vnet: command.vnet,
+        vnetResourceGroup: command.vnetResourceGroup,
+        subnet: command.subnet,
         capacity: {
           useSourceCapacity: false,
           min: command.sku.capacity,
@@ -45,14 +48,14 @@ module.exports = angular.module('spinnaker.azure.serverGroup.transformer', [
         },
         credentials: command.credentials,
         region: command.region,
-        securityGroup: command.securityGroup,
+        securityGroupName: command.securityGroupName,
         loadBalancerName: command.loadBalancerName,
         user: '[anonymous]',
         upgradePolicy: 'Manual',
         type: 'createServerGroup',
         image: tempImage,
         sku: {
-          name: 'Standard_A1',
+          name: 'Standard_DS1_v2',
           tier: 'Standard',
           capacity: command.sku.capacity,
         },

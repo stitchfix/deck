@@ -3,11 +3,11 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.google.serverGroup.details.rollback.controller', [
-      require('../../../../core/account/account.service.js'),
-      require('../../../../core/application/modal/platformHealthOverride.directive.js'),
-      require('../../../../core/task/modal/reason.directive.js'),
-      require('../../../../core/serverGroup/serverGroup.write.service.js'),
-      require('../../../../core/task/monitor/taskMonitorService.js'),
+      require('core/account/account.service.js'),
+      require('core/application/modal/platformHealthOverride.directive.js'),
+      require('core/task/modal/reason.directive.js'),
+      require('core/serverGroup/serverGroup.write.service.js'),
+      require('core/task/monitor/taskMonitorService.js'),
       require('../../../common/footer.directive.js'),
     ])
     .controller('gceRollbackServerGroupCtrl', function ($scope, $uibModalInstance, serverGroupWriter,
@@ -25,7 +25,7 @@ module.exports = angular.module('spinnaker.google.serverGroup.details.rollback.c
       };
 
       if (application && application.attributes) {
-        if (application.attributes.platformHealthOnly) {
+        if (application.attributes.platformHealthOnlyShowOverride && application.attributes.platformHealthOnly) {
           $scope.command.interestingHealthProviderNames = ['Google'];
         }
 
@@ -41,7 +41,14 @@ module.exports = angular.module('spinnaker.google.serverGroup.details.rollback.c
         return command.rollbackContext.restoreServerGroupName !== undefined;
       };
 
+      $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
+        modalInstance: $uibModalInstance,
+        application: application,
+        title: 'Rollback ' + serverGroup.name,
+      });
+
       this.rollback = function () {
+        this.submitting = true;
         if (!this.isValid()) {
           return;
         }
@@ -49,14 +56,6 @@ module.exports = angular.module('spinnaker.google.serverGroup.details.rollback.c
         var submitMethod = function () {
           return serverGroupWriter.rollbackServerGroup(serverGroup, application, $scope.command);
         };
-
-        var taskMonitorConfig = {
-          modalInstance: $uibModalInstance,
-          application: application,
-          title: 'Rollback ' + serverGroup.name,
-        };
-
-        $scope.taskMonitor = taskMonitorService.buildTaskMonitor(taskMonitorConfig);
 
         $scope.taskMonitor.submit(submitMethod);
       };

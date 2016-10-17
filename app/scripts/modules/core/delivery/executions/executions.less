@@ -1,5 +1,8 @@
 @import "../../presentation/less/imports/commonImports.less";
 
+[ui-view="pipelines"] {
+  padding-top: 0 !important;
+}
 executions {
   display: flex;
   flex: 1 1 auto;
@@ -7,14 +10,27 @@ executions {
     margin-left: -8px;
     position: relative;
     z-index: 20;
-    padding: 10px 0 0 0;
-    margin-top: -10px;
+    padding: 20px 0 0 0;
+    margin-top: -20px;
     background-color: @lightest_grey;
     .execution-filters {
       padding-bottom: 5px;
     }
     .form-group {
-      margin-right: 20px;
+      margin-right: 17px;
+      label {
+        font-weight: 600;
+      }
+    }
+    .checkbox {
+      height: 24px;
+      label {
+        font-weight: normal;
+      }
+    }
+    font-size: 90%;
+    @media (min-width: 1400px) {
+      font-size: 100%;
     }
   }
 }
@@ -84,5 +100,9 @@ executions {
   &.execution-marker-paused {
     fill: @stage-running;
     background-color: @stage-running;
+  }
+  &.execution-marker-skipped {
+    fill: @stage-succeeded;
+    background-color: @stage-succeeded;
   }
 }

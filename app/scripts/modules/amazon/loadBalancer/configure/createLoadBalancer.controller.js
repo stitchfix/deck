@@ -1,27 +1,31 @@
 'use strict';
 
+import _ from 'lodash';
+
+import modalWizardServiceModule from 'core/modal/wizard/v2modalWizard.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', [
   require('angular-ui-router'),
-  require('../../../core/loadBalancer/loadBalancer.write.service.js'),
-  require('../../../core/loadBalancer/loadBalancer.read.service.js'),
-  require('../../../core/account/account.service.js'),
+  require('core/loadBalancer/loadBalancer.write.service.js'),
+  require('core/loadBalancer/loadBalancer.read.service.js'),
+  require('core/account/account.service.js'),
   require('../loadBalancer.transformer.js'),
-  require('../../../core/securityGroup/securityGroup.read.service.js'),
-  require('../../../core/modal/wizard/v2modalWizard.service.js'),
-  require('../../../core/task/monitor/taskMonitorService.js'),
-  require('../../../core/subnet/subnet.read.service.js'),
-  require('../../../core/cache/cacheInitializer.js'),
-  require('../../../core/cache/infrastructureCaches.js'),
-  require('../../../core/naming/naming.service.js'),
+  require('core/securityGroup/securityGroup.read.service.js'),
+  modalWizardServiceModule,
+  require('core/task/monitor/taskMonitorService.js'),
+  require('core/subnet/subnet.read.service.js'),
+  require('core/cache/cacheInitializer.js'),
+  require('core/cache/infrastructureCaches.js'),
+  require('core/naming/naming.service.js'),
   require('./loadBalancerAvailabilityZoneSelector.directive.js'),
-  require('../../../core/region/regionSelectField.directive.js'),
-  require('../../../core/account/accountSelectField.directive.js'),
+  require('core/region/regionSelectField.directive.js'),
+  require('core/account/accountSelectField.directive.js'),
   require('../../subnet/subnetSelectField.directive.js'),
-  require('../../../core/config/settings.js'),
+  require('core/config/settings.js'),
 ])
-  .controller('awsCreateLoadBalancerCtrl', function($scope, $uibModalInstance, $state, _,
+  .controller('awsCreateLoadBalancerCtrl', function($scope, $uibModalInstance, $state,
                                                     accountService, awsLoadBalancerTransformer, securityGroupReader,
                                                     cacheInitializer, infrastructureCaches, loadBalancerReader,
                                                     v2modalWizardService, loadBalancerWriter, taskMonitorService,
@@ -176,19 +180,19 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
 
       if (account && region && allSecurityGroups[account] && allSecurityGroups[account].aws[region]) {
         $scope.availableSecurityGroups = _.filter(allSecurityGroups[account].aws[region], function(securityGroup) {
-          return availableVpcIds.indexOf(securityGroup.vpcId) !== -1;
+          return availableVpcIds.includes(securityGroup.vpcId);
         });
-        $scope.existingSecurityGroupNames = _.collect($scope.availableSecurityGroups, 'name');
+        $scope.existingSecurityGroupNames = _.map($scope.availableSecurityGroups, 'name');
         var existingNames = defaultSecurityGroups.filter(function(defaultName) {
-          return $scope.existingSecurityGroupNames.indexOf(defaultName) !== -1;
+          return $scope.existingSecurityGroupNames.includes(defaultName);
         });
         $scope.loadBalancer.securityGroups.forEach(function(securityGroup) {
-          if ($scope.existingSecurityGroupNames.indexOf(securityGroup) === -1) {
+          if (!$scope.existingSecurityGroupNames.includes(securityGroup)) {
             var matches = _.filter($scope.availableSecurityGroups, {id: securityGroup});
             if (matches.length) {
               existingNames.push(matches[0].name);
             } else {
-              if (defaultSecurityGroups.indexOf(securityGroup) === -1) {
+              if (!defaultSecurityGroups.includes(securityGroup)) {
                 $scope.state.removedSecurityGroups.push(securityGroup);
               }
             }
@@ -196,7 +200,7 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
             existingNames.push(securityGroup);
           }
         });
-        $scope.loadBalancer.securityGroups = _.unique(existingNames);
+        $scope.loadBalancer.securityGroups = _.uniq(existingNames);
         if ($scope.state.removedSecurityGroups.length) {
           v2modalWizardService.markDirty('Security Groups');
         }
@@ -220,10 +224,10 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
       var account = $scope.loadBalancer.credentials,
           region = $scope.loadBalancer.region;
       return subnetReader.listSubnets().then(function(subnets) {
-        return _(subnets)
+        return _.chain(subnets)
           .filter({account: account, region: region})
           .reject({'target': 'ec2'})
-          .valueOf();
+          .value();
       });
     }
 
@@ -243,12 +247,13 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
       getAvailableSubnets().then(function(subnets) {
         var subnetOptions = subnets.reduce(function(accumulator, subnet) {
           if (!accumulator[subnet.purpose]) {
-            accumulator[subnet.purpose] = { purpose: subnet.purpose, label: subnet.label, deprecated: subnet.deprecated, vpcIds: [] };
+            accumulator[subnet.purpose] = { purpose: subnet.purpose, label: subnet.label, deprecated: subnet.deprecated, vpcIds: [], availabilityZones: [] };
           }
-          var vpcIds = accumulator[subnet.purpose].vpcIds;
-          if (vpcIds.indexOf(subnet.vpcId) === -1) {
-            vpcIds.push(subnet.vpcId);
+          let acc = accumulator[subnet.purpose];
+          if (acc.vpcIds.indexOf(subnet.vpcId) === -1) {
+            acc.vpcIds.push(subnet.vpcId);
           }
+          acc.availabilityZones.push(subnet.availabilityZone);
           return accumulator;
         }, {});
 
@@ -265,7 +270,7 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
     function setSubnetTypeFromVpc(subnetOptions) {
       if ($scope.loadBalancer.vpcId) {
         var currentSelection = _.find(subnetOptions, function(option) {
-          return option.vpcIds.indexOf($scope.loadBalancer.vpcId) !== -1;
+          return option.vpcIds.includes($scope.loadBalancer.vpcId);
         });
         if (currentSelection) {
           $scope.loadBalancer.subnetType = currentSelection.purpose;
@@ -279,21 +284,29 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
       $scope.existingSecurityGroupNames = [];
     }
 
-    function certificateIdAsARN(accountId, certificateId) {
-      if (certificateId && certificateId.indexOf('arn:aws:iam::') !== 0) {
+    function certificateIdAsARN(accountId, certificateId, region, certificateType) {
+      if (certificateId && (certificateId.indexOf('arn:aws:iam::') !== 0 || certificateId.indexOf('arn:aws:acm:') !== 0)) {
         // If they really want to enter the ARN...
-        return 'arn:aws:iam::' + accountId + ':server-certificate/' + certificateId;
+        if (certificateType === 'iam') {
+          return 'arn:aws:iam::' + accountId + ':server-certificate/' + certificateId;
+        }
+        if (certificateType === 'acm') {
+          return 'arn:aws:acm:' + region + ':' + accountId + ':certificate/' + certificateId;
+        }
       }
       return certificateId;
     }
 
-    function formatListeners() {
-      return accountService.getAccountDetails($scope.loadBalancer.credentials).then(function (account) {
-        $scope.loadBalancer.listeners.forEach(function (listener) {
-          listener.sslCertificateId = certificateIdAsARN(account.accountId, listener.sslCertificateId);
+    let formatListeners = () => {
+      return accountService.getAccountDetails($scope.loadBalancer.credentials).then((account) => {
+        $scope.loadBalancer.listeners.forEach((listener) => {
+          listener.sslCertificateId = certificateIdAsARN(account.accountId, listener.sslCertificateId,
+            $scope.loadBalancer.region, listener.sslCertificateType || this.certificateTypes[0]);
         });
       });
-    }
+    };
+
+    this.certificateTypes = _.get(settings, 'providers.aws.loadBalancers.certificateTypes', ['iam', 'acm']);
 
     initializeController();
 
@@ -328,7 +341,7 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
     this.getName = function() {
       var elb = $scope.loadBalancer;
       var elbName = [application.name, (elb.stack || ''), (elb.detail || '')].join('-');
-      return _.trimRight(elbName, '-');
+      return _.trimEnd(elbName, '-');
     };
 
     this.accountUpdated = function() {
@@ -353,11 +366,23 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
         updateAvailableSecurityGroups(availableVpcIds);
       if (subnetPurpose) {
         $scope.loadBalancer.vpcId = availableVpcIds.length ? availableVpcIds[0] : null;
+        if (!$scope.state.hideInternalFlag && !$scope.state.internalFlagToggled) {
+          $scope.loadBalancer.isInternal = subnetPurpose.includes('internal');
+        }
+        $scope.availabilityZones = $scope.subnets
+          .find(o => o.purpose === $scope.loadBalancer.subnetType)
+          .availabilityZones
+          .sort();
         v2modalWizardService.includePage('Security Groups');
       } else {
+        updateAvailabilityZones();
         $scope.loadBalancer.vpcId = null;
         v2modalWizardService.excludePage('Security Groups');
       }
+    };
+
+    this.internalFlagChanged = () => {
+      $scope.state.internalFlagToggled = true;
     };
 
     this.removeListener = function(index) {
@@ -365,7 +390,16 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.create.controller', 
     };
 
     this.addListener = function() {
-      $scope.loadBalancer.listeners.push({internalProtocol: 'HTTP', externalProtocol: 'HTTP'});
+      $scope.loadBalancer.listeners.push({internalProtocol: 'HTTP', externalProtocol: 'HTTP', externalPort: 80});
+    };
+
+    this.listenerProtocolChanged = (listener) => {
+      if (listener.externalProtocol === 'HTTPS') {
+        listener.externalPort = 443;
+      }
+      if (listener.externalProtocol === 'HTTP') {
+        listener.externalPort = 80;
+      }
     };
 
     this.showSslCertificateIdField = function() {

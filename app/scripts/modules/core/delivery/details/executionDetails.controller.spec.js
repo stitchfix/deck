@@ -21,6 +21,10 @@ describe('Controller: ExecutionDetails', function () {
     this.$scope = $rootScope.$new();
     this.$controller = $controller;
     this.pipelineConfig = pipelineConfig;
+
+    this.$scope.execution = {
+      isRunning: false
+    };
   }));
 
   describe('isRestartable', function() {

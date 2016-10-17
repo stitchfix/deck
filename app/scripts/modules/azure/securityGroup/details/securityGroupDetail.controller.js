@@ -1,20 +1,21 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.azure.securityGroup.azure.details.controller', [
   require('angular-ui-router'),
-  require('../../../core/securityGroup/securityGroup.read.service.js'),
+  require('core/securityGroup/securityGroup.read.service.js'),
   require('../securityGroup.write.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
   require('../clone/cloneSecurityGroup.controller.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
 ])
   .controller('azureSecurityGroupDetailsCtrl', function ($scope, $state, resolvedSecurityGroup, app, InsightFilterStateModel,
                                                     confirmationModalService, azureSecurityGroupWriter, securityGroupReader,
-                                                    $uibModal, _) {
+                                                    $uibModal) {
 
     const application = app;
     const securityGroup = resolvedSecurityGroup;
@@ -29,7 +30,7 @@ module.exports = angular.module('spinnaker.azure.securityGroup.azure.details.con
       return securityGroupReader.getSecurityGroupDetails(application, securityGroup.accountId, securityGroup.provider, securityGroup.region, securityGroup.vpcId, securityGroup.name).then(function (details) {
         $scope.state.loading = false;
 
-        if (!details || _.isEmpty( details.plain())) {
+        if (!details || _.isEmpty( details)) {
           fourOhFour();
         } else {
           $scope.securityGroup = details;
@@ -58,7 +59,7 @@ module.exports = angular.module('spinnaker.azure.securityGroup.azure.details.con
         controller: 'azureEditSecurityGroupCtrl as ctrl',
         resolve: {
           securityGroup: function() {
-            return angular.copy($scope.securityGroup.plain());
+            return angular.copy($scope.securityGroup);
           },
           application: function() { return application; }
         }
@@ -72,7 +73,7 @@ module.exports = angular.module('spinnaker.azure.securityGroup.azure.details.con
         controller: 'azureCloneSecurityGroupController as ctrl',
         resolve: {
           securityGroup: function() {
-            var securityGroup = angular.copy($scope.securityGroup.plain());
+            var securityGroup = angular.copy($scope.securityGroup);
             if(securityGroup.region) {
               securityGroup.regions = [securityGroup.region];
             }

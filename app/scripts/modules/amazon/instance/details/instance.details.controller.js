@@ -1,25 +1,28 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.instance.detail.aws.controller', [
   require('angular-ui-router'),
   require('angular-ui-bootstrap'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/instance/instance.write.service.js'),
-  require('../../../core/instance/instance.read.service.js'),
+  require('core/instance/instance.write.service.js'),
+  require('core/instance/instance.read.service.js'),
   require('../../vpc/vpcTag.directive.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
-  require('../../../core/history/recentHistory.service.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
-  require('../../../core/config/settings.js'),
-  require('../../../core/cloudProvider/cloudProvider.registry.js'),
+  require('core/subnet/subnetTag.component.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
+  require('core/history/recentHistory.service.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
+  require('core/config/settings.js'),
+  require('core/cloudProvider/cloudProvider.registry.js'),
+  require('core/instance/details/instanceLinks.component'),
 ])
   .controller('awsInstanceDetailsCtrl', function ($scope, $state, $uibModal, InsightFilterStateModel, settings,
                                                instanceWriter, confirmationModalService, recentHistoryService,
                                                   cloudProviderRegistry,
-                                               instanceReader, _, instance, app, $q, overrides) {
+                                               instanceReader, instance, app, $q, overrides) {
 
     // needed for standalone instances
     $scope.detailsTemplateUrl = cloudProviderRegistry.getValue('aws', 'instance.detailsTemplateUrl');
@@ -27,9 +30,11 @@ module.exports = angular.module('spinnaker.instance.detail.aws.controller', [
     $scope.state = {
       loading: true,
       standalone: app.isStandalone,
+      instancePort: _.get(app, 'attributes.instancePort') || settings.defaultInstancePort || 80,
     };
 
     $scope.InsightFilterStateModel = InsightFilterStateModel;
+    $scope.application = app;
 
     function extractHealthMetrics(instance, latest) {
       // do not backfill on standalone instances
@@ -127,7 +132,6 @@ module.exports = angular.module('spinnaker.instance.detail.aws.controller', [
             if ($scope.$$destroyed) {
               return;
             }
-            details = details.plain();
             $scope.state.loading = false;
             extractHealthMetrics(instanceSummary, details);
             $scope.instance = _.defaults(details, instanceSummary);
@@ -252,9 +256,10 @@ module.exports = angular.module('spinnaker.instance.detail.aws.controller', [
       };
 
       var submitMethod = (params = {}) => {
-        if (app.attributes && app.attributes.platformHealthOnly) {
+        if (app.attributes && app.attributes.platformHealthOnlyShowOverride && app.attributes.platformHealthOnly) {
           params.interestingHealthProviderNames = ['Amazon'];
         }
+
         return instanceWriter.rebootInstance(instance, app, params);
       };
 

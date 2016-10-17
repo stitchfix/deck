@@ -1,12 +1,12 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular
-  .module('spinnaker.kubernetes.serverGroup.transformer', [
-    require('../../core/utils/lodash.js'),
-  ])
-  .factory('kubernetesServerGroupTransformer', function ($q, _) {
+  .module('spinnaker.kubernetes.serverGroup.transformer', [])
+  .factory('kubernetesServerGroupTransformer', function ($q) {
 
     function normalizeServerGroup(serverGroup) {
       return $q.when(serverGroup); // no-op
@@ -22,7 +22,6 @@ module.exports = angular
       delete command.viewState;
       delete command.backingData;
       delete command.selectedProvider;
-      delete command.interestingHealthProviderNames;
 
       command.region = command.namespace;
 
@@ -30,6 +29,11 @@ module.exports = angular
         delete array[index].accountName;
         delete array[index].imageId;
       });
+
+      if (!command.useAutoscaler) {
+        delete command.scalingPolicy;
+        delete command.capacity;
+      }
 
       return command;
     }

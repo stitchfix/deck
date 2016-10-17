@@ -1,16 +1,20 @@
 'use strict';
 
+import {API_SERVICE} from 'core/api/api.service';
+
 describe('azureSubnetReader', function() {
 
-  var service, $http, $scope;
+  var service, $http, $scope, API;
 
   beforeEach(
     window.module(
-      require('./subnet.read.service.js')
+      require('./subnet.read.service.js'),
+      API_SERVICE
     )
   );
 
-  beforeEach(window.inject(function ($httpBackend, $rootScope, _azureSubnetReader_) {
+  beforeEach(window.inject(function ($httpBackend, $rootScope, _azureSubnetReader_, _API_) {
+    API = _API_;
     service = _azureSubnetReader_;
     $http = $httpBackend;
     $scope = $rootScope.$new();
@@ -19,7 +23,7 @@ describe('azureSubnetReader', function() {
 
   it('adds label to subnet, including (deprecated) if deprecated field is true', function () {
 
-    $http.whenGET('/subnets').respond(200, [
+    $http.whenGET(API.baseUrl + '/subnets').respond(200, [
       { purpose: 'internal', deprecated: true },
       { purpose: 'external', deprecated: false },
       { purpose: 'internal' },

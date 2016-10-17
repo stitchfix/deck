@@ -1,25 +1,26 @@
 'use strict';
 /* jshint camelcase:false */
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.serverGroup.details.cf.controller', [
   require('angular-ui-router'),
   require('../configure/ServerGroupCommandBuilder.js'),
-  require('../../../core/serverGroup/serverGroup.read.service.js'),
-  require('../../../core/serverGroup/details/serverGroupWarningMessage.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/serverGroup/serverGroup.write.service.js'),
-  require('../../../core/serverGroup/configure/common/runningExecutions.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
+  require('core/serverGroup/serverGroup.read.service.js'),
+  require('core/serverGroup/details/serverGroupWarningMessage.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/serverGroup/serverGroup.write.service.js'),
+  require('core/serverGroup/configure/common/runningExecutions.service.js'),
+  require('core/insight/insightFilterState.model.js'),
   require('./resize/resizeServerGroup.controller'),
   require('./rollback/rollbackServerGroup.controller'),
-  require('../../../core/modal/closeable/closeable.modal.controller.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
+  require('core/modal/closeable/closeable.modal.controller.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
 ])
     .controller('cfServerGroupDetailsCtrl', function ($scope, $state, $templateCache, $interpolate, app, serverGroup, InsightFilterStateModel,
-                                                       cfServerGroupCommandBuilder, serverGroupReader, $uibModal, confirmationModalService, _, serverGroupWriter,
+                                                       cfServerGroupCommandBuilder, serverGroupReader, $uibModal, confirmationModalService, serverGroupWriter,
                                                       runningExecutionsService, serverGroupWarningMessageService) {
 
       let application = app;
@@ -54,19 +55,18 @@ module.exports = angular.module('spinnaker.serverGroup.details.cf.controller', [
         return serverGroupReader.getServerGroup(application.name, serverGroup.accountId, serverGroup.region, serverGroup.name).then(function(details) {
           cancelLoader();
 
-          var restangularlessDetails = details.plain();
           // it's possible the summary was not found because the clusters are still loading
-          restangularlessDetails.account = serverGroup.accountId;
-          angular.extend(restangularlessDetails, summary);
+          details.account = serverGroup.accountId;
+          angular.extend(details, summary);
 
-          $scope.serverGroup = restangularlessDetails;
+          $scope.serverGroup = details;
           $scope.runningExecutions = function() {
             return runningExecutionsService.filterRunningExecutions($scope.serverGroup.executions);
           };
 
           if (!_.isEmpty($scope.serverGroup)) {
             if (details.securityGroups) {
-              $scope.securityGroups = _(details.securityGroups).map(function(id) {
+              $scope.securityGroups = _.chain(details.securityGroups).map(function(id) {
                 return _.find(application.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': serverGroup.region, 'id': id }) ||
                     _.find(application.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': serverGroup.region, 'name': id });
               }).compact().value();
@@ -263,7 +263,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.cf.controller', [
       this.showUserData = function showScalingActivities() {
         $scope.userData = window.atob($scope.serverGroup.launchConfig.userData);
         $uibModal.open({
-          templateUrl: require('../../../core/serverGroup/details/userData.html'),
+          templateUrl: require('core/serverGroup/details/userData.html'),
           controller: 'CloseableModalCtrl',
           scope: $scope
         });

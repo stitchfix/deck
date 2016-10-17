@@ -1,12 +1,13 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transformer', [
-  require('../../../../core/utils/lodash.js'),
-  require('../../../../core/orchestratedItem/orchestratedItem.transformer.js'),
+  require('core/orchestratedItem/orchestratedItem.transformer.js'),
 ])
-  .service('canaryStageTransformer', function($log, _, orchestratedItemTransformer) {
+  .service('canaryStageTransformer', function($log, orchestratedItemTransformer) {
 
     // adds "canary" or "baseline" to the deploy stage name when converting it to a task
     function getDeployTaskName(stage) {
@@ -42,7 +43,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
           return parts.join('-');
         };
         var region = function (cluster) {
-          return _.first(_.keys(cluster.availabilityZones));
+          return _.head(_.keys(cluster.availabilityZones));
         };
         return {
           canaryCluster: {
@@ -154,6 +155,9 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
           if (_.some(deployStages, { status: 'TERMINAL' })) {
             status = 'TERMINAL';
           }
+          if (_.some(deployStages, { status: 'SKIPPED' })) {
+            status = 'SKIPPED';
+          }
           var canaryStatus = stage.context.canary.status;
           if (canaryStatus && status !== 'CANCELED') {
             if (canaryStatus.status === 'LAUNCHED' || monitorStage.status === 'RUNNING') {
@@ -178,7 +182,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
           stage.status = status;
 
           var tasks = _.map(deployStages, function(deployStage) {
-            var region = _.first(_.keys(deployStage.context.availabilityZones));
+            var region = _.head(_.keys(deployStage.context.availabilityZones));
             return {
               id: deployStage.id,
               region: region,
@@ -200,7 +204,8 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
 
           stage.tasks = tasks;
 
-          stage.context.canary.canaryDeployments.forEach(function(deployment, deploymentIdx) {
+          let deployments = stage.context.canary.canaryDeployments.filter(d => d.baselineCluster && d.canaryCluster);
+          deployments.forEach(function(deployment, deploymentIdx) {
 
             deployment.id = deployment.id || deploymentIdx;
 
@@ -238,7 +243,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
 
             // verify the server groups are present - if this is a project-level pipeline, the application will be an
             // empty object
-            if (deployedClusterPair && application.serverGroups) {
+            if (deployedClusterPair && deployedClusterPair.baselineCluster && deployedClusterPair.canaryCluster && application.serverGroups) {
               var canaryServerGroup = _.find(application.serverGroups.data, {
                 name: deployedClusterPair.canaryCluster.serverGroup,
                 account: deployedClusterPair.canaryCluster.accountName,
@@ -268,7 +273,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canary.transfo
             var canaryDeploymentId = deployment.canaryAnalysisResult ? deployment.canaryAnalysisResult.canaryDeploymentId : null;
             syntheticStagesToAdd.push(createSyntheticCanaryDeploymentStage(stage, deployment, status, deployParent, deploymentEndTime, canaryDeploymentId, execution));
           });
-          execution.stages = execution.stages.filter((stage) => deployStages.indexOf(stage) === -1);
+          execution.stages = execution.stages.filter((stage) => !deployStages.includes(stage));
         }
       });
       execution.stages = execution.stages.concat(syntheticStagesToAdd);

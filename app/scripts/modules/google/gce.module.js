@@ -2,6 +2,8 @@
 
 let angular = require('angular');
 
+import gceLoadBalancerSetTransformer from './loadBalancer/loadBalancer.setTransformer';
+
 require('./logo/gce.logo.less');
 
 // load all templates into the $templateCache
@@ -11,28 +13,32 @@ templates.keys().forEach(function(key) {
 });
 
 module.exports = angular.module('spinnaker.gce', [
-  require('../core/cloudProvider/cloudProvider.registry.js'),
+  require('core/cloudProvider/cloudProvider.registry.js'),
+  gceLoadBalancerSetTransformer,
   require('./serverGroup/details/serverGroup.details.gce.module.js'),
   require('./serverGroup/configure/serverGroupCommandBuilder.service.js'),
   require('./serverGroup/configure/wizard/cloneServerGroup.gce.controller.js'),
   require('./serverGroup/configure/serverGroup.configure.gce.module.js'),
   require('./serverGroup/serverGroup.transformer.js'),
-  require('../core/network/network.module.js'),
-  require('../core/pipeline/config/stages/bake/docker/dockerBakeStage.js'),
-  require('../core/pipeline/config/stages/bake/gce/gceBakeStage.js'),
-  require('../core/pipeline/config/stages/destroyAsg/gce/gceDestroyAsgStage.js'),
-  require('../core/pipeline/config/stages/disableAsg/gce/gceDisableAsgStage.js'),
-  require('../core/pipeline/config/stages/disableCluster/gce/gceDisableClusterStage.js'),
-  require('../core/pipeline/config/stages/enableAsg/gce/gceEnableAsgStage.js'),
-  require('../core/pipeline/config/stages/findAmi/gce/gceFindAmiStage.js'),
-  require('../core/pipeline/config/stages/resizeAsg/gce/gceResizeAsgStage.js'),
-  require('../core/pipeline/config/stages/scaleDownCluster/gce/gceScaleDownClusterStage.js'),
-  require('../core/pipeline/config/stages/shrinkCluster/gce/gceShrinkClusterStage.js'),
+  require('core/network/network.module.js'),
+  require('./pipeline/stages/bake/gceBakeStage.js'),
+  require('./pipeline/stages/cloneServerGroup/gceCloneServerGroupStage.js'),
+  require('./pipeline/stages/destroyAsg/gceDestroyAsgStage.js'),
+  require('./pipeline/stages/disableAsg/gceDisableAsgStage.js'),
+  require('./pipeline/stages/disableCluster/gceDisableClusterStage.js'),
+  require('./pipeline/stages/enableAsg/gceEnableAsgStage.js'),
+  require('./pipeline/stages/findAmi/gceFindAmiStage.js'),
+  require('./pipeline/stages/resizeAsg/gceResizeAsgStage.js'),
+  require('./pipeline/stages/scaleDownCluster/gceScaleDownClusterStage.js'),
+  require('./pipeline/stages/shrinkCluster/gceShrinkClusterStage.js'),
   require('./instance/gceInstanceType.service.js'),
   require('./instance/gceMultiInstanceTask.transformer.js'),
+  require('./instance/custom/customInstance.filter.js'),
   require('./loadBalancer/loadBalancer.transformer.js'),
   require('./loadBalancer/details/loadBalancerDetail.controller.js'),
   require('./loadBalancer/configure/createLoadBalancer.controller.js'),
+  require('./loadBalancer/configure/choice/gceLoadBalancerChoice.modal.js'),
+  require('./loadBalancer/configure/http/createHttpLoadBalancer.controller.js'),
   require('./instance/details/instance.details.controller.js'),
   require('./securityGroup/details/securityGroupDetail.controller.js'),
   require('./securityGroup/configure/createSecurityGroup.controller.js'),
@@ -70,13 +76,15 @@ module.exports = angular.module('spinnaker.gce', [
         detailsTemplateUrl: require('./instance/details/instanceDetails.html'),
         detailsController: 'gceInstanceDetailsCtrl',
         multiInstanceTaskTransformer: 'gceMultiInstanceTaskTransformer',
+        customInstanceBuilderTemplateUrl: require('./serverGroup/configure/wizard/customInstance/customInstanceBuilder.html'),
       },
       loadBalancer: {
         transformer: 'gceLoadBalancerTransformer',
+        setTransformer: 'gceLoadBalancerSetTransformer',
         detailsTemplateUrl: require('./loadBalancer/details/loadBalancerDetails.html'),
         detailsController: 'gceLoadBalancerDetailsCtrl',
-        createLoadBalancerTemplateUrl: require('./loadBalancer/configure/createLoadBalancer.html'),
-        createLoadBalancerController: 'gceCreateLoadBalancerCtrl',
+        createLoadBalancerTemplateUrl: require('./loadBalancer/configure/choice/gceLoadBalancerChoice.modal.html'),
+        createLoadBalancerController: 'gceLoadBalancerChoiceCtrl',
       },
       securityGroup: {
         transformer: 'gceSecurityGroupTransformer',
@@ -89,6 +97,7 @@ module.exports = angular.module('spinnaker.gce', [
       subnet: {
         renderer: 'gceSubnetRenderer',
       },
+      snapshotsEnabled: true
     });
   });
 

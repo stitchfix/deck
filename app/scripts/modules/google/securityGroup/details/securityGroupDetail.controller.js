@@ -16,23 +16,24 @@
 
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.securityGroup.gce.details.controller', [
   require('angular-ui-router'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/securityGroup/securityGroup.read.service.js'),
-  require('../../../core/securityGroup/securityGroup.write.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
+  require('core/account/account.service.js'),
+  require('core/securityGroup/securityGroup.read.service.js'),
+  require('core/securityGroup/securityGroup.write.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
   require('../clone/cloneSecurityGroup.controller.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
-  require('../../../core/cloudProvider/cloudProvider.registry.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
+  require('core/cloudProvider/cloudProvider.registry.js'),
 ])
   .controller('gceSecurityGroupDetailsCtrl', function ($scope, $state, resolvedSecurityGroup, accountService, app, InsightFilterStateModel,
                                                     confirmationModalService, securityGroupWriter, securityGroupReader,
-                                                    $uibModal, _, cloudProviderRegistry) {
+                                                    $uibModal, cloudProviderRegistry) {
 
     const application = app;
     const securityGroup = resolvedSecurityGroup;
@@ -51,7 +52,7 @@ module.exports = angular.module('spinnaker.securityGroup.gce.details.controller'
       return securityGroupReader.getSecurityGroupDetails(application, securityGroup.accountId, securityGroup.provider, securityGroup.region, securityGroup.vpcId, securityGroup.name).then(function (details) {
         $scope.state.loading = false;
 
-        if (!details || _.isEmpty( details.plain())) {
+        if (!details || _.isEmpty( details )) {
           fourOhFour();
         } else {
           $scope.securityGroup = details;
@@ -73,7 +74,7 @@ module.exports = angular.module('spinnaker.securityGroup.gce.details.controller'
             if (_.has(ipIngressRules, ipIngressRule.protocol)) {
               ipIngressRules[ipIngressRule.protocol] = ipIngressRules[ipIngressRule.protocol].concat(ipIngressRule.portRanges);
 
-              ipIngressRules[ipIngressRule.protocol] = _.uniq(ipIngressRules[ipIngressRule.protocol], function(portRange) {
+              ipIngressRules[ipIngressRule.protocol] = _.uniqBy(ipIngressRules[ipIngressRule.protocol], function(portRange) {
                 return portRange.startPort + '->' + portRange.endPort;
               });
             } else {
@@ -90,7 +91,7 @@ module.exports = angular.module('spinnaker.securityGroup.gce.details.controller'
 
           $scope.securityGroup.ipIngressRules = ipIngressRules;
 
-          $scope.securityGroup.protocolPortRangeCount = _.sum(ipIngressRules, function(ipIngressRule) {
+          $scope.securityGroup.protocolPortRangeCount = _.sumBy(ipIngressRules, function(ipIngressRule) {
             return ipIngressRule.portRanges.length > 1 ? ipIngressRule.portRanges.length : 1;
           });
 
@@ -131,7 +132,7 @@ module.exports = angular.module('spinnaker.securityGroup.gce.details.controller'
         size: 'lg',
         resolve: {
           securityGroup: function() {
-            return angular.copy($scope.securityGroup.plain());
+            return angular.copy($scope.securityGroup);
           },
           application: function() { return application; }
         }
@@ -146,7 +147,7 @@ module.exports = angular.module('spinnaker.securityGroup.gce.details.controller'
         size: 'lg',
         resolve: {
           securityGroup: function() {
-            var securityGroup = angular.copy($scope.securityGroup.plain());
+            var securityGroup = angular.copy($scope.securityGroup);
             if(securityGroup.region) {
               securityGroup.regions = [securityGroup.region];
             }

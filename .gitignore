@@ -1,5 +1,7 @@
 node_modules
+typings
 /dist
+/transpiled
 /xmloutput
 test-results.xml
 npm-debug.log
@@ -9,9 +11,10 @@ npm-debug.log
 deck.iml
 .idea
 .gradle
+.happypack
 build
 *.swp
 *.DS_Store
 coverage/
 *~
-
+test/google/node_modules

@@ -1,8 +1,6 @@
 'use strict';
 
-
 describe('executionTransformerService', function() {
-
 
   beforeEach(
     window.module(
@@ -10,9 +8,8 @@ describe('executionTransformerService', function() {
     )
   );
 
-  beforeEach(window.inject(function(executionsTransformer, ___) {
+  beforeEach(window.inject(function(executionsTransformer) {
     this.transformer = executionsTransformer;
-    this._ = ___;
   }));
 
   describe('transformExecution', function() {
@@ -31,7 +28,7 @@ describe('executionTransformerService', function() {
       };
 
       this.transformer.transformExecution({}, execution);
-      expect(_.pluck(execution.stageSummaries[0].stages, 'id')).toEqual(['e', 'f', 'b', 'c', 'a', 'g', 'd', 'h']);
+      expect(_.map(execution.stageSummaries[0].stages, 'id')).toEqual(['e', 'f', 'b', 'c', 'a', 'g', 'd', 'h']);
     });
 
     it('should sort sibling before stages by start time if available', function() {
@@ -49,7 +46,7 @@ describe('executionTransformerService', function() {
       };
 
       this.transformer.transformExecution({}, execution);
-      expect(_.pluck(execution.stageSummaries[0].stages, 'id')).toEqual(['c', 'f', 'e', 'b', 'a', 'g', 'd', 'h']);
+      expect(_.map(execution.stageSummaries[0].stages, 'id')).toEqual(['c', 'f', 'e', 'b', 'a', 'g', 'd', 'h']);
     });
 
     it('should group stages into summaries when no synthetic stages added', function() {
@@ -63,7 +60,7 @@ describe('executionTransformerService', function() {
       this.transformer.transformExecution({}, execution);
 
       expect(execution.stageSummaries.length).toBe(3);
-      expect(_.pluck(execution.stageSummaries, 'name')).toEqual(['bake', 'deploy', 'wait']);
+      expect(_.map(execution.stageSummaries, 'name')).toEqual(['bake', 'deploy', 'wait']);
     });
 
     it('should group synthetic stages based on parent id and order of entry in execution', function() {
@@ -82,9 +79,9 @@ describe('executionTransformerService', function() {
       this.transformer.transformExecution({}, execution);
 
       expect(execution.stageSummaries.length).toBe(3);
-      expect(_.pluck(execution.stageSummaries[0].stages, 'id')).toEqual(['5', '1']);
-      expect(_.pluck(execution.stageSummaries[1].stages, 'id')).toEqual(['4', '6', '2']);
-      expect(_.pluck(execution.stageSummaries[2].stages, 'id')).toEqual(['7', '3', '8']);
+      expect(_.map(execution.stageSummaries[0].stages, 'id')).toEqual(['5', '1']);
+      expect(_.map(execution.stageSummaries[1].stages, 'id')).toEqual(['4', '6', '2']);
+      expect(_.map(execution.stageSummaries[2].stages, 'id')).toEqual(['7', '3', '8']);
     });
 
     it('should set summary status and start/end times based on child stages', function() {
@@ -188,7 +185,7 @@ describe('executionTransformerService', function() {
 
       var nested = summary.stages[2];
 
-      expect(_.pluck(summary.stages, 'id')).toEqual(['1', '3', '2', '4', '5']);
+      expect(_.map(summary.stages, 'id')).toEqual(['1', '3', '2', '4', '5']);
       expect(nested.id).toBe('2');
       expect(nested.status).toBe('SUCCEEDED');
       expect(nested.startTime).toBe(8);
@@ -206,6 +203,68 @@ describe('executionTransformerService', function() {
       };
       this.transformer.transformExecution({}, execution);
       expect(execution.stageSummaries[0].startTime).toBe(4);
+    });
+  });
+
+  describe('buildInfo', function () {
+    let deployStage, lastBuild, parentBuild, triggerBuild;
+
+    beforeEach(function () {
+      lastBuild = { number: 4 };
+      parentBuild = { number: 5 };
+      triggerBuild = { number: 6 };
+      deployStage = { type: 'deploy', context: {
+        deploymentDetails: [
+          { jenkins: { number: 3, host: 'http://jenkinshost/', name: 'jobName' } }
+        ]
+      }};
+    });
+
+    it('adds buildInfo from deployment details', function () {
+      let execution = { stages: [ deployStage ] };
+      this.transformer.transformExecution({}, execution);
+      expect(execution.buildInfo).toEqual({ number: 3, url: 'http://jenkinshost/job/jobName/3'});
+    });
+
+    it('adds buildInfo from lastBuild if present', function () {
+      let execution = { stages: [], trigger: { buildInfo: {lastBuild: lastBuild }}};
+      this.transformer.transformExecution({}, execution);
+      expect(execution.buildInfo.number).toBe(4);
+    });
+
+    it('adds buildInfo from trigger', function () {
+      let execution = { stages: [], trigger: { buildInfo: triggerBuild }};
+      this.transformer.transformExecution({}, execution);
+      expect(execution.buildInfo.number).toBe(6);
+    });
+
+    it('adds buildInfo from parent pipeline', function () {
+      let execution = { stages: [], trigger: { parentExecution: {trigger: {buildInfo: parentBuild }}}};
+      this.transformer.transformExecution({}, execution);
+      expect(execution.buildInfo.number).toBe(5);
+    });
+
+    it('prefers deployment buildInfo to all others', function () {
+      let execution = { stages: [ deployStage ], trigger: { buildInfo: triggerBuild } };
+      execution.trigger.buildInfo.lastBuild = lastBuild;
+      execution.trigger.parentExecution = { trigger: { buildInfo: parentBuild } };
+      this.transformer.transformExecution({}, execution);
+      expect(execution.buildInfo).toEqual({ number: 3, url: 'http://jenkinshost/job/jobName/3'});
+    });
+
+    it('prefers last build info to parent execution or trigger details', function () {
+      let execution = { stages: [ ], trigger: { buildInfo: triggerBuild } };
+      execution.trigger.buildInfo.lastBuild = lastBuild;
+      execution.trigger.parentExecution = { trigger: { buildInfo: parentBuild } };
+      this.transformer.transformExecution({}, execution);
+      expect(execution.buildInfo.number).toBe(4);
+    });
+
+    it('prefers trigger details to parent execution', function () {
+      let execution = { stages: [ ], trigger: { buildInfo: triggerBuild } };
+      execution.trigger.parentExecution = { trigger: { buildInfo: parentBuild } };
+      this.transformer.transformExecution({}, execution);
+      expect(execution.buildInfo.number).toBe(6);
     });
   });
 });

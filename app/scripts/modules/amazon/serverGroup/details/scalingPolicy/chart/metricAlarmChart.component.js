@@ -1,29 +1,33 @@
 'use strict';
 
+import _ from 'lodash';
+import {Subject} from 'rxjs';
+
 const angular = require('angular');
 
-require('style!n3-charts/build/LineChart.css');
+// TODO: Remove LineChartHack, replace require with commented out one once
+// https://github.com/n3-charts/line-chart/issues/512 is resolved
+// require('style!n3-charts/build/LineChart.css');
+require('./LineChartHack.css');
 require('./metricAlarmChart.component.less');
 
 module.exports = angular
   .module('spinnaker.aws.serverGroup.details.scalingPolicy.metricAlarmChart.component', [
-    require('../../../../../core/serverGroup/metrics/cloudMetrics.read.service.js'),
-    require('../../../../../core/utils/lodash.js'),
-    require('../../../../../core/utils/rx.js'),
+    require('core/serverGroup/metrics/cloudMetrics.read.service.js'),
     require('exports?"n3-line-chart"!n3-charts/build/LineChart.js'),
   ])
   .component('metricAlarmChart', {
     bindings: {
       alarm: '=',
       serverGroup: '=',
-      alarmUpdated: '=?', // rx.Observable - onNext will update the graph
+      alarmUpdated: '=?', // Observable - next will update the graph
       ticks: '=?', // object - sets number of x/y ticks on graph; defaults to { x: 6, y: 3 }
       margins: '=?', // object - defaults to { top: 5, left: 5 }
       stats: '=?', // object - this is gross - used to backfill units when statistics calls return, since AWS API does
                    // not provide a unit of measurement for an alarm or a metric, only statistics
     },
     templateUrl: require('./metricAlarmChart.component.html'),
-    controller: function(cloudMetricsReader, _, rx, $filter) {
+    controller: function(cloudMetricsReader, $filter) {
 
       // converts alarm into parameters used to retrieve statistic data
       let getFilterParameters = () => {
@@ -41,9 +45,9 @@ module.exports = angular
 
       let initializeStatistics = () => {
         let start = new Date(new Date().getTime() - 24 * 60 * 60 * 1000),
-            end = new Date(),
-            threshold = this.alarm.threshold || 0,
-            topline = this.alarm.comparisonOperator.indexOf('Less') === 0 ? threshold * 3 : threshold * 1.02;
+          end = new Date(),
+          threshold = this.alarm.threshold || 0,
+          topline = this.alarm.comparisonOperator.indexOf('Less') === 0 ? threshold * 3 : threshold * 1.02;
 
         /**
          * Draw four lines:
@@ -57,17 +61,17 @@ module.exports = angular
           loading: true,
           noData: false, // flag set when server error occurs or no data available from server
           threshold: [
-            { val: threshold, timestamp: start },
-            { val: threshold, timestamp: end },
+            {val: threshold, timestamp: start},
+            {val: threshold, timestamp: end},
           ],
           datapoints: [],
           baseline: [
-            { val: 0, timestamp: start },
-            { val: 0, timestamp: end },
+            {val: 0, timestamp: start},
+            {val: 0, timestamp: end},
           ],
           topline: [
-            { val: topline, timestamp: start },
-            { val: topline, timestamp: end },
+            {val: topline, timestamp: start},
+            {val: topline, timestamp: end},
           ]
         };
       };
@@ -122,7 +126,6 @@ module.exports = angular
         this.chartOptions = {
           margin: this.margins || {top: 5, left: 5},
           tooltipHook: tooltipHook,
-          drawLegend: false,
           series: [
             {
               axis: 'y',
@@ -162,10 +165,14 @@ module.exports = angular
             }
           ],
           axes: {
-            x: { key: 'timestamp', type: 'date', ticks: ticks.x },
-            y:  { ticks: ticks.y },
-            x2: { ticks: 0 }, // hide right hand x-axis labels
-            y2: { ticks: 0 } // hide top y-axis labels
+            x: {key: 'timestamp', type: 'date', ticks: ticks.x},
+            y: {ticks: ticks.y},
+            x2: {ticks: 0}, // hide right hand x-axis labels
+            y2: {ticks: 0} // hide top y-axis labels
+          },
+          zoom: {
+            x: true,
+            y: true
           }
         };
         updateChartData();
@@ -175,14 +182,14 @@ module.exports = angular
         configureChart();
         if (!this.alarmUpdated) {
           this.alarmUpdatedCreated = true;
-          this.alarmUpdated = new rx.Subject();
+          this.alarmUpdated = new Subject();
         }
         this.alarmUpdated.subscribe(() => configureChart());
       };
 
       this.$onDestroy = () => {
         if (this.alarmUpdatedCreated) {
-          this.alarmUpdated.dispose();
+          this.alarmUpdated.unsubscribe();
         }
       };
     }

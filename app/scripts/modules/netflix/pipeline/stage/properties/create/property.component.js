@@ -1,11 +1,11 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports =
-  angular.module('spinnaker.netflix.pipeline.persistedProperty.property', [
-    require('../../../../../core/utils/lodash')
-  ])
+  angular.module('spinnaker.netflix.pipeline.persistedProperty.property', [])
   .component('property', {
     bindings: {
       property: '=',
@@ -17,7 +17,7 @@ module.exports =
     controllerAs: 'propertyCtrl',
     templateUrl: require('./property.component.html'),
   })
-  .controller('PropertyController', function(_) {
+  .controller('PropertyController', function () {
     let vm = this;
 
     vm.remove = function(property) {
@@ -31,7 +31,7 @@ module.exports =
 
     vm.getPropertyList = _.debounce((search) => {
       let newPropKeyList = vm.propertyList.map(prop => prop.key);
-      if (search && newPropKeyList.indexOf(search) === -1) {
+      if (search && !newPropKeyList.includes(search)) {
         newPropKeyList.unshift(search);
       }
       return _.uniq(newPropKeyList);

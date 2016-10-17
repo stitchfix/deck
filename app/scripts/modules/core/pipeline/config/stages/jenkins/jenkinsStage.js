@@ -4,7 +4,7 @@ let angular = require('angular');
 
 
 module.exports = angular.module('spinnaker.core.pipeline.stage.jenkinsStage', [
-  require('../../../../ci/jenkins/igor.service.js'),
+  require('core/ci/jenkins/igor.service.js'),
   require('../../pipelineConfigProvider.js'),
 ])
   .config(function(pipelineConfigProvider) {
@@ -64,8 +64,8 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.jenkinsStage', [
       if ($scope.stage && $scope.stage.master) {
         let master = $scope.stage.master,
             job = $scope.stage.job || '';
-        $scope.viewState.masterIsParameterized = master.indexOf('${') > -1;
-        $scope.viewState.jobIsParameterized = job.indexOf('${') > -1;
+        $scope.viewState.masterIsParameterized = master.includes('${');
+        $scope.viewState.jobIsParameterized = job.includes('${');
         if ($scope.viewState.masterIsParameterized || $scope.viewState.jobIsParameterized) {
           $scope.viewState.jobsLoaded = true;
           return;
@@ -76,7 +76,7 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.jenkinsStage', [
           $scope.viewState.jobsLoaded = true;
           $scope.viewState.jobsRefreshing = false;
           $scope.jobs = jobs;
-          if ($scope.jobs.indexOf($scope.stage.job) === -1) {
+          if (!$scope.jobs.includes($scope.stage.job)) {
             $scope.stage.job = '';
           }
         });
@@ -107,33 +107,6 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.jenkinsStage', [
        });
       }
     }
-
-    this.failureOptionChanged = function() {
-      if ($scope.viewState.failureOption === 'fail') {
-        $scope.stage.failPipeline = true;
-        $scope.stage.continuePipeline = false;
-      } else if ($scope.viewState.failureOption === 'stop') {
-        $scope.stage.failPipeline = false;
-        $scope.stage.continuePipeline = false;
-      } else if ($scope.viewState.failureOption === 'ignore') {
-        $scope.stage.failPipeline = false;
-        $scope.stage.continuePipeline = true;
-      }
-    };
-
-    function initializeFailureOption() {
-      var initValue = '';
-      if ($scope.stage.failPipeline === true && $scope.stage.continuePipeline === false) {
-        initValue = 'fail';
-      } else if ($scope.stage.failPipeline === false && $scope.stage.continuePipeline === false) {
-        initValue = 'stop';
-      } else if ($scope.stage.failPipeline === false && $scope.stage.continuePipeline === true) {
-        initValue = 'ignore';
-      }
-      $scope.viewState.failureOption = initValue;
-    }
-
-    initializeFailureOption();
 
     $scope.useDefaultParameters = {};
     $scope.userSuppliedParameters = {};

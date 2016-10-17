@@ -1,4 +1,4 @@
-'use strict';
+import modelBuilderModule from 'core/application/applicationModel.builder';
 
 describe('Controller: AWS ServerGroupDetailsCtrl', function () {
   var controller;
@@ -7,16 +7,15 @@ describe('Controller: AWS ServerGroupDetailsCtrl', function () {
   beforeEach(
     window.module(
       require('./serverGroupDetails.aws.controller'),
-      require('../../../core/application/service/applications.read.service')
+      modelBuilderModule
     )
   );
 
   beforeEach(
-    window.inject( function($controller, $rootScope, applicationReader) {
+    window.inject( function($controller, $q, $rootScope, applicationModelBuilder) {
       $scope = $rootScope.$new();
-      let application = {};
-      applicationReader.addSectionToApplication({key: 'serverGroups', lazy: true}, application);
-      applicationReader.addSectionToApplication({key: 'loadBalancers', lazy: true}, application);
+      let application = applicationModelBuilder.createApplication({key: 'serverGroups', lazy: true}, {key: 'loadBalancers', lazy: true});
+      application.ready = () => $q.when(null);
       controller = $controller('awsServerGroupDetailsCtrl', {
         $scope: $scope,
         app: application,

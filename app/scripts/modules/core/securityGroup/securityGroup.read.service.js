@@ -1,24 +1,26 @@
 'use strict';
 
+import _ from 'lodash';
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.securityGroup.read.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
   require('../cache/deckCacheFactory.js'),
   require('../search/search.service.js'),
   require('../naming/naming.service.js'),
-  require('../utils/lodash.js'),
   require('../cache/infrastructureCaches.js'),
   require('./securityGroup.transformer.js'),
   require('../cloudProvider/serviceDelegate.service.js'),
+  API_SERVICE
 ])
-  .factory('securityGroupReader', function ($q, $log, Restangular, searchService, _, namingService,
+  .factory('securityGroupReader', function ($q, $log, searchService, namingService, API,
                                             infrastructureCaches, securityGroupTransformer, serviceDelegate) {
 
     function loadSecurityGroups() {
       return getAllSecurityGroups().then((groupsByAccount) => {
         let securityGroups = [];
-        _.forOwn(groupsByAccount.plain(), (groupsByProvider, account) => {
+        _.forOwn(groupsByAccount, (groupsByProvider, account) => {
           return _.forOwn(groupsByProvider, (groupsByRegion, provider) => {
             _.forOwn(groupsByRegion, (groups) => {
               groups.forEach((group) => {
@@ -68,30 +70,34 @@ module.exports = angular.module('spinnaker.core.securityGroup.read.service', [
     }
 
     function addNameBasedSecurityGroups(application, nameBasedSecurityGroups) {
-      var notFoundCaught = false;
+      var notFoundCaught = false,
+          securityGroups = [];
       nameBasedSecurityGroups.forEach(function(securityGroup) {
         try {
           var match = resolve(application.securityGroupsIndex, securityGroup, securityGroup.id);
           attachUsageFields(match);
-          application.securityGroups.data.push(match);
+          securityGroups.push(match);
         } catch(e) {
           $log.warn('could not initialize application security group:', securityGroup);
           notFoundCaught = true;
         }
       });
-      return notFoundCaught;
+      return {notFoundCaught, securityGroups};
     }
 
     function addLoadBalancersSecurityGroups(application) {
-      var notFoundCaught = false;
+      var notFoundCaught = false,
+          securityGroups = [];
       application.loadBalancers.data.forEach(function(loadBalancer) {
         if (loadBalancer.securityGroups) {
           loadBalancer.securityGroups.forEach(function(securityGroupId) {
             try {
               var securityGroup = resolve(application.securityGroupsIndex, loadBalancer, securityGroupId);
               attachUsageFields(securityGroup);
-              securityGroup.usages.loadBalancers.push({name: loadBalancer.name});
-              application.securityGroups.data.push(securityGroup);
+              if (!securityGroup.usages.loadBalancers.some(lb => lb.name === loadBalancer.name)) {
+                securityGroup.usages.loadBalancers.push({name: loadBalancer.name});
+              }
+              securityGroups.push(securityGroup);
             } catch (e) {
               $log.warn('could not attach security group to load balancer:', loadBalancer.name, securityGroupId, e);
               notFoundCaught = true;
@@ -99,19 +105,26 @@ module.exports = angular.module('spinnaker.core.securityGroup.read.service', [
           });
         }
       });
-      return notFoundCaught;
+      return {notFoundCaught, securityGroups};
     }
 
     function addServerGroupSecurityGroups(application) {
-      var notFoundCaught = false;
+      var notFoundCaught = false,
+          securityGroups = [];
       application.serverGroups.data.forEach(function(serverGroup) {
         if (serverGroup.securityGroups) {
           serverGroup.securityGroups.forEach(function (securityGroupId) {
             try {
               var securityGroup = resolve(application.securityGroupsIndex, serverGroup, securityGroupId);
               attachUsageFields(securityGroup);
-              securityGroup.usages.serverGroups.push({name: serverGroup.name, isDisabled: serverGroup.isDisabled});
-              application.securityGroups.data.push(securityGroup);
+              if (!securityGroup.usages.serverGroups.some(sg => sg.name === serverGroup.name)) {
+                securityGroup.usages.serverGroups.push({
+                  name: serverGroup.name,
+                  isDisabled: serverGroup.isDisabled,
+                  region: serverGroup.region,
+                });
+              }
+              securityGroups.push(securityGroup);
             } catch (e) {
               $log.warn('could not attach security group to server group:', serverGroup.name, securityGroupId);
               notFoundCaught = true;
@@ -119,41 +132,54 @@ module.exports = angular.module('spinnaker.core.securityGroup.read.service', [
           });
         }
       });
-      return notFoundCaught;
+      return {notFoundCaught, securityGroups};
     }
 
+    let getApplicationSecurityGroups = (application, nameBasedSecurityGroups) => {
+      return loadSecurityGroups()
+        .then(allSecurityGroups => application.securityGroupsIndex = allSecurityGroups)
+        .then(() => $q.all([application.serverGroups.ready(), application.loadBalancers.ready()])
+          .then(() => attachSecurityGroups(application, nameBasedSecurityGroups, true)));
+    };
+
     function attachSecurityGroups(application, nameBasedSecurityGroups, retryIfNotFound) {
-      if (!application.securityGroupsIndex) {
-        // security groups have not yet been indexed; bail
-        return $q.when(null);
-      }
+      let data = [];
       let notFoundCaught = false;
       if (nameBasedSecurityGroups) {
         // reset everything
         application.securityGroups.data = [];
-        notFoundCaught = addNameBasedSecurityGroups(application, nameBasedSecurityGroups);
+        let nameBasedGroups = addNameBasedSecurityGroups(application, nameBasedSecurityGroups);
+        notFoundCaught = nameBasedGroups.notFoundCaught;
+        if (!nameBasedGroups.notFoundCaught) {
+          data = nameBasedGroups.securityGroups;
+        }
       } else {
-        nameBasedSecurityGroups = [];
         // filter down to empty (name-based only) security groups - we will repopulate usages
-        application.securityGroups.data = application.securityGroups.data.filter(
+        data = application.securityGroups.data.filter(
           (group) => !group.usages.serverGroups.length && !group.usages.loadBalancers.length);
       }
 
-      notFoundCaught = notFoundCaught ||
-        addLoadBalancersSecurityGroups(application) || addServerGroupSecurityGroups(application);
+      if (!notFoundCaught) {
+        let loadBalancerSecurityGroups = addLoadBalancersSecurityGroups(application);
+        notFoundCaught = loadBalancerSecurityGroups.notFoundCaught;
+        if (!notFoundCaught) {
+          data = data.concat(loadBalancerSecurityGroups.securityGroups.filter(sg => !data.includes(sg)));
+          let serverGroupSecurityGroups = addServerGroupSecurityGroups(application);
+          notFoundCaught = serverGroupSecurityGroups.notFoundCaught;
+          if (!notFoundCaught) {
+            data = data.concat(serverGroupSecurityGroups.securityGroups.filter(sg => !data.includes(sg)));
+          }
+        }
+      }
+      data = _.uniq(data);
 
       if (notFoundCaught && retryIfNotFound) {
         $log.warn('Clearing security group cache and trying again...');
         return clearCacheAndRetryAttachingSecurityGroups(application, nameBasedSecurityGroups);
       } else {
-        application.securityGroups.data = _.uniq(application.securityGroups.data);
-        application.securityGroups.data.forEach((group) => {
-          group.usages.loadBalancers = _.uniq(group.usages.loadBalancers, (lb) => lb.name);
-          group.usages.serverGroups = _.uniq(group.usages.serverGroups, (sg) => sg.name);
-        });
-        application.securityGroups.data.forEach(addStackToSecurityGroup);
+        data.forEach(addStackToSecurityGroup);
 
-        return $q.all(application.securityGroups.data.map(securityGroupTransformer.normalizeSecurityGroup));
+        return $q.all(data.map(securityGroupTransformer.normalizeSecurityGroup)).then(() => $q.all(data));
       }
 
     }
@@ -180,7 +206,7 @@ module.exports = angular.module('spinnaker.core.securityGroup.read.service', [
     }
 
     function getSecurityGroupDetails(application, account, provider, region, vpcId, id) {
-      return Restangular.one('securityGroups', account).one(region).one(id).get({provider: provider, vpcId: vpcId}).then(function(details) {
+      return API.one('securityGroups').one(account).one(region).one(id).withParams({provider: provider, vpcId: vpcId}).get().then(function(details) {
         if (details && details.inboundRules) {
           details.ipRangeRules = details.inboundRules.filter(function(rule) {
             return rule.range;
@@ -192,7 +218,12 @@ module.exports = angular.module('spinnaker.core.securityGroup.read.service', [
             let inboundGroup = inboundRule.securityGroup;
             if (!inboundGroup.name) {
               let applicationSecurityGroup = getApplicationSecurityGroup(application, inboundGroup.accountName, details.region, inboundGroup.id);
-              inboundGroup.name = applicationSecurityGroup ? applicationSecurityGroup.name : inboundGroup.id;
+              if (applicationSecurityGroup) {
+                inboundGroup.name = applicationSecurityGroup.name;
+              } else {
+                inboundGroup.name = inboundGroup.id;
+                inboundGroup.inferredName = true;
+              }
             }
           });
         }
@@ -201,9 +232,7 @@ module.exports = angular.module('spinnaker.core.securityGroup.read.service', [
     }
 
     function getAllSecurityGroups() {
-      return Restangular.one('securityGroups')
-        .withHttpConfig({cache: infrastructureCaches.securityGroups})
-        .get();
+      return API.one('securityGroups').useCache(infrastructureCaches.securityGroups).get();
     }
 
     function getApplicationSecurityGroup(application, account, region, id) {
@@ -218,9 +247,8 @@ module.exports = angular.module('spinnaker.core.securityGroup.read.service', [
     return {
       loadSecurityGroups: loadSecurityGroups,
       loadSecurityGroupsByApplicationName: loadSecurityGroupsByApplicationName,
-      attachSecurityGroups: attachSecurityGroups,
-      indexSecurityGroups: indexSecurityGroups,
       getSecurityGroupDetails: getSecurityGroupDetails,
+      getApplicationSecurityGroups: getApplicationSecurityGroups,
       getApplicationSecurityGroup: getApplicationSecurityGroup,
       getAllSecurityGroups: getAllSecurityGroups
     };

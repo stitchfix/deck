@@ -5,7 +5,7 @@ let angular = require('angular');
 module.exports = angular
   .module('spinnaker.core.loadBalancer.filter.model', [
     require('../../filterModel/filter.model.service.js'),
-    require('../../navigation/urlParser.service.js'),
+    require('../../navigation/urlParser.service.js')
   ])
   .factory('LoadBalancerFilterModel', function($rootScope, filterModelService, urlParser) {
 
@@ -35,7 +35,7 @@ module.exports = angular
     }
 
     function isChildState(stateName) {
-      return stateName.indexOf('loadBalancers.') > -1;
+      return stateName.includes('loadBalancers.');
     }
 
     function movingToLoadBalancerState(toState) {
@@ -52,7 +52,7 @@ module.exports = angular
 
     function fromLoadBalancersState(fromState) {
       return fromState.name.indexOf('home.applications.application.insight') === 0 &&
-        fromState.name.indexOf('home.applications.application.insight.loadBalancers') === -1;
+        !fromState.name.includes('home.applications.application.insight.loadBalancers');
     }
 
     // WHY??? Because, when the stateChangeStart event fires, the $location.search() will return whatever the query

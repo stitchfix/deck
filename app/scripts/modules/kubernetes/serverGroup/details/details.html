@@ -103,28 +103,56 @@
         <dt>Namespace<dt>
         <dd>{{serverGroup.region}}</dd>
         <dt>Kind</dt>
-        <dd>{{serverGroup.replicationController.kind}}</dd>
+        <dd>{{serverGroup.kind}}</dd>
         <dt>YAML</dt>
         <dd><a href ng-click="ctrl.showYaml()">Show YAML</a></dd>
-      </dl>
-    </collapsible-section>
-    <collapsible-section heading="Replicas" expanded="true">
-      <dl class="dl-horizontal"
-          ng-class="InsightFilterStateModel.filtersExpanded ? 'dl-narrow' : 'dl-wide'" >
-        <dt>Desired</dt>
-        <dd>{{serverGroup.capacity.desired}}</dd>
-        <dt>Current</dt>
-        <dd>{{serverGroup.instances.length}}</dd>
       </dl>
     </collapsible-section>
     <collapsible-section heading="Health" expanded="true">
       <dl class="dl-horizontal"
           ng-class="InsightFilterStateModel.filtersExpanded ? 'dl-narrow' : 'dl-wide'"
           ng-if="serverGroup">
-        <dt>Instances</dt>
+        <dt>Pods</dt>
         <dd>
           <health-counts container="serverGroup.instanceCounts" class="pull-left"></health-counts>
         </dd>
+      </dl>
+    </collapsible-section>
+    <collapsible-section heading="Replicas" expanded="true">
+      <dl class="dl-horizontal"
+          ng-class="InsightFilterStateModel.filtersExpanded ? 'dl-narrow' : 'dl-wide'" >
+        <div ng-show="serverGroup.autoscalerStatus === null">
+          <dt>Current</dt>
+          <dd>{{serverGroup.instances.length}}</dd>
+          <dt>Desired</dt>
+          <dd>{{serverGroup.capacity.desired}}</dd>
+        </div>
+        <div ng-show="serverGroup.autoscalerStatus !== null">
+          <dt>Min</dt>
+          <dd>{{serverGroup.deployDescription.capacity.min}}</dd>
+          <dt>Max</dt>
+          <dd>{{serverGroup.deployDescription.capacity.max}}</dd>
+          <dt>Current</dt>
+          <dd>{{serverGroup.instances.length}}</dd>
+        </div>
+      </dl>
+    </collapsible-section>
+    <collapsible-section heading="Horizontal Pod Autoscaling" expanded="true">
+      <dl class="dl-horizontal"
+          ng-class="InsightFilterStateModel.filtersExpanded ? 'dl-narrow' : 'dl-wide'" >
+        <div ng-show="serverGroup.autoscalerStatus === null">
+          No autoscaler found.
+        </div>
+        <div ng-show="serverGroup.autoscalerStatus !== null">
+          <dt>Desired</dt>
+          <dd>{{serverGroup.autoscalerStatus.desiredReplicas}}</dd>
+          <dt>Target CPU</dt>
+          <dd>{{serverGroup.deployDescription.scalingPolicy.cpuUtilization.target}}%</dd>
+          <dt>Current CPU</dt>
+          <dd>{{serverGroup.autoscalerStatus.currentCpuUtilization}}%</dd>
+          <dt>Latest Rescale</dt>
+          <dd>{{serverGroup.autoscalerStatus.lastScaleTime | relativeTime}}</dd>
+        </div>
       </dl>
     </collapsible-section>
     <collapsible-section ng-repeat="container in serverGroup.deployDescription.containers" heading="{{container.name}}">
@@ -138,10 +166,8 @@
         <dd>{{container.imageDescription.repository}}</dd>
         <dt>Tag</dt>
         <dd>{{container.imageDescription.tag}}</dd>
-        <hr>
         <div ng-if="container.limits">
           <b>Limits</b>
-          <hr>
           <div ng-if="container.limits.cpu">
             <dt>CPU Limit</dt>
             <dd>{{container.limits.cpu}}</dd>
@@ -153,7 +179,6 @@
         </div>
         <div ng-if="container.requests">
           <b>Requests</b>
-          <hr>
           <div ng-if="container.requests.cpu">
             <dt>CPU Request</dt>
             <dd>{{container.requests.cpu}}</dd>
@@ -165,7 +190,6 @@
         </div>
         <div ng-if="container.readinessProbe">
           <b>Readiness Probe</b>
-          <hr>
           <dt>Success Threshold</dt>
           <dd>{{container.readinessProbe.successThreshold}}</dd>
           <dt>Failure Threshold</dt>
@@ -179,7 +203,6 @@
         </div>
         <div ng-if="container.livenessProbe">
           <b>Liveness Probe</b>
-          <hr>
           <dt>Success Threshold</dt>
           <dd>{{container.livenessProbe.successThreshold}}</dd>
           <dt>Failure Threshold</dt>
@@ -200,17 +223,13 @@
         {{key}}: {{value}}
       </dl>
     </collapsible-section>
-    <collapsible-section heading="Logs">
-      <ul>
-        <li ng-if="serverGroup.logsLink">
-          <a href="{{serverGroup.logsLink}}" target="_blank">Developers Console Logs</a>
-          <copy-to-clipboard
-              class="copy-to-clipboard copy-to-clipboard-sm"
-              text="{{serverGroup.logsLink}}"
-              tool-tip="Copy to clipboard">
-          </copy-to-clipboard>
-        </li>
-      </ul>
+    <collapsible-section heading="Events">
+      <div ng-if="serverGroup.events && serverGroup.events.length > 0">
+        <kubernetes-event ng-repeat="event in serverGroup.events" event="event"/>
+      </div>
+      <div ng-if="!(serverGroup.events && serverGroup.events.length > 0)">
+        No events.
+      </div>
     </collapsible-section>
   </div>
 </div>

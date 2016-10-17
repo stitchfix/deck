@@ -1,13 +1,15 @@
 'use strict';
 
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.core.task.read.service', [
-    require('exports?"restangular"!imports?_=lodash!restangular'),
+    API_SERVICE,
     require('../orchestratedItem/orchestratedItem.transformer.js')
   ])
-  .factory('taskReader', function (Restangular, $log, $q, $timeout, orchestratedItemTransformer) {
+  .factory('taskReader', function (API, $log, $q, $timeout, orchestratedItemTransformer) {
 
     const activeStatuses = ['RUNNING', 'SUSPENDED', 'NOT_STARTED'];
 
@@ -23,7 +25,7 @@ module.exports = angular
     }
 
     function getTasks(applicationName, statuses = []) {
-      return Restangular.one('applications', applicationName).all('tasks')
+      return API.one('applications', applicationName).all('tasks')
         .getList({statuses: statuses.join(',')})
         .then((tasks) => {
           tasks.forEach(setTaskProperties);
@@ -57,7 +59,7 @@ module.exports = angular
         deferred.reject(task);
       } else {
         task.poller = $timeout(() => {
-          getTask(application, task.id).then((updated) => {
+          getTask(task.id).then((updated) => {
             updateTask(task, updated);
             waitUntilTaskMatches(application, task, closure, failureClosure, interval)
               .then(deferred.resolve, deferred.reject);
@@ -71,8 +73,8 @@ module.exports = angular
       return waitUntilTaskMatches(application, task, (task) => task.isCompleted, (task) => task.isFailed, interval);
     }
 
-    function getTask(applicationName, taskId) {
-      return Restangular.one('applications', applicationName).one('tasks', taskId).get()
+    function getTask(taskId) {
+      return API.one('tasks', taskId).get()
         .then((task) => {
           orchestratedItemTransformer.defineProperties(task);
           if (task.steps && task.steps.length) {
@@ -84,9 +86,8 @@ module.exports = angular
               task.execution.stages.forEach(orchestratedItemTransformer.defineProperties);
             }
           }
-          let plainTask = task.plain();
-          setTaskProperties(plainTask);
-          return plainTask;
+          setTaskProperties(task);
+          return task;
         })
         .catch((error) => $log.warn('There was an issue retrieving taskId: ', taskId, error));
     }

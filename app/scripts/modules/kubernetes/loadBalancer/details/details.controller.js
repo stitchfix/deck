@@ -4,17 +4,16 @@ let angular = require('angular');
 
 module.exports = angular.module('spinnaker.loadBalancer.kubernetes.details.controller', [
   require('angular-ui-router'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/loadBalancer/loadBalancer.write.service.js'),
-  require('../../../core/loadBalancer/loadBalancer.read.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
+  require('core/account/account.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/loadBalancer/loadBalancer.write.service.js'),
+  require('core/loadBalancer/loadBalancer.read.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
 ])
   .controller('kubernetesLoadBalancerDetailsController', function ($scope, $state, $uibModal, loadBalancer, app, InsightFilterStateModel,
-                                                                   _, confirmationModalService, accountService, loadBalancerWriter, loadBalancerReader, $q) {
+                                                                   confirmationModalService, accountService, loadBalancerWriter, loadBalancerReader, $q) {
 
     let application = app;
 
@@ -44,7 +43,7 @@ module.exports = angular.module('spinnaker.loadBalancer.kubernetes.details.contr
       $scope.userDataModalTitle = 'Service YAML';
       $scope.userData = $scope.loadBalancer.yaml;
       $uibModal.open({
-        templateUrl: require('../../../core/serverGroup/details/userData.html'),
+        templateUrl: require('core/serverGroup/details/userData.html'),
         controller: 'CloseableModalCtrl',
         scope: $scope
       });

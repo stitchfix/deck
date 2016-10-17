@@ -2,7 +2,9 @@
 
 let angular = require('angular');
 
-module.exports = angular.module('spinnaker.core.pipeline.stage.manualJudgmentStage', [])
+module.exports = angular.module('spinnaker.core.pipeline.stage.manualJudgmentStage', [
+  require('core/config/settings.js'),
+])
   .config(function (pipelineConfigProvider) {
     pipelineConfigProvider.registerStage({
       label: 'Manual Judgment',
@@ -14,10 +16,11 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.manualJudgmentSta
       templateUrl: require('./manualJudgmentStage.html'),
       executionDetailsUrl: require('./manualJudgmentExecutionDetails.html'),
       strategy: true,
+      defaultTimeoutMs: 72 * 60 * 60 * 1000,
     });
   })
-  .controller('ManualJudgmentStageCtrl', function($scope, $uibModal) {
-
+  .controller('ManualJudgmentStageCtrl', function($scope, $uibModal, settings) {
+    $scope.authEnabled = settings.authEnabled;
     $scope.stage.notifications = $scope.stage.notifications || [];
     $scope.stage.judgmentInputs = $scope.stage.judgmentInputs || [];
     $scope.stage.failPipeline = ($scope.stage.failPipeline === undefined ? true : $scope.stage.failPipeline);

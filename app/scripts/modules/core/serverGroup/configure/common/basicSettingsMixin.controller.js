@@ -1,16 +1,17 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.core.serverGroup.basicSettings.controller', [
     require('angular-ui-bootstrap'),
     require('angular-ui-router'),
-    require('../../../utils/lodash.js'),
-    require('../../../naming/naming.service.js'),
+    require('core/naming/naming.service.js'),
     require('../../../image/image.reader.js')
   ])
-  .controller('BasicSettingsMixin', function ($scope, imageReader, namingService, $uibModalStack, $state, _) {
+  .controller('BasicSettingsMixin', function ($scope, imageReader, namingService, $uibModalStack, $state) {
 
     this.createsNewCluster = function() {
       var name = this.getNamePreview();
@@ -64,18 +65,25 @@ module.exports = angular
     this.stackPattern = {
       test: function(stack) {
         var pattern = $scope.command.viewState.templatingEnabled ?
-          /^([a-zA-Z_0-9._]*(\${.+})*)*$/ :
-          /^[a-zA-Z_0-9._]*$/;
-        return pattern.test(stack);
+          /^([a-zA-Z_0-9._${}]*(\${.+})*)*$/ :
+          /^[a-zA-Z_0-9._${}]*$/;
+
+        return isNotExpressionLanguage(stack) ? pattern.test(stack) : true;
       }
     };
 
     this.detailPattern = {
       test: function(detail) {
         var pattern = $scope.command.viewState.templatingEnabled ?
-          /^([a-zA-Z_0-9._-]*(\${.+})*)*$/ :
-          /^[a-zA-Z_0-9._-]*$/;
-        return pattern.test(detail);
+          /^([a-zA-Z_0-9._${}-]*(\${.+})*)*$/ :
+          /^[a-zA-Z_0-9._${}-]*$/;
+
+        return isNotExpressionLanguage(detail) ? pattern.test(detail) : true;
       }
     };
+
+    let isNotExpressionLanguage = (field) => {
+      return field && !field.includes('${');
+    };
+
   });

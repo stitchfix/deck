@@ -1,12 +1,14 @@
 'use strict';
 
+import modalWizardServiceModule from 'core/modal/wizard/v2modalWizard.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.serverGroup.configure.cf.cloneServerGroup', [
   require('angular-ui-router'),
-  require('../../../../core/modal/wizard/v2modalWizard.service.js'),
+  modalWizardServiceModule,
 ])
-  .controller('cfCloneServerGroupCtrl', function($scope, $uibModalInstance, _, $q, $state,
+  .controller('cfCloneServerGroupCtrl', function($scope, $uibModalInstance, $q, $state,
                                                   serverGroupWriter, v2modalWizardService, taskMonitorService,
                                                   cfServerGroupConfigurationService,
                                                   serverGroupCommand, application, title) {
@@ -37,7 +39,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.cf.cloneServerG
       if ($scope.$$destroyed) {
         return;
       }
-      let [cloneStage] = $scope.taskMonitor.task.execution.stages.filter((stage) => stage.type === 'cloneServerGroup');
+      let cloneStage = $scope.taskMonitor.task.execution.stages.find((stage) => stage.type === 'cloneServerGroup');
       if (cloneStage && cloneStage.context['deploy.server.groups']) {
         let newServerGroupName = cloneStage.context['deploy.server.groups'][$scope.command.region];
         if (newServerGroupName) {
@@ -143,6 +145,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.cf.cloneServerG
 
       $scope.command.buildpackUrl = $scope.command.buildpackUrl;
       $scope.command.memory = $scope.command.memory;
+      $scope.command.disk = $scope.command.disk;
 
         if ($scope.command.viewState.mode === 'editPipeline' || $scope.command.viewState.mode === 'createPipeline') {
         return $uibModalInstance.close($scope.command);

@@ -1,12 +1,13 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.instance.instances.directive', [
   require('../utils/jQuery.js'),
-  require('../utils/lodash.js'),
 ])
-  .directive('instances', function ($timeout, $, _) {
+  .directive('instances', function ($timeout, $) {
     return {
       restrict: 'E',
       scope: {
@@ -73,8 +74,12 @@ module.exports = angular.module('spinnaker.core.instance.instances.directive', [
         });
 
         elem.mouseover((event) => {
-          $(event.target, elem).tooltip({placement: 'top', container: 'body', animation: false}).tooltip('show');
-          tooltipsApplied = true;
+          if (tooltipsApplied) {
+            $(event.target, elem).tooltip('show');
+          } else {
+            $(event.target, elem).tooltip({placement: 'top', container: 'body', animation: false, selector: '[data-toggle="tooltip"]'}).tooltip('show');
+            tooltipsApplied = true;
+          }
         });
 
         function clearActiveState() {

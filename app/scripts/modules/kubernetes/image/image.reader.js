@@ -1,11 +1,13 @@
 'use strict';
 
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
-module.exports = angular.module('spinnaker.kubernetes.image.reader', [])
-  .factory('kubernetesImageReader', function ($q, Restangular) {
+module.exports = angular.module('spinnaker.kubernetes.image.reader', [API_SERVICE])
+  .factory('kubernetesImageReader', function ($q, API) {
     function findImages(params) {
-      return Restangular.all('images/find').getList(params, {}).then(function(results) {
+      return API.all('images/find').getList(params).then(function(results) {
           return results;
         },
         function() {

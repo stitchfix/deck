@@ -12,7 +12,9 @@ module.exports = angular.module('netflix.spinnaker', [
   require('./modules/amazon/aws.module.js'),
   require('./modules/google/gce.module.js'),
   require('./modules/cloudfoundry/cf.module.js'),
-  require('./modules/titan/titan.module.js'),
+  require('./modules/titus/titus.module.js'),
   require('./modules/azure/azure.module.js'),
   require('./modules/kubernetes/kubernetes.module.js'),
+  require('./modules/openstack/openstack.module.js'),
+  require('./modules/docker/docker.module.js'),
 ]);

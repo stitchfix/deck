@@ -1,25 +1,28 @@
 'use strict';
 
+import _ from 'lodash';
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.diff.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/config/settings.js'),
+  API_SERVICE,
+  require('core/config/settings.js'),
 ])
-  .factory('diffService', function (_, Restangular, $q, settings) {
+  .factory('diffService', function (API, $q, settings) {
 
+    // TODO: Consider removing entirely after 11/08/16 if nobody asks about the feature being turned off
     function getClusterDiffForAccount(accountName, clusterName) {
       if (!settings.feature.clusterDiff) {
         return $q.when({});
       }
-      return Restangular
+      return API
         .all('diff')
         .all('cluster')
         .one(accountName, clusterName)
         .get().then(
           (diff) => {
-            return diff.plain();
+            return diff;
           },
           () => {
             return {};
@@ -31,7 +34,7 @@ module.exports = angular.module('spinnaker.core.diff.service', [
       if (!clusterDiff) {
         return [];
       }
-      return _(clusterDiff.attributeGroups)
+      return _.chain(clusterDiff.attributeGroups)
         .map((attributeGroup) => {
           return {
             commonSecurityGroups: attributeGroup.commonAttributes.securityGroups,
@@ -45,9 +48,9 @@ module.exports = angular.module('spinnaker.core.diff.service', [
         .map((attributeGroup) => {
           return {
             commonSecurityGroups: attributeGroup.commonSecurityGroups,
-            serverGroups: _(attributeGroup.serverGroups)
-              .pluck('location')
-              .merge(_(attributeGroup.serverGroups).pluck('identity').value())
+            serverGroups: _.chain(attributeGroup.serverGroups)
+              .map('location')
+              .merge(_.chain(attributeGroup.serverGroups).map('identity').value())
               .filter((serverGroup) => {
                 if (source) {
                   var serverGroupIdentity = {
@@ -59,7 +62,7 @@ module.exports = angular.module('spinnaker.core.diff.service', [
                 }
                 return true;
               })
-              .sortByAll('account', 'region', 'autoScalingGroupName')
+              .sortBy('account', 'region', 'autoScalingGroupName')
               .value()
           };
         })

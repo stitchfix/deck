@@ -1,14 +1,15 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.applications.write.service', [
     require('../../task/taskExecutor.js'),
-    require('../../utils/lodash.js'),
     require('../../history/recentHistory.service.js'),
   ])
-  .factory('applicationWriter', function($q, taskExecutor, recentHistoryService, _) {
+  .factory('applicationWriter', function($q, taskExecutor, recentHistoryService) {
 
     function buildJobs(app, accounts, type, commandTransformer) {
       let jobs = [];
@@ -62,10 +63,25 @@ module.exports = angular
       .catch((task) => task);
     }
 
+    function pageApplicationOwner(app, reason) {
+      return taskExecutor.executeTask({
+        job: [
+          {
+            type: 'pageApplicationOwner',
+            application: app.name,
+            message: reason
+          }
+        ],
+        application: app,
+        description: 'Paged Application Owner'
+      });
+    }
+
     return {
       createApplication: createApplication,
       updateApplication: updateApplication,
-      deleteApplication: deleteApplication
+      deleteApplication: deleteApplication,
+      pageApplicationOwner: pageApplicationOwner,
     };
 
   });

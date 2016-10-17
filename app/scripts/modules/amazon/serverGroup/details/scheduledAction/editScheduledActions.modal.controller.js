@@ -3,11 +3,10 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.serverGroup.details.aws.scheduledActions.editScheduledActions.modal.controller', [
-  require('../../../../core/utils/lodash.js'),
-  require('../../../../core/task/monitor/taskMonitor.module.js'),
-  require('../../../../core/task/taskExecutor.js'),
+  require('core/task/monitor/taskMonitor.module.js'),
+  require('core/task/taskExecutor.js'),
 ])
-  .controller('EditScheduledActionsCtrl', function($scope, $uibModalInstance, taskMonitorService, taskExecutor, _,
+  .controller('EditScheduledActionsCtrl', function($scope, $uibModalInstance, taskMonitorService, taskExecutor,
                                                      application, serverGroup) {
     $scope.command = {
       scheduledActions: serverGroup.scheduledActions.map((action) => {
@@ -30,6 +29,13 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.scheduledActi
       $scope.command.scheduledActions.splice(index, 1);
     };
 
+    $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
+      modalInstance: $uibModalInstance,
+      application: application,
+      title: 'Update Scheduled Actions for ' + serverGroup.name,
+      onTaskComplete: () => application.serverGroups.refresh(),
+    });
+
     this.submit = () => {
       var job = [
         {
@@ -47,15 +53,6 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.scheduledActi
           description: 'Update Scheduled Actions for ' + serverGroup.name
         });
       };
-
-      var taskMonitorConfig = {
-        modalInstance: $uibModalInstance,
-        application: application,
-        title: 'Update Scheduled Actions for ' + serverGroup.name,
-        onTaskComplete: application.serverGroups.refresh,
-      };
-
-      $scope.taskMonitor = taskMonitorService.buildTaskMonitor(taskMonitorConfig);
 
       $scope.taskMonitor.submit(submitMethod);
     };

@@ -1,11 +1,11 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
-module.exports = angular.module('spinnaker.core.pipeline.config.actions.editJson', [
-  require('../../../../utils/lodash.js'),
-])
-  .controller('EditPipelineJsonModalCtrl', function($scope, pipeline, _, $uibModalInstance) {
+module.exports = angular.module('spinnaker.core.pipeline.config.actions.editJson', [])
+  .controller('EditPipelineJsonModalCtrl', function($scope, pipeline, $uibModalInstance) {
 
     this.cancel = $uibModalInstance.dismiss;
 
@@ -14,19 +14,10 @@ module.exports = angular.module('spinnaker.core.pipeline.config.actions.editJson
       delete obj.application;
       delete obj.index;
       delete obj.id;
-      delete obj.stageCounter;
-    }
-
-    function updateStageCounter() {
-      if (pipeline.parallel) {
-        let stageIds = pipeline.stages.map((stage) => Number(stage.refId));
-        stageIds.forEach((stageId) => pipeline.stageCounter = Math.max(pipeline.stageCounter, stageId));
-      }
     }
 
     this.initialize = function() {
-      var toCopy = pipeline.hasOwnProperty('plain') ? pipeline.plain() : pipeline;
-      var pipelineCopy = _.cloneDeep(toCopy, function (value) {
+      var pipelineCopy = _.cloneDeepWith(pipeline, function (value) {
         if (value && value.$$hashKey) {
           delete value.$$hashKey;
         }
@@ -36,7 +27,8 @@ module.exports = angular.module('spinnaker.core.pipeline.config.actions.editJson
       $scope.isStrategy = pipelineCopy.strategy || false;
 
       $scope.command = {
-        pipelineJSON: JSON.stringify(pipelineCopy, null, 2)
+        pipelineJSON: JSON.stringify(pipelineCopy, null, 2),
+        locked: pipelineCopy.locked,
       };
     };
 
@@ -47,8 +39,6 @@ module.exports = angular.module('spinnaker.core.pipeline.config.actions.editJson
 
         removeImmutableFields(parsed);
         angular.extend(pipeline, parsed);
-        updateStageCounter();
-
         $uibModalInstance.close();
       } catch (e) {
         $scope.command.invalid = true;
@@ -57,6 +47,5 @@ module.exports = angular.module('spinnaker.core.pipeline.config.actions.editJson
     };
 
     this.initialize();
-
   });
 

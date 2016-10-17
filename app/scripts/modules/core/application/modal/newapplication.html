@@ -1,5 +1,5 @@
 <div class="modal-page">
-  <modal-close></modal-close>
+  <modal-close dismiss="$dismiss()"></modal-close>
   <div class="modal-header">
     <h3 data-purpose="modal-header">New Application</h3>
   </div>
@@ -64,7 +64,7 @@
           </select>
         </div>
       </div>
-      <div class="form-group row">
+      <div class="form-group row" ng-if="newAppModal.application.repoType">
         <div class="col-sm-3 sm-label-right">Repo Project</div>
         <div class="col-sm-9">
           <input type="text"
@@ -73,7 +73,7 @@
                  placeholder="Enter your source repository project name"/>
         </div>
       </div>
-      <div class="form-group row">
+      <div class="form-group row" ng-if="newAppModal.application.repoType">
         <div class="col-sm-3 sm-label-right">Repo Name</div>
         <div class="col-sm-9">
           <input type="text"
@@ -90,6 +90,8 @@
           Enter your source repository name (not the URL).
         </div>
       </div>
+
+      <chaos-monkey-new-application-config application-config="newAppModal.application"></chaos-monkey-new-application-config>
 
       <div class="form-group row">
         <div class="col-sm-3 sm-label-right">Description</div>
@@ -123,6 +125,11 @@
         </div>
       </div>
 
+      <application-provider-fields
+        cloud-providers="newAppModal.data.cloudProviders"
+        application="newAppModal.application">
+      </application-provider-fields>
+
       <div class="form-group row">
         <div class="col-sm-3 sm-label-right">Instance Health</div>
         <div class="col-sm-9 checkbox" style="margin-bottom: 0; margin-top: 5px">
@@ -140,12 +147,40 @@
         <div class="col-sm-9 checkbox" style="margin-top: 0">
           <label>
             <input type="checkbox"
-                   ng-model="newAppModal.application.platformHealthOnlyShowOverride"/>
+                   ng-model="newAppModal.application.platformHealthOnlyShowOverride"
+                   ng-click="newAppModal.updateCloudProviderHealthWarning()"/>
             Show health override option for each operation
             <help-field key="application.showPlatformHealthOverride"></help-field>
           </label>
         </div>
       </div>
+
+      <div class="col-md-12" ng-if="newAppModal.data.showOverrideWarning">
+        <div class="alert alert-warning">
+          <p><span class="glyphicon glyphicon-warning-sign"></span>
+            {{newAppModal.data.showOverrideWarning}}
+          </p>
+          <p class="text-right">
+            <a class="btn btn-sm btn-default dirty-flag-dismiss" href ng-click="newAppModal.data.showOverrideWarning = null">Okay</a>
+          </p>
+        </div>
+      </div>
+
+      <div class="form-group row">
+        <div class="col-sm-3 sm-label-right">Instance Port</div>
+        <div class="col-sm-2">
+          <input type="number"
+                 min="0"
+                 max="65536"
+                 class="form-control input-sm"
+                 ng-model="newAppModal.application.instancePort"
+                 name="instancePort"/>
+        </div>
+      </div>
+
+      <group-membership-configurer required-group-membership="newAppModal.application.requiredGroupMembership">
+      </group-membership-configurer>
+
       <div class="form-group row slide-in animated" ng-if="newAppModal.state.errorMessages.length">
         <div class="col-md-12">
           <div class="alert alert-danger">
@@ -168,7 +203,7 @@
       <button type="submit"
               class="btn btn-primary"
               data-purpose="submit"
-              ng-disabled="newApplicationForm.$invalid || !newAppModal.application.hasOwnProperty('account') || (newAppModal.application.hasOwnProperty('account') && newAppModal.application.account.length < 1)|| newAppModal.state.submitting"
+              ng-disabled="newApplicationForm.$invalid || !newAppModal.application.hasOwnProperty('account') || (newAppModal.application.hasOwnProperty('account') && newAppModal.application.account.length < 1)|| newAppModal.state.submitting || newAppModal.data.showOverrideWarning"
               ng-click="newAppModal.submit()">
         <span class="glyphicon glyphicon-ok-circle" ng-if="!newAppModal.state.submitting"></span>
         <button-busy-indicator ng-if="newAppModal.state.submitting"></button-busy-indicator>

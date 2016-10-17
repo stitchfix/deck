@@ -1,13 +1,14 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.serverGroup.details.aws.autoscaling.process.controller', [
-  require('../../../../core/utils/lodash.js'),
-  require('../../../../core/task/monitor/taskMonitor.module.js'),
-  require('../../../../core/task/taskExecutor.js'),
+  require('core/task/monitor/taskMonitor.module.js'),
+  require('core/task/taskExecutor.js'),
   ])
-  .controller('ModifyScalingProcessesCtrl', function($scope, $uibModalInstance, taskMonitorService, taskExecutor, application, serverGroup, processes, _) {
+  .controller('ModifyScalingProcessesCtrl', function($scope, $uibModalInstance, taskMonitorService, taskExecutor, application, serverGroup, processes) {
     $scope.command = angular.copy(processes);
     $scope.serverGroup = serverGroup;
     $scope.verification = {};
@@ -19,21 +20,28 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.autoscaling.p
       return this.isDirty();
     };
 
-    var currentlyEnabled = _($scope.command).filter({enabled: true}).pluck('name').valueOf(),
-        currentlySuspended = _($scope.command).filter({enabled: false}).pluck('name').valueOf();
+    var currentlyEnabled = _.chain($scope.command).filter({enabled: true}).map('name').value(),
+        currentlySuspended = _.chain($scope.command).filter({enabled: false}).map('name').value();
 
     this.isDirty = function () {
-      var enabledSelections = _($scope.command).filter({enabled: true}).pluck('name').valueOf(),
-        suspendedSelections = _($scope.command).filter({enabled: false}).pluck('name').valueOf(),
+      var enabledSelections = _.chain($scope.command).filter({enabled: true}).map('name').value(),
+        suspendedSelections = _.chain($scope.command).filter({enabled: false}).map('name').value(),
         toEnable = _.intersection(currentlySuspended, enabledSelections),
         toSuspend = _.intersection(currentlyEnabled, suspendedSelections);
 
       return !!(toEnable.length || toSuspend.length);
     };
 
+    $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
+      modalInstance: $uibModalInstance,
+      application: application,
+      title: 'Update Auto Scaling Processes for ' + serverGroup.name,
+      onTaskComplete: () => application.serverGroups.refresh(),
+    });
+
     this.submit = function () {
-      var enabledSelections = _($scope.command).filter({enabled: true}).pluck('name').valueOf(),
-          suspendedSelections = _($scope.command).filter({enabled: false}).pluck('name').valueOf(),
+      var enabledSelections = _.chain($scope.command).filter({enabled: true}).map('name').value(),
+          suspendedSelections = _.chain($scope.command).filter({enabled: false}).map('name').value(),
           toEnable = _.intersection(currentlySuspended, enabledSelections),
           toSuspend = _.intersection(currentlyEnabled, suspendedSelections);
 
@@ -70,15 +78,6 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.autoscaling.p
           description: 'Update Auto Scaling Processes for ' + serverGroup.name
         });
       };
-
-      var taskMonitorConfig = {
-        modalInstance: $uibModalInstance,
-        application: application,
-        title: 'Update Auto Scaling Processes for ' + serverGroup.name,
-        onTaskComplete: application.serverGroups.refresh,
-      };
-
-      $scope.taskMonitor = taskMonitorService.buildTaskMonitor(taskMonitorConfig);
 
       $scope.taskMonitor.submit(submitMethod);
     };

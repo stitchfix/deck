@@ -1,27 +1,29 @@
 'use strict';
 
+import _ from 'lodash';
+import {AUTHENTICATION_SERVICE} from 'core/authentication/authentication.service';
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.netflix.fastProperties.write.service', [
-    require('exports?"restangular"!imports?_=lodash!restangular'),
-    require('../../core/utils/lodash.js'),
-    require('../../core/authentication/authentication.service.js')
+    API_SERVICE,
+    AUTHENTICATION_SERVICE
   ])
-  .factory('fastPropertyWriter', function (Restangular, authenticationService, _) {
+  .factory('fastPropertyWriter', function (API, authenticationService) {
 
     function upsertFastProperty(fastProperty) {
-      //var payload = createPromotedPayload(fastProperty);
       fastProperty.updatedBy = authenticationService.getAuthenticatedUser().name;
       fastProperty.sourceOfUpdate = 'spinnaker';
-      return Restangular
+      return API
         .all('fastproperties')
         .all('promote')
         .post(fastProperty);
     }
 
     function deleteFastProperty(fastProperty) {
-      return Restangular.all('fastproperties')
+      return API.all('fastproperties')
         .all('delete')
         .remove({
           propId: fastProperty.propertyId,
@@ -31,28 +33,28 @@ module.exports = angular
     }
 
     function continuePromotion(promotionId) {
-      return Restangular.all('fastproperties')
+      return API.all('fastproperties')
         .one('promote', promotionId)
-        .customPUT(null, null, {pass:true});
+        .withParams({pass:true})
+        .put();
     }
 
     function stopPromotion(promotionId) {
-      return Restangular.all('fastproperties')
+      return API.all('fastproperties')
         .one('promote', promotionId)
-        .customPUT(null, null, {pass:false});
+        .withParams({pass:true})
+        .put();
     }
 
     function deletePromotion(promotionId) {
-      return Restangular.all('fastproperties')
+      return API.all('fastproperties')
         .all('promote')
-        .remove({
-          promotionId: promotionId
-        });
+        .withParams({promotionId: promotionId})
+        .remove();
     }
 
     function createPromotedPayload(fastProperty) {
-      return _(fastProperty)
-        .chain()
+      return _.chain(fastProperty)
         .set('scope', fastProperty.selectedScope)
         .assign(fastProperty.scope, {sourceOfUpdate: 'spinnaker', updatedBy: authenticationService.getAuthenticatedUser().name})
         .omit(['selectedScope', 'impactCount'])
@@ -60,8 +62,7 @@ module.exports = angular
     }
 
     function flattenFastProperty(fastProperty) {
-      return _(fastProperty)
-        .chain()
+      return _.chain(fastProperty)
         .assign(fastProperty, fastProperty.selectedScope)
         .assign(fastProperty, {sourceOfUpdate: 'spinnaker', updatedBy: authenticationService.getAuthenticatedUser().name})
         .omit('selectedScope')

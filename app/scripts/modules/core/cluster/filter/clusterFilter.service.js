@@ -1,5 +1,7 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular
@@ -7,11 +9,10 @@ module.exports = angular
     require('angular-ui-router'),
     require('./clusterFilter.model'),
     require('./multiselect.model'),
-    require('../../utils/lodash'),
     require('../../utils/waypoints/waypoint.service'),
     require('../../filterModel/filter.model.service'),
   ])
-  .factory('clusterFilterService', function (ClusterFilterModel, MultiselectModel, _, waypointService, $log, $stateParams, $state,
+  .factory('clusterFilterService', function (ClusterFilterModel, MultiselectModel, waypointService, $log, $stateParams, $state,
                                              filterModelService) {
 
     var lastApplication = null;
@@ -25,7 +26,7 @@ module.exports = angular
     function instanceTypeFilters(serverGroup) {
       if(isFilterable(ClusterFilterModel.sortFilter.instanceType)) {
         var checkedInstanceTypes = filterModelService.getCheckValues(ClusterFilterModel.sortFilter.instanceType);
-        return _.contains(checkedInstanceTypes, serverGroup.instanceType);
+        return _.includes(checkedInstanceTypes, serverGroup.instanceType);
       } else {
         return true;
       }
@@ -59,8 +60,8 @@ module.exports = angular
           serverGroup.name.toLowerCase(),
           serverGroup.account.toLowerCase(),
           buildInfo,
-          _.pluck(serverGroup.loadBalancers, 'name').join(' '),
-          _.pluck(serverGroup.instances, 'id').join(' ')
+          _.map(serverGroup.loadBalancers, 'name').join(' '),
+          _.map(serverGroup.instances, 'id').join(' ')
         ].join(' ');
       }
     }
@@ -71,28 +72,28 @@ module.exports = angular
       if (!filter) {
         return true;
       }
-      if (filter.indexOf('clusters:') !== -1) {
+      if (filter.includes('clusters:')) {
         var clusterNames = filter.split('clusters:')[1].replace(/\s/g, '').split(',');
-        return clusterNames.indexOf(serverGroup.cluster) !== -1;
+        return clusterNames.includes(serverGroup.cluster);
       }
 
-      if(filter.indexOf('vpc:') !== -1) {
+      if (filter.includes('vpc:')) {
         let [, vpcName] = filter.split('vpc:');
         return serverGroup.vpcName.toLowerCase() === vpcName.toLowerCase();
       }
 
-      if (filter.indexOf('detail:') !== -1) {
+      if (filter.includes('detail:')) {
         let [, detailName] = filter.split('detail:');
         return serverGroup.detail === detailName.toLowerCase();
       }
 
-      if(filter.indexOf('cluster:') !== -1) {
+      if (filter.includes('cluster:')) {
         let [, clusterName] = filter.split('cluster:');
         return serverGroup.cluster === clusterName;
       } else {
         addSearchField(serverGroup);
         return filter.split(' ').every(function(testWord) {
-          return serverGroup.searchField.indexOf(testWord) !== -1;
+          return serverGroup.searchField.includes(testWord);
         });
       }
     }
@@ -121,7 +122,7 @@ module.exports = angular
       if (ClusterFilterModel.sortFilter.listInstances && ClusterFilterModel.sortFilter.multiselect) {
         let instancesSelected = 0;
         MultiselectModel.instanceGroups.forEach((instanceGroup) => {
-          let [match] = serverGroups.filter((serverGroup) => {
+          let match = serverGroups.find((serverGroup) => {
             return serverGroup.name === instanceGroup.serverGroup &&
               serverGroup.region === instanceGroup.region &&
               serverGroup.account === instanceGroup.account &&
@@ -138,13 +139,13 @@ module.exports = angular
               instanceGroup.instanceIds = filteredInstances.map((instance) => instance.id);
             } else {
               instanceGroup.instanceIds = filteredInstances
-                .filter((instance) => instanceGroup.instanceIds.indexOf(instance.id) > -1)
+                .filter((instance) => instanceGroup.instanceIds.includes(instance.id))
                 .map((instance) => instance.id);
             }
             instancesSelected += instanceGroup.instanceIds.length;
           }
         });
-        MultiselectModel.instancesStream.onNext();
+        MultiselectModel.instancesStream.next();
         MultiselectModel.syncNavigation();
       } else {
         MultiselectModel.instanceGroups.length = 0;
@@ -157,13 +158,13 @@ module.exports = angular
           let remainingKeys = serverGroups.map(MultiselectModel.makeServerGroupKey);
           let toRemove = [];
           MultiselectModel.serverGroups.forEach((group, index) => {
-            if (remainingKeys.indexOf(group.key) < 0) {
+            if (!remainingKeys.includes(group.key)) {
               toRemove.push(index);
             }
           });
           toRemove.reverse().forEach((index) => MultiselectModel.serverGroups.splice(index, 1));
         }
-        MultiselectModel.serverGroupsStream.onNext();
+        MultiselectModel.serverGroupsStream.next();
         MultiselectModel.syncNavigation();
       }
     }
@@ -180,7 +181,7 @@ module.exports = angular
     function shouldShowInstance(instance) {
       if(isFilterable(ClusterFilterModel.sortFilter.availabilityZone)) {
         var checkedAvailabilityZones = filterModelService.getCheckValues(ClusterFilterModel.sortFilter.availabilityZone);
-        if (checkedAvailabilityZones.indexOf(instance.availabilityZone) === -1) {
+        if (!checkedAvailabilityZones.includes(instance.availabilityZone)) {
           return false;
         }
       }
@@ -194,7 +195,7 @@ module.exports = angular
           // filtering should be performed on the server group; always show instances
           return true;
         }
-        return _.contains(checkedStatus, instance.healthState);
+        return _.includes(checkedStatus, instance.healthState);
       }
       return true;
     }
@@ -277,7 +278,7 @@ module.exports = angular
 
         groups.push( {
           heading: accountKey,
-          subgroups: _.sortByAll(clusterGroups, ['heading', 'category']),
+          subgroups: _.sortBy(clusterGroups, ['heading', 'category']),
         } );
       });
 
@@ -290,14 +291,13 @@ module.exports = angular
     }, 25);
 
     function getCluster(application, clusterName, account, category) {
-      let [match] = (application.clusters || []).filter(c => c.account === account && c.name === clusterName && c.category === category);
-      return match;
+      return (application.clusters || []).find(c => c.account === account && c.name === clusterName && c.category === category);
     }
 
     function diffSubgroups(oldGroups, newGroups) {
       var groupsToRemove = [];
       oldGroups.forEach(function(oldGroup, idx) {
-        var [newGroup] = (newGroups || []).filter(group =>
+        let newGroup = (newGroups || []).find(group =>
             group.heading === oldGroup.heading &&
             group.category === oldGroup.category);
         if (!newGroup) {
@@ -381,7 +381,7 @@ module.exports = angular
      * Utility method used to navigate to a specific cluster by setting filters
      */
     function overrideFiltersForUrl(result) {
-      if (result.href.indexOf('/clusters') !== -1) {
+      if (result.href.includes('/clusters')) {
         ClusterFilterModel.clearFilters();
         ClusterFilterModel.sortFilter.filter = result.serverGroup ? result.serverGroup :
           result.cluster ? 'cluster:' + result.cluster : '';

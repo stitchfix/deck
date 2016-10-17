@@ -79,7 +79,7 @@ module.exports = angular.module('spinnaker.core.orchestratedItem.transformer', [
         },
         isCompleted: {
           get: function() {
-            return item.status === 'SUCCEEDED';
+            return item.status === 'SUCCEEDED' || item.status === 'SKIPPED';
           },
         },
         isRunning: {
@@ -155,6 +155,8 @@ module.exports = angular.module('spinnaker.core.orchestratedItem.transformer', [
 
     function normalizeStatus(item) {
       switch(item.originalStatus) {
+        case 'SKIPPED':
+          return 'SKIPPED';
         case 'COMPLETED':
         case 'SUCCEEDED':
           return 'SUCCEEDED';
@@ -180,6 +182,8 @@ module.exports = angular.module('spinnaker.core.orchestratedItem.transformer', [
           return 'TERMINATED';
         case 'PAUSED':
           return 'PAUSED';
+        case 'FAILED_CONTINUE':
+          return 'FAILED_CONTINUE';
         default:
           if (item.originalStatus) {
             $log.warn('Unrecognized status:', item.originalStatus);

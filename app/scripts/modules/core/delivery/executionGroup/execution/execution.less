@@ -88,17 +88,61 @@ execution-status {
   width: calc(~"100% - 235px");
   vertical-align: top;
   padding-top: 20px;
+  .stages {
+    .duration {
+      font-weight: 600;
+      padding-top: 1px;
+      display: inline-block;
+      visibility: hidden;
+    }
+    &.show-durations {
+      .stage {
+        .duration {
+          visibility: visible;
+        }
+        min-width: 50px;
+        border-left-color: #FFFFFF;
+        &.active {
+          border-color: #222222;
+
+          &:first-child {
+            border-left-width: 1px;
+          }
+          &:last-child {
+            border-right-width: 1px;
+          }
+          & + .stage {
+            border-left-color: transparent;
+          }
+        }
+      }
+    }
+  }
   .stage {
     margin-top: 0;
     display: inline-block;
     height: 20px;
     opacity: 0.65;
     transition: 0.2s all;
+    text-align: center;
+    padding: 0;
+    color: #000000;
+    font-size: 90%;
+    border: 1px solid transparent;
     &:hover, &.active {
       opacity: 1;
     }
+    &:first-child {
+      border-left-width: 0;
+    }
     &.active {
-      border: 1px solid @dark_grey;
+      border-color: #222222;
+      &:first-child {
+        border-left-width: 1px;
+      }
+      &:last-child {
+        border-right-width: 1px;
+      }
     }
     &.glowing {
       .glowing(2.5);

@@ -1,21 +1,22 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.securityGroup.kubernetes.details.controller', [
   require('angular-ui-router'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/securityGroup/securityGroup.read.service.js'),
-  require('../../../core/securityGroup/securityGroup.write.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
-  require('../../../core/cloudProvider/cloudProvider.registry.js'),
+  require('core/account/account.service.js'),
+  require('core/securityGroup/securityGroup.read.service.js'),
+  require('core/securityGroup/securityGroup.write.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
+  require('core/cloudProvider/cloudProvider.registry.js'),
 ])
   .controller('kubernetesSecurityGroupDetailsController', function ($scope, $state, resolvedSecurityGroup, accountService, app, InsightFilterStateModel,
                                                     confirmationModalService, securityGroupWriter, securityGroupReader,
-                                                    $uibModal, _, cloudProviderRegistry) {
+                                                    $uibModal, cloudProviderRegistry) {
 
     const application = app;
     const securityGroup = resolvedSecurityGroup;
@@ -34,7 +35,7 @@ module.exports = angular.module('spinnaker.securityGroup.kubernetes.details.cont
       return securityGroupReader.getSecurityGroupDetails(application, securityGroup.accountId, securityGroup.provider, securityGroup.region, securityGroup.vpcId, securityGroup.name).then(function (details) {
         $scope.state.loading = false;
 
-        if (!details || _.isEmpty( details.plain())) {
+        if (!details || _.isEmpty(details)) {
           autoClose();
         } else {
           $scope.securityGroup = details;
@@ -48,7 +49,7 @@ module.exports = angular.module('spinnaker.securityGroup.kubernetes.details.cont
       $scope.userDataModalTitle = 'Ingress YAML';
       $scope.userData = $scope.securityGroup.yaml;
       $uibModal.open({
-        templateUrl: require('../../../core/serverGroup/details/userData.html'),
+        templateUrl: require('core/serverGroup/details/userData.html'),
         controller: 'CloseableModalCtrl',
         scope: $scope
       });

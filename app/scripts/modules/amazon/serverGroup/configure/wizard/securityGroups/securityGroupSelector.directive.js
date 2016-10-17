@@ -4,7 +4,7 @@ let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.amazon.serverGroup.configure.wizard.securityGroups.selector.directive', [
-    require('../../../../../core/cache/infrastructureCaches.js'),
+    require('core/cache/infrastructureCaches.js'),
     require('../../serverGroupConfiguration.service.js'),
   ])
   .directive('serverGroupSecurityGroupSelector', function () {
@@ -14,6 +14,12 @@ module.exports = angular
       scope: {},
       bindToController: {
         command: '=',
+        optional: '=',
+        availableGroups: '<',
+        hideLabel: '<',
+        refresh: '&?',
+        groupsToEdit: '=',
+        helpKey: '@'
       },
       controllerAs: 'vm',
       controller: 'awsServerGroupSecurityGroupsSelectorCtrl',
@@ -25,8 +31,12 @@ module.exports = angular
 
     this.refreshSecurityGroups = () => {
       this.refreshing = true;
-      awsServerGroupConfigurationService.refreshSecurityGroups(this.command).then(() => {
-        this.refreshing = false;
-      });
+      if (this.refresh) {
+        this.refresh().then(() => this.refreshing = false);
+      } else {
+        awsServerGroupConfigurationService.refreshSecurityGroups(this.command).then(() => {
+          this.refreshing = false;
+        });
+      }
     };
   });

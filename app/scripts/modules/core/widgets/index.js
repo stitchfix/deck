@@ -8,4 +8,6 @@ module.exports = angular
     require('./accountRegionClusterSelector.component'),
     require('./scopeClusterSelector.directive'),
     require('./notifier/notifier.component.js'),
+    require('./spelText/spelText.decorator'),
+    require('./spelText/numberInput.component')
   ]);

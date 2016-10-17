@@ -1,15 +1,17 @@
 'use strict';
 
+import _ from 'lodash';
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.account.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
-  require('../utils/lodash.js'),
+  API_SERVICE,
   require('../cache/infrastructureCaches.js'),
   require('../config/settings.js'),
   require('../cloudProvider/cloudProvider.registry.js'),
 ])
-  .factory('accountService', function(settings, $log, _, Restangular, $q, infrastructureCaches, cloudProviderRegistry) {
+  .factory('accountService', function(settings, $log, API, $q, infrastructureCaches, cloudProviderRegistry) {
 
     let getAllAccountDetailsForProvider = _.memoize((providerName) => {
       return listAccounts(providerName)
@@ -55,15 +57,15 @@ module.exports = angular.module('spinnaker.core.account.service', [
           return _.filter(accounts, { type: provider });
         });
       }
-      return Restangular
-        .all('credentials')
-        .withHttpConfig({cache: true})
-        .getList();
+      return API
+        .one('credentials')
+        .useCache()
+        .get();
     }
 
     let listProviders = (application) => {
       return listAccounts().then(function(accounts) {
-        let allProviders = _.uniq(_.pluck(accounts, 'type'));
+        let allProviders = _.uniq(_.map(accounts, 'type'));
         let availableRegisteredProviders = _.intersection(allProviders, cloudProviderRegistry.listRegisteredProviders());
         if (application) {
           let appProviders = application.attributes.cloudProviders ?
@@ -71,9 +73,9 @@ module.exports = angular.module('spinnaker.core.account.service', [
             settings.defaultProviders ?
               settings.defaultProviders :
               availableRegisteredProviders;
-          return _.intersection(availableRegisteredProviders, appProviders);
+          return _.intersection(availableRegisteredProviders, appProviders).sort();
         }
-        return availableRegisteredProviders;
+        return availableRegisteredProviders.sort();
       });
     };
 
@@ -81,10 +83,10 @@ module.exports = angular.module('spinnaker.core.account.service', [
       var deferred = $q.defer();
       listAccounts(provider).then(function(accounts) {
         $q.all(accounts.reduce(function(acc, account) {
-          acc[account.name] = Restangular
-            .all('credentials')
+          acc[account.name] = API
+            .one('credentials')
             .one(account.name)
-            .withHttpConfig({cache: true})
+            .useCache()
             .get();
           return acc;
         }, {})).then(function(result) {
@@ -98,9 +100,10 @@ module.exports = angular.module('spinnaker.core.account.service', [
       return _.memoize((provider) => {
         return getCredentialsKeyedByAccount(provider)
           .then(function(credentialsByAccount) {
-            let attributes = _(credentialsByAccount)
-              .pluck(attribute)
+            let attributes = _.chain(credentialsByAccount)
+              .map(attribute)
               .flatten()
+              .compact()
               .map(reg => reg.name || reg)
               .uniq()
               .value();
@@ -113,8 +116,8 @@ module.exports = angular.module('spinnaker.core.account.service', [
     let getUniqueGceZonesForAllAccounts = _.memoize((provider) => {
       return getCredentialsKeyedByAccount(provider)
         .then(function(regionsByAccount) {
-          return _(regionsByAccount)
-            .pluck('regions')
+          return _.chain(regionsByAccount)
+            .map('regions')
             .flatten()
             .reduce((acc, obj) => {
               Object.keys(obj).forEach((key) => {
@@ -125,13 +128,16 @@ module.exports = angular.module('spinnaker.core.account.service', [
                 }
               });
               return acc;
-            }, {});
+            }, {})
+            .value();
         });
     });
 
     function getAccountDetails(accountName) {
-      return Restangular.one('credentials', accountName)
-        .withHttpConfig({cache: true})
+      return API
+        .one('credentials')
+        .one(accountName)
+        .useCache()
         .get();
     }
 

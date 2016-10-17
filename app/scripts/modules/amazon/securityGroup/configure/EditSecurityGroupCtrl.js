@@ -1,19 +1,21 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.securityGroup.aws.edit.controller', [
   require('angular-ui-router'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/cache/infrastructureCaches.js'),
-  require('../../../core/cache/cacheInitializer.js'),
-  require('../../../core/task/monitor/taskMonitorService.js'),
-  require('../../../core/securityGroup/securityGroup.write.service.js'),
+  require('core/account/account.service.js'),
+  require('core/cache/infrastructureCaches.js'),
+  require('core/cache/cacheInitializer.js'),
+  require('core/task/monitor/taskMonitorService.js'),
+  require('core/securityGroup/securityGroup.write.service.js'),
 ])
   .controller('awsEditSecurityGroupCtrl', function($scope, $uibModalInstance, $state,
                                                 accountService, securityGroupReader,
                                                 taskMonitorService, cacheInitializer, infrastructureCaches,
-                                                _, application, securityGroup, securityGroupWriter, $controller) {
+                                                application, securityGroup, securityGroupWriter, $controller) {
 
     $scope.pages = {
       ingress: require('./createSecurityGroupIngress.html'),
@@ -41,29 +43,30 @@ module.exports = angular.module('spinnaker.securityGroup.aws.edit.controller', [
       application: application,
       title: 'Updating your security group',
       modalInstance: $uibModalInstance,
-      onTaskComplete: application.securityGroups.refresh,
+      onTaskComplete: () => application.securityGroups.refresh(),
     });
 
-    securityGroup.securityGroupIngress = _(securityGroup.inboundRules)
-      .filter(function(rule) {
-        return rule.securityGroup;
-      }).map(function(rule) {
-        return rule.portRanges.map(function(portRange) {
+    securityGroup.securityGroupIngress = _.chain(securityGroup.inboundRules)
+      .filter(rule => rule.securityGroup)
+      .map(rule => rule.portRanges.map(portRange => {
+          let vpcId = rule.securityGroup.vpcId === securityGroup.vpcId ? null : rule.securityGroup.vpcId;
           return {
             accountName: rule.securityGroup.accountName || rule.securityGroup.accountId,
+            accountId: rule.securityGroup.accountId,
+            vpcId: vpcId,
             id: rule.securityGroup.id,
-            name: rule.securityGroup.name,
+            name: rule.securityGroup.inferredName ? null : rule.securityGroup.name,
             type: rule.protocol,
             startPort: portRange.startPort,
             endPort: portRange.endPort,
             existing: true,
           };
-        });
-      })
+        })
+      )
       .flatten()
       .value();
 
-    securityGroup.ipIngress = _(securityGroup.inboundRules)
+    securityGroup.ipIngress = _.chain(securityGroup.inboundRules)
       .filter(function(rule) {
         return rule.range;
       }).map(function(rule) {
@@ -82,9 +85,21 @@ module.exports = angular.module('spinnaker.securityGroup.aws.edit.controller', [
     $scope.taskMonitor.onApplicationRefresh = $uibModalInstance.dismiss;
 
     this.upsert = function () {
+
+      let group = $scope.securityGroup;
+      let command = {
+        credentials: group.accountName,
+        name: group.name,
+        description: group.description,
+        vpcId: group.vpcId,
+        region: group.region,
+        securityGroupIngress: group.securityGroupIngress,
+        ipIngress: group.ipIngress
+      };
+
       $scope.taskMonitor.submit(
         function() {
-          return securityGroupWriter.upsertSecurityGroup($scope.securityGroup, application, 'Update');
+          return securityGroupWriter.upsertSecurityGroup(command, application, 'Update');
         }
       );
     };

@@ -1,38 +1,40 @@
 'use strict';
 /* jshint camelcase:false */
 
+import _ from 'lodash';
+
 require('../configure/serverGroup.configure.aws.module.js');
 
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', [
   require('angular-ui-router'),
-  require('../../../core/application/modal/platformHealthOverride.directive.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/serverGroup/serverGroup.write.service.js'),
-  require('../../../core/serverGroup/details/serverGroupWarningMessage.service.js'),
-  require('../../../core/overrideRegistry/override.registry.js'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/utils/lodash.js'),
+  require('core/application/modal/platformHealthOverride.directive.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/serverGroup/serverGroup.write.service.js'),
+  require('core/serverGroup/details/serverGroupWarningMessage.service.js'),
+  require('core/overrideRegistry/override.registry.js'),
+  require('core/account/account.service.js'),
   require('../../vpc/vpcTag.directive.js'),
   require('./scalingProcesses/autoScalingProcess.service.js'),
-  require('../../../core/serverGroup/serverGroup.read.service.js'),
+  require('core/serverGroup/serverGroup.read.service.js'),
   require('../configure/serverGroupCommandBuilder.service.js'),
-  require('../../../core/serverGroup/configure/common/runningExecutions.service.js'),
+  require('core/serverGroup/configure/common/runningExecutions.service.js'),
   require('../../../netflix/migrator/serverGroup/serverGroup.migrator.directive.js'), // TODO: make actions pluggable
   require('./scalingPolicy/scalingPolicySummary.component.js'),
   require('./scheduledAction/scheduledAction.directive.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
+  require('core/insight/insightFilterState.model.js'),
   require('./scalingActivities/scalingActivities.controller.js'),
   require('./resize/resizeServerGroup.controller'),
   require('./rollback/rollbackServerGroup.controller'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
   require('../serverGroup.transformer.js'),
   require('./scalingPolicy/addScalingPolicyButton.component.js'),
+  require('./securityGroup/editSecurityGroups.modal.controller'),
 ])
   .controller('awsServerGroupDetailsCtrl', function ($scope, $state, app, serverGroup, InsightFilterStateModel,
                                                      serverGroupReader, awsServerGroupCommandBuilder, $uibModal,
-                                                     confirmationModalService, _, serverGroupWriter, subnetReader,
+                                                     confirmationModalService, serverGroupWriter, subnetReader,
                                                      autoScalingProcessService, runningExecutionsService,
                                                      awsServerGroupTransformer, accountService,
                                                      serverGroupWarningMessageService, overrideRegistry) {
@@ -45,22 +47,26 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
     this.application = app;
 
     let extractServerGroupSummary = () => {
-      var summary = _.find(app.serverGroups.data, (toCheck) => {
-        return toCheck.name === serverGroup.name && toCheck.account === serverGroup.accountId && toCheck.region === serverGroup.region;
-      });
-      if (!summary) {
-        app.loadBalancers.data.some((loadBalancer) => {
-          if (loadBalancer.account === serverGroup.accountId && loadBalancer.region === serverGroup.region) {
-            return loadBalancer.serverGroups.some((possibleServerGroup) => {
-              if (possibleServerGroup.name === serverGroup.name) {
-                summary = possibleServerGroup;
-                return true;
+      return app
+        .ready()
+        .then(() => {
+          var summary = _.find(app.serverGroups.data, (toCheck) => {
+            return toCheck.name === serverGroup.name && toCheck.account === serverGroup.accountId && toCheck.region === serverGroup.region;
+          });
+          if (!summary) {
+            app.loadBalancers.data.some((loadBalancer) => {
+              if (loadBalancer.account === serverGroup.accountId && loadBalancer.region === serverGroup.region) {
+                return loadBalancer.serverGroups.some((possibleServerGroup) => {
+                  if (possibleServerGroup.name === serverGroup.name) {
+                    summary = possibleServerGroup;
+                    return true;
+                  }
+                });
               }
             });
           }
+          return summary;
         });
-      }
-      return summary;
     };
 
     let autoClose = () => {
@@ -76,64 +82,69 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
     };
 
     let retrieveServerGroup = () => {
-      var summary = extractServerGroupSummary();
-      return serverGroupReader.getServerGroup(app.name, serverGroup.accountId, serverGroup.region, serverGroup.name).then((details) => {
-        cancelLoader();
+      return extractServerGroupSummary()
+        .then((summary) => {
+          return serverGroupReader.getServerGroup(app.name, serverGroup.accountId, serverGroup.region, serverGroup.name)
+            .then((details) => {
+              cancelLoader();
 
-        var plainDetails = details.plain();
-        angular.extend(plainDetails, summary);
-        // it's possible the summary was not found because the clusters are still loading
-        plainDetails.account = serverGroup.accountId;
+              var plainDetails = details;
+              angular.extend(plainDetails, summary);
+              // it's possible the summary was not found because the clusters are still loading
+              plainDetails.account = serverGroup.accountId;
 
-        this.serverGroup = plainDetails;
-        this.applyAccountDetails(this.serverGroup);
+              this.serverGroup = plainDetails;
+              this.applyAccountDetails(this.serverGroup);
 
-        this.runningExecutions = () => {
-          return runningExecutionsService.filterRunningExecutions(this.serverGroup.executions);
-        };
+              if (!_.isEmpty(this.serverGroup)) {
 
-        if (!_.isEmpty(this.serverGroup)) {
+                this.image = details.image ? details.image : undefined;
 
-          this.image = details.image ? details.image : undefined;
+                var vpc = this.serverGroup.asg ? this.serverGroup.asg.vpczoneIdentifier : '';
 
-          var vpc = this.serverGroup.asg ? this.serverGroup.asg.vpczoneIdentifier : '';
+                if (vpc !== '') {
+                  var subnetId = vpc.split(',')[0];
+                  subnetReader.listSubnets().then((subnets) => {
+                    var subnet = _.chain(subnets).find({'id': subnetId}).value();
+                    this.serverGroup.subnetType = subnet.purpose;
+                  });
+                }
 
-          if (vpc !== '') {
-            var subnetId = vpc.split(',')[0];
-            subnetReader.listSubnets().then((subnets) => {
-              var subnet = _(subnets).find({'id': subnetId});
-              this.serverGroup.subnetType = subnet.purpose;
-            });
-          }
+                if (details.image && details.image.description) {
+                  var tags = details.image.description.split(', ');
+                  tags.forEach((tag) => {
+                    var keyVal = tag.split('=');
+                    if (keyVal.length === 2 && keyVal[0] === 'ancestor_name') {
+                      details.image.baseImage = keyVal[1];
+                    }
+                  });
+                }
 
-          if (details.image && details.image.description) {
-            var tags = details.image.description.split(', ');
-            tags.forEach((tag) => {
-              var keyVal = tag.split('=');
-              if (keyVal.length === 2 && keyVal[0] === 'ancestor_name') {
-                details.image.baseImage = keyVal[1];
+                if (details.launchConfig && details.launchConfig.securityGroups) {
+                  this.securityGroups = _.chain(details.launchConfig.securityGroups).map((id) => {
+                    return _.find(app.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': serverGroup.region, 'id': id }) ||
+                      _.find(app.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': serverGroup.region, 'name': id });
+                  }).compact().value();
+                }
+
+                this.autoScalingProcesses = autoScalingProcessService.normalizeScalingProcesses(this.serverGroup);
+                this.disabledDate = autoScalingProcessService.getDisabledDate(this.serverGroup);
+                awsServerGroupTransformer.normalizeServerGroupDetails(this.serverGroup);
+                this.scalingPolicies = this.serverGroup.scalingPolicies;
+                this.scalingPoliciesDisabled = this.scalingPolicies.length && this.autoScalingProcesses
+                    .filter(p => !p.enabled)
+                    .some(p => ['Launch','Terminate','AlarmNotification'].includes(p.name));
+                this.scheduledActionsDisabled = this.serverGroup.scheduledActions.length && this.autoScalingProcesses
+                    .filter(p => !p.enabled)
+                    .some(p => ['Launch','Terminate','ScheduledAction'].includes(p.name));
+
+              } else {
+                autoClose();
               }
             });
-          }
 
-          if (details.launchConfig && details.launchConfig.securityGroups) {
-            this.securityGroups = _(details.launchConfig.securityGroups).map((id) => {
-              return _.find(app.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': serverGroup.region, 'id': id }) ||
-                _.find(app.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': serverGroup.region, 'name': id });
-            }).compact().value();
-          }
-
-          this.autoScalingProcesses = autoScalingProcessService.normalizeScalingProcesses(this.serverGroup);
-          this.disabledDate = autoScalingProcessService.getDisabledDate(this.serverGroup);
-          awsServerGroupTransformer.normalizeServerGroupDetails(this.serverGroup);
-          this.scalingPolicies = this.serverGroup.scalingPolicies;
-
-        } else {
-          autoClose();
-        }
-      },
-        autoClose
-      );
+        })
+        .catch(autoClose);
     };
 
     retrieveServerGroup().then(() => {
@@ -143,6 +154,22 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
         app.serverGroups.onRefresh($scope, retrieveServerGroup);
       }
     });
+
+    this.runningExecutions = () => {
+      return runningExecutionsService.filterRunningExecutions(this.serverGroup.executions);
+    };
+
+    this.isEnableLocked = () => {
+      if (this.serverGroup.isDisabled) {
+        let resizeTasks = (this.serverGroup.runningTasks || [])
+          .filter(task => _.get(task, 'execution.stages', []).some(
+            stage => stage.type === 'resizeServerGroup'));
+        if (resizeTasks.length) {
+          return true;
+        }
+      }
+      return false;
+    };
 
     this.destroyServerGroup = () => {
       var serverGroup = this.serverGroup;
@@ -163,8 +190,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
         region: serverGroup.region
       };
 
-
-      confirmationModalService.confirm({
+      var confirmationModalParams = {
         header: 'Really destroy ' + serverGroup.name + '?',
         buttonText: 'Destroy ' + serverGroup.name,
         account: serverGroup.account,
@@ -172,6 +198,8 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
         taskMonitorConfig: taskMonitor,
         submitMethod: submitMethod,
         askForReason: true,
+        platformHealthOnlyShowOverride: app.attributes.platformHealthOnlyShowOverride,
+        platformHealthType: 'Amazon',
         body: this.getBodyTemplate(serverGroup, app),
         onTaskComplete: () => {
           if ($state.includes('**.serverGroup', stateParams)) {
@@ -183,7 +211,13 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
             $state.go('^');
           }
         }
-      });
+      };
+
+      if (app.attributes.platformHealthOnlyShowOverride && app.attributes.platformHealthOnly) {
+        confirmationModalParams.interestingHealthProviderNames = ['Amazon'];
+      }
+
+      confirmationModalService.confirm(confirmationModalParams);
     };
 
     this.getBodyTemplate = (serverGroup, app) => {
@@ -225,7 +259,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
         askForReason: true
       };
 
-      if (app.attributes.platformHealthOnly) {
+      if (app.attributes.platformHealthOnlyShowOverride && app.attributes.platformHealthOnly) {
         confirmationModalParams.interestingHealthProviderNames = ['Amazon'];
       }
 
@@ -255,7 +289,7 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
         askForReason: true
       };
 
-      if (app.attributes.platformHealthOnly) {
+      if (app.attributes.platformHealthOnlyShowOverride && app.attributes.platformHealthOnly) {
         confirmationModalParams.interestingHealthProviderNames = ['Amazon'];
       }
 
@@ -326,19 +360,33 @@ module.exports = angular.module('spinnaker.serverGroup.details.aws.controller', 
       });
     };
 
+    this.updateSecurityGroups = () => {
+      $uibModal.open({
+        templateUrl: require('./securityGroup/editSecurityGroups.modal.html'),
+        controller: 'EditSecurityGroupsCtrl as $ctrl',
+        resolve: {
+          application: () => app,
+          serverGroup: () => this.serverGroup,
+          securityGroups: () => this.securityGroups
+        }
+      });
+    };
+
     this.showUserData = () => {
       // TODO: Provide a custom controller so we don't have to stick this on the scope
       $scope.userData = window.atob(this.serverGroup.launchConfig.userData);
       $scope.serverGroup = { name: this.serverGroup.name };
       $uibModal.open({
-        templateUrl: require('../../../core/serverGroup/details/userData.html'),
+        templateUrl: require('core/serverGroup/details/userData.html'),
         controller: 'CloseableModalCtrl',
         scope: $scope
       });
     };
 
     this.buildJenkinsLink = () => {
-      if (this.serverGroup && this.serverGroup.buildInfo && this.serverGroup.buildInfo.jenkins) {
+      if (this.serverGroup && this.serverGroup.buildInfo && this.serverGroup.buildInfo.buildInfoUrl) {
+        return this.serverGroup.buildInfo.buildInfoUrl;
+      } else if (this.serverGroup && this.serverGroup.buildInfo && this.serverGroup.buildInfo.jenkins) {
         var jenkins = this.serverGroup.buildInfo.jenkins;
         return jenkins.host + 'job/' + jenkins.name + '/' + jenkins.number;
       }

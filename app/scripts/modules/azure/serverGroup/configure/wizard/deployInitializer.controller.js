@@ -1,13 +1,14 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.azure.serverGroup.configure.deployInitialization.controller', [
-  require('../../../../core/serverGroup/serverGroup.read.service.js'),
-  require('../../../../core/utils/lodash.js'),
+  require('core/serverGroup/serverGroup.read.service.js'),
   require('../serverGroupCommandBuilder.service.js'),
 ])
-  .controller('azureDeployInitializerCtrl', function($scope, azureServerGroupCommandBuilder, serverGroupReader, _) {
+  .controller('azureDeployInitializerCtrl', function($scope, azureServerGroupCommandBuilder, serverGroupReader) {
 
     $scope.templates = [];
     if (!$scope.command.viewState.disableNoTemplateSelection) {
@@ -60,7 +61,6 @@ module.exports = angular.module('spinnaker.azure.serverGroup.configure.deployIni
         angular.extend(details, serverGroup);
         return azureServerGroupCommandBuilder.buildServerGroupCommandFromExisting($scope.application, details, 'editPipeline').then(function (command) {
           applyCommandToScope(command);
-          $scope.command.strategy = 'redblack';
         });
       });
     }

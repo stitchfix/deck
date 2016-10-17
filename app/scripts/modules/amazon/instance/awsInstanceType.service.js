@@ -1,15 +1,17 @@
 'use strict';
 
+import _ from 'lodash';
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.aws.instanceType.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
-  require('../../core/cache/deckCacheFactory.js'),
-  require('../../core/utils/lodash.js'),
-  require('../../core/config/settings.js'),
-  require('../../core/cache/infrastructureCaches.js'),
+  API_SERVICE,
+  require('core/cache/deckCacheFactory.js'),
+  require('core/config/settings.js'),
+  require('core/cache/infrastructureCaches.js'),
 ])
-  .factory('awsInstanceTypeService', function ($http, $q, settings, _, Restangular, infrastructureCaches) {
+  .factory('awsInstanceTypeService', function ($http, $q, settings, API, infrastructureCaches) {
 
     var m3 = {
       type: 'm3',
@@ -199,19 +201,68 @@ module.exports = angular.module('spinnaker.aws.instanceType.service', [
       if (cached) {
         return $q.when(cached);
       }
-      return Restangular.all('instanceTypes')
-        .getList().then(function (types) {
-          var result = _(types)
+      return API.one('instanceTypes').get()
+        .then(function (types) {
+          var result = _.chain(types)
             .map(function (type) {
               return { region: type.region, account: type.account, name: type.name, key: [type.region, type.account, type.name].join(':') };
             })
-            .uniq('key')
+            .uniqBy('key')
             .groupBy('region')
-            .valueOf();
+            .value();
           infrastructureCaches.instanceTypes.put('aws', result);
           return result;
         });
     };
+
+    let instanceClassOrder = ['xlarge', 'large', 'medium', 'small', 'micro', 'nano'];
+
+    function sortTypesByFamilyAndSize(o1, o2) {
+      var type1 = o1.split('.'),
+          type2 = o2.split('.');
+
+      if (type1.length !== 2 || type2.length !== 2) {
+        return 0;
+      }
+
+      let [family1, class1] = type1;
+      let [family2, class2] = type2;
+
+      if (family1 !== family2) {
+        if (family1 > family2) {
+          return 1;
+        } else if (family1 < family2) {
+          return -1;
+        }
+        return 0;
+      }
+
+      let t1Idx = instanceClassOrder.findIndex(el => class1.endsWith(el));
+      let t2Idx = instanceClassOrder.findIndex(el => class2.endsWith(el));
+
+      if (t1Idx === -1 || t2Idx === -1) {
+        return 0;
+      }
+
+      if (t1Idx === 0 && t2Idx === 0) {
+        let size1 = parseInt(class1.replace('xlarge', '')) || 0;
+        let size2 = parseInt(class2.replace('xlarge', '')) || 0;
+
+        if (size2 < size1) {
+          return 1;
+        } else if (size2 > size1) {
+          return -1;
+        }
+        return 0;
+      }
+
+      if (t1Idx > t2Idx) {
+        return -1;
+      } else if (t1Idx < t2Idx) {
+        return 1;
+      }
+      return 0;
+    }
 
     function getAvailableTypesForRegions(availableRegions, selectedRegions) {
       selectedRegions = selectedRegions || [];
@@ -219,28 +270,36 @@ module.exports = angular.module('spinnaker.aws.instanceType.service', [
 
       // prime the list of available types
       if (selectedRegions && selectedRegions.length) {
-        availableTypes = _.pluck(availableRegions[selectedRegions[0]], 'name');
+        availableTypes = _.map(availableRegions[selectedRegions[0]], 'name');
       }
 
       // this will perform an unnecessary intersection with the first region, which is fine
       selectedRegions.forEach(function(selectedRegion) {
         if (availableRegions[selectedRegion]) {
-          availableTypes = _.intersection(availableTypes, _.pluck(availableRegions[selectedRegion], 'name'));
+          availableTypes = _.intersection(availableTypes, _.map(availableRegions[selectedRegion], 'name'));
         }
       });
 
-      return availableTypes.sort();
+      return availableTypes.sort(sortTypesByFamilyAndSize);
     }
 
     let families = {
       paravirtual: ['c1', 'c3', 'hi1', 'hs1', 'm1', 'm2', 'm3', 't1'],
-      hvm: ['c3', 'c4', 'd2', 'i2', 'g2', 'r3', 'm3', 'm4', 't2']
+      hvm: ['c3', 'c4', 'd2', 'i2', 'g2', 'm3', 'm4', 'r3', 't2', 'x1'],
+      vpcOnly: ['c4', 'm4', 't2', 'x1'],
     };
 
-    function filterInstanceTypesByVirtualizationType(instanceTypes, virtualizationType) {
+    function filterInstanceTypes(instanceTypes, virtualizationType, vpcOnly) {
       return instanceTypes.filter((instanceType) => {
+        if (virtualizationType === '*') {
+          // show all instance types
+          return true;
+        }
         let [family] = instanceType.split('.');
-        return families[virtualizationType].indexOf(family) > -1;
+        if (!vpcOnly && families.vpcOnly.includes(family)) {
+          return false;
+        }
+        return families[virtualizationType].includes(family);
       });
     }
 
@@ -248,7 +307,7 @@ module.exports = angular.module('spinnaker.aws.instanceType.service', [
       getCategories: getCategories,
       getAvailableTypesForRegions: getAvailableTypesForRegions,
       getAllTypesByRegion: getAllTypesByRegion,
-      filterInstanceTypesByVirtualizationType: filterInstanceTypesByVirtualizationType,
+      filterInstanceTypes: filterInstanceTypes,
     };
   }
 );

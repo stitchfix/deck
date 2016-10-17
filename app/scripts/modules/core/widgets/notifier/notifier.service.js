@@ -1,21 +1,28 @@
 'use strict';
 
+import {Subject} from 'rxjs';
+
 const angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.core.widgets.notifier.service', [
   ])
-  .factory('notifierService', function (rx, $sce) {
+  .factory('notifierService', function ($sce) {
 
-    let messageStream = new rx.Subject();
+    let messageStream = new Subject();
 
     let publish = (message) => {
-      let sanitized = $sce.trustAsHtml(message);
-      messageStream.onNext(sanitized);
+      message.body = $sce.trustAsHtml(message.body);
+      messageStream.next(message);
+    };
+
+    let clear = (key) => {
+      messageStream.next({action: 'remove', key: key});
     };
 
     return {
       publish: publish,
+      clear: clear,
       messageStream: messageStream,
     };
   });

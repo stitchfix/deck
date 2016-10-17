@@ -1,5 +1,8 @@
 'use strict';
 
+import _ from 'lodash';
+import chaosMonkeyConfigModule from '../../chaosMonkey/chaosMonkeyNewApplicationConfig.component';
+
 let angular = require('angular');
 
 module.exports = angular
@@ -7,17 +10,21 @@ module.exports = angular
     require('angular-ui-router'),
     require('../service/applications.write.service.js'),
     require('../service/applications.read.service.js'),
-    require('../../utils/lodash.js'),
     require('../../account/account.service.js'),
     require('../../task/task.read.service.js'),
+    require('../../config/settings'),
     require('./validation/applicationNameValidationMessages.directive.js'),
     require('./validation/validateApplicationName.directive.js'),
+    require('./applicationProviderFields.component.js'),
+    require('./groupMembershipConfigurer.component.js'),
+    chaosMonkeyConfigModule,
   ])
   .controller('CreateApplicationModalCtrl', function($scope, $q, $log, $state, $uibModalInstance, accountService,
-                                                     applicationWriter, applicationReader, _, taskReader, $timeout) {
+                                                     applicationWriter, applicationReader, taskReader, $timeout,
+                                                     settings) {
 
     let applicationLoader = applicationReader.listApplications();
-    applicationLoader.then((applications) => this.data.appNameList = _.pluck(applications, 'name'));
+    applicationLoader.then((applications) => this.data.appNameList = _.map(applications, 'name'));
 
     let accountLoader = accountService.listAccounts();
     accountLoader.then((accounts) => this.data.accounts = accounts);
@@ -37,6 +44,7 @@ module.exports = angular
     };
     this.application = {
       cloudProviders: [],
+      instancePort: settings.defaultInstancePort || null,
     };
 
     let submitting = () => {
@@ -81,6 +89,14 @@ module.exports = angular
         .then(waitUntilApplicationIsCreated, createApplicationFailure);
     };
 
+    this.updateCloudProviderHealthWarning = () => {
+      if (!this.application.platformHealthOnlyShowOverride) {
+        // Show the warning if platformHealthOnlyShowOverride is being enabled.
+        this.data.showOverrideWarning = `Simply enabling the "Consider only cloud provider health when executing tasks"
+          option above is usually sufficient for most applications that want the same health provider behavior for
+          all stages. Note that pipelines will require manual updating if this setting is disabled in the future.`;
+      }
+    };
 
     this.submit = () => {
       submitting();

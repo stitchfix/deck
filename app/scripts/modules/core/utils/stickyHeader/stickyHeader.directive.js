@@ -6,13 +6,14 @@
 
 require('./stickyHeader.less');
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.utils.stickyHeader', [
   require('../jQuery.js'),
-  require('../lodash.js'),
 ])
-  .directive('stickyHeader', function ($log, $window, _, $) {
+  .directive('stickyHeader', function ($log, $window, $) {
     return {
       restrict: 'A',
       link: {
@@ -72,7 +73,7 @@ module.exports = angular.module('spinnaker.core.utils.stickyHeader', [
           }, 50);
 
           function resetHeaderWidth() {
-            if ($heading.get(0).className.indexOf('heading-sticky') !== -1) {
+            if ($heading.get(0).className.includes('heading-sticky')) {
               $heading.removeClass('heading-sticky').addClass('not-sticky').css({width: '' });
             }
           }

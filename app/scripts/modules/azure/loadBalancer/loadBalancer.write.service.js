@@ -1,20 +1,21 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.azure.loadBalancer.write.service', [
-    require('../../core/utils/lodash.js'),
-    require('../../core/task/taskExecutor.js'),
-    require('../../core/cache/infrastructureCaches.js'),
+    require('core/task/taskExecutor.js'),
+    require('core/cache/infrastructureCaches.js'),
   ])
-  .factory('azureLoadBalancerWriter', function(_, infrastructureCaches, taskExecutor) {
+  .factory('azureLoadBalancerWriter', function(infrastructureCaches, taskExecutor) {
 
 
     function upsertLoadBalancer(loadBalancer, application, descriptor, params = {}) {
 
       // We want to extend params with all attributes from loadBalancer, but only if they don't already exist.
-      _.assign(params, loadBalancer, function(value, other) {
+      _.assignWith(params, loadBalancer, function(value, other) {
         return _.isUndefined(value) ? other : value;
       });
 
@@ -25,6 +26,7 @@ module.exports = angular
       });
 
       infrastructureCaches.clearCache('loadBalancers');
+      infrastructureCaches.clearCache('networks');
 
       return operation;
     }
@@ -40,7 +42,7 @@ module.exports = angular
       var operation = taskExecutor.executeTask({
         job: [params],
         application: application,
-        description: 'Delete load balancer: ' + loadBalancer.name + ' in ' + loadBalancer.accountId + ':' + loadBalancer.region
+        description: 'Delete load balancer: ' + loadBalancer.name
       });
 
       infrastructureCaches.clearCache('loadBalancers');

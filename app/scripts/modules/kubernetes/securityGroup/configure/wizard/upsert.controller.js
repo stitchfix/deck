@@ -1,23 +1,25 @@
 'use strict';
 
+import modalWizardServiceModule from 'core/modal/wizard/v2modalWizard.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.securityGroup.kubernetes.create.controller', [
   require('angular-ui-router'),
-  require('../../../../core/securityGroup/securityGroup.write.service.js'),
-  require('../../../../core/securityGroup/securityGroup.read.service.js'),
-  require('../../../../core/loadBalancer/loadBalancer.read.service.js'),
-  require('../../../../core/account/account.service.js'),
-  require('../../../../core/modal/wizard/v2modalWizard.service.js'),
-  require('../../../../core/task/monitor/taskMonitorService.js'),
-  require('../../../../core/search/search.service.js'),
+  require('core/securityGroup/securityGroup.write.service.js'),
+  require('core/securityGroup/securityGroup.read.service.js'),
+  require('core/loadBalancer/loadBalancer.read.service.js'),
+  require('core/account/account.service.js'),
+  modalWizardServiceModule,
+  require('core/task/monitor/taskMonitorService.js'),
+  require('core/search/search.service.js'),
   require('../../../namespace/selectField.directive.js'),
   require('../../transformer.js'),
 ])
   .controller('kubernetesUpsertSecurityGroupController', function($q, $scope, $uibModalInstance, $state,
                                                                  application, securityGroup,
                                                                  accountService, kubernetesSecurityGroupTransformer, securityGroupReader, loadBalancerReader,
-                                                                 _, searchService, v2modalWizardService, securityGroupWriter, taskMonitorService) {
+                                                                 searchService, v2modalWizardService, securityGroupWriter, taskMonitorService) {
     var ctrl = this;
     $scope.isNew = !securityGroup.edit;
     $scope.securityGroup = securityGroup;
@@ -68,13 +70,13 @@ module.exports = angular.module('spinnaker.securityGroup.kubernetes.create.contr
     var allSecurityGroupNames = {};
 
     function getLoadBalancerNames(loadBalancers) {
-      return _(loadBalancers)
+      return _.chain(loadBalancers)
         .filter({ account: $scope.securityGroup.account })
         .filter({ namespace: $scope.securityGroup.namespace })
-        .pluck('name')
-        .flatten(true)
-        .unique()
-        .valueOf();
+        .map('name')
+        .flattenDeep()
+        .uniq()
+        .value();
     }
 
     function initializeCreateMode() {
@@ -85,8 +87,8 @@ module.exports = angular.module('spinnaker.securityGroup.kubernetes.create.contr
         $scope.accounts = backingData.accounts;
         $scope.state.accountsLoaded = true;
 
-        var accountNames = _.pluck($scope.accounts, 'name');
-        if (accountNames.length && accountNames.indexOf($scope.securityGroup.account) === -1) {
+        var accountNames = _.map($scope.accounts, 'name');
+        if (accountNames.length && !accountNames.includes($scope.securityGroup.account)) {
           $scope.securityGroup.account = accountNames[0];
         }
 
@@ -147,7 +149,7 @@ module.exports = angular.module('spinnaker.securityGroup.kubernetes.create.contr
     this.getName = function() {
       var securityGroup = $scope.securityGroup;
       var securityGroupName = [application.name, (securityGroup.stack || ''), (securityGroup.detail || '')].join('-');
-      return _.trimRight(securityGroupName, '-');
+      return _.trimEnd(securityGroupName, '-');
     };
 
     this.accountUpdated = function() {

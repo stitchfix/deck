@@ -3,8 +3,8 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.pipeline.config.preconditions.selector', [
-  require('../../../../account/account.service.js'),
-  require('../../../../application/listExtractor/listExtractor.service'),
+  require('core/account/account.service.js'),
+  require('core/application/listExtractor/listExtractor.service'),
 ])
   .directive('preconditionSelector', function() {
     return {
@@ -60,6 +60,16 @@ module.exports = angular.module('spinnaker.core.pipeline.config.preconditions.se
 
       let accountFilter = (cluster) => cluster.account === $scope.precondition.context.credentials;
       $scope.regions = appListExtractorService.getRegions([$scope.application], accountFilter);
+
+      //Setting cloudProvider when account is updated
+      let providerFilter = (account) => account.name === $scope.precondition.context.credentials;
+      let accountsArray = $scope.accounts;
+      if (accountsArray !== null && accountsArray !== undefined) {
+        let account = accountsArray.find(providerFilter);
+        if (account !== null && account !== undefined) {
+          $scope.precondition.cloudProvider = account.type;
+        }
+      }
     };
 
     this.reset = () => {

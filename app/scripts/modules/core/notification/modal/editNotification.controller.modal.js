@@ -1,14 +1,14 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 require('./editNotification.html');
 
 module.exports = angular
-  .module('spinnaker.core.notification.modal.editNotification.modal.controller', [
-    require('../../utils/lodash.js'),
-  ])
-  .controller('EditNotificationController', function ($scope, $uibModalInstance, notification, level, _) {
+  .module('spinnaker.core.notification.modal.editNotification.modal.controller', [])
+  .controller('EditNotificationController', function ($scope, $uibModalInstance, notification, level) {
     var vm = this;
 
     vm.notification = angular.copy(notification);
@@ -30,7 +30,6 @@ module.exports = angular
       ];
     }
 
-
     vm.updateSelectedWhen = function() {
       var selected = false;
       _.each(vm.whenOptions, function(option) {
@@ -43,7 +42,7 @@ module.exports = angular
 
     if(vm.notification !== undefined) {
       _.each(vm.whenOptions, function (option) {
-        if (vm.notification.when.indexOf(option) > -1) {
+        if (vm.notification.when.includes(option)) {
           $scope.selectedWhenOptions[option] = true;
         }
       });
@@ -62,6 +61,10 @@ module.exports = angular
         }
       });
       $uibModalInstance.close(vm.notification);
+    };
+
+    vm.supportsCustomMessage = function(notification) {
+      return ['email', 'slack'].includes(notification.type);
     };
 
     $scope.$watch('selectedWhenOptions', function (a, b) {

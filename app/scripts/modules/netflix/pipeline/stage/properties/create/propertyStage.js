@@ -1,16 +1,18 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.netflix.pipeline.stage.propertyStage', [
-  require('../../../../../core/application/listExtractor/listExtractor.service.js'),
-  require('../../../../../core/serverGroup/configure/common/serverGroupCommandBuilder.js'),
-  require('../../../../../core/cloudProvider/cloudProvider.registry.js'),
-  require('../../../../../core/config/settings.js'),
-  require('../../../../fastProperties/modal/wizard/scope/index'),
-  require('../../../../fastProperties/modal/fastPropertyScopeBuilder.service.js'),
-  require('../../../../../core/application/service/applications.read.service.js'),
-  require('../../../../fastProperties/fastProperty.read.service.js')
+  require('core/application/listExtractor/listExtractor.service.js'),
+  require('core/serverGroup/configure/common/serverGroupCommandBuilder.js'),
+  require('core/cloudProvider/cloudProvider.registry.js'),
+  require('core/config/settings.js'),
+  require('netflix/fastProperties/modal/wizard/scope/index'),
+  require('netflix/fastProperties/modal/fastPropertyScopeBuilder.service.js'),
+  require('core/application/service/applications.read.service.js'),
+  require('netflix/fastProperties/fastProperty.read.service.js')
 ])
   .config(function (pipelineConfigProvider, settings) {
     if (settings.feature && settings.feature.netflixMode) {
@@ -31,7 +33,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.propertyStage'
       });
     }
   })
-  .controller('PropertyStageCtrl', function ($scope, $uibModal, stage, _,
+  .controller('PropertyStageCtrl', function ($scope, $uibModal, stage,
                                            namingService, providerSelectionService, fastPropertyReader,
                                            cloudProviderRegistry, applicationReader,
                                            serverGroupCommandBuilder, awsServerGroupTransformer, accountService, appListExtractorService, fastPropertyScopeBuilderService) {
@@ -109,7 +111,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.propertyStage'
     };
 
     let getPreviousPropertyStages = () => {
-      return $scope.pipeline.stages.filter((stage) => stage.type === 'persistedProperty' && stage.refId !== vm.stage.refId);
+      return $scope.pipeline.stages.filter((stage) => stage.type === 'createProperty' && stage.refId !== vm.stage.refId);
     };
 
     vm.hasPreviousPropertyStages = () => {

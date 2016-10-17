@@ -4,17 +4,16 @@ let angular = require('angular');
 
 module.exports = angular.module('spinnaker.loadBalancer.cf.details.controller', [
   require('angular-ui-router'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/loadBalancer/loadBalancer.write.service.js'),
-  require('../../../core/loadBalancer/loadBalancer.read.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
+  require('core/account/account.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/loadBalancer/loadBalancer.write.service.js'),
+  require('core/loadBalancer/loadBalancer.read.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
 ])
   .controller('cfLoadBalancerDetailsCtrl', function ($scope, $state, $uibModal, loadBalancer, app, InsightFilterStateModel,
-                                                      _, confirmationModalService, accountService, loadBalancerWriter, loadBalancerReader, $q) {
+                                                     confirmationModalService, accountService, loadBalancerWriter, loadBalancerReader, $q) {
 
     let application = app;
 
@@ -66,7 +65,7 @@ module.exports = angular.module('spinnaker.loadBalancer.cf.details.controller', 
       $state.go('^', null, {location: 'replace'});
     }
 
-    extractLoadBalancer().then(() => {
+    app.loadBalancers.ready().then(extractLoadBalancer).then(() => {
       // If the user navigates away from the view before the initial extractLoadBalancer call completes,
       // do not bother subscribing to the refresh
       if (!$scope.$$destroyed) {

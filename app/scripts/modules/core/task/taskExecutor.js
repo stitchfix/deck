@@ -1,9 +1,11 @@
 'use strict';
 
+import {AUTHENTICATION_SERVICE} from '../authentication/authentication.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.taskExecutor', [
-  require('../authentication/authentication.service.js'),
+  AUTHENTICATION_SERVICE,
   require('./task.read.service.js'),
   require('./task.write.service.js'),
 ])
@@ -34,7 +36,7 @@ module.exports = angular.module('spinnaker.core.taskExecutor', [
           if (owner.tasks && owner.tasks.refresh) {
             owner.tasks.refresh();
           }
-          return taskReader.getTask(owner.name, taskId);
+          return taskReader.getTask(taskId);
         },
         function(response) {
           var error = {

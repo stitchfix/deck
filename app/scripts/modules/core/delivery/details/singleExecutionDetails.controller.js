@@ -22,6 +22,10 @@ module.exports = angular.module('spinnaker.singleExecutionDetails.controller', [
       {
         this.execution = execution;
         executionService.transformExecution(this.application, this.execution);
+        if (!execution.isActive) {
+          executionScheduler.unsubscribe();
+          executionLoader.unsubscribe();
+        }
       }, () => {
         this.execution = null;
         this.stateNotFound = true;
@@ -32,8 +36,8 @@ module.exports = angular.module('spinnaker.singleExecutionDetails.controller', [
     getExecution();
 
     $scope.$on('$destroy', () => {
-      executionScheduler.dispose();
-      executionLoader.dispose();
+      executionScheduler.unsubscribe();
+      executionLoader.unsubscribe();
     });
 
     this.showDetails = () => true;

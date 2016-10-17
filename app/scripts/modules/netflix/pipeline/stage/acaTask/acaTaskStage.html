@@ -37,6 +37,13 @@
     </div>
   </div>
 
+  <div class="checkbox col-md-offset-1">
+    <label>
+      <input type="checkbox" ng-model="stage.continueOnUnhealthy"/>
+      <b>Continue on Unhealthy</b>
+      <help-field key="pipeline.config.canary.continueOnUnhealthy"></help-field>
+    </label>
+  </div>
 
   <h5>Analysis Config</h5>
 
@@ -63,6 +70,14 @@
            class="form-control input-sm" style="width: 33%; display: inline-block"/>
     <span class="form-control-static"> minutes</span>
   </stage-config-field>
+
+  <div class="checkbox col-md-offset-1">
+    <label>
+      <input type="checkbox" ng-model="stage.canary.canaryConfig.canaryAnalysisConfig.useGlobalDataset"/>
+      <b>Use Global Atlas Dataset</b>
+      <help-field key="pipeline.config.canary.useGlobalDataset"></help-field>
+    </label>
+  </div>
 
   <div class="checkbox col-md-offset-1">
     <label>
@@ -98,6 +113,16 @@
            class="form-control input-sm" />
   </stage-config-field>
 
+  <h5>Watchers</h5>
+  <div class="horizontal-rule"></div>
+  <stage-config-field
+    help-key="pipeline.config.canary.watchers"
+    ng-keyup="acaTaskStageCtrl.updateWatchersList()"
+    ng-paste="acaTaskStageCtrl.updateWatchersList()"
+    label="Emails">
+    <textarea ng-model="acaTaskStageCtrl.recipients"
+           class="form-control input-sm" ></textarea>
+  </stage-config-field>
 
   <h5>Metric Scope<help-field key="pipeline.config.canary.baselineVersion"></help-field></h5>
   <div class="horizontal-rule"></div>

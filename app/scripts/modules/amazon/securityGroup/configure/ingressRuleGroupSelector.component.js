@@ -1,13 +1,13 @@
 'use strict';
 
+import _ from 'lodash';
+
 const angular = require('angular');
 
 require('./ingressRuleGroupSelector.component.less');
 
 module.exports = angular
-  .module('spinnaker.amazon.securityGroup.configure.ingressRuleGroupSelector', [
-    require('../../../core/utils/lodash'),
-  ])
+  .module('spinnaker.amazon.securityGroup.configure.ingressRuleGroupSelector', [])
   .component('ingressRuleGroupSelector', {
     bindings: {
       rule: '=',
@@ -19,7 +19,7 @@ module.exports = angular
       allSecurityGroupsUpdated: '=',
     },
     templateUrl: require('./ingressRuleGroupSelector.component.html'),
-    controller: function(_) {
+    controller: function() {
 
       this.infiniteScroll = {
         currentItems: 20,
@@ -42,8 +42,8 @@ module.exports = angular
         regions.forEach(region => {
           var regionalVpcId = null;
           if (vpcId) {
-            var [baseVpc] = this.vpcs.filter(vpc => vpc.id === vpcId),
-                [regionalVpc] = this.vpcs.filter(vpc => vpc.account === account && vpc.region === region && vpc.name === baseVpc.name);
+            let baseVpc = this.vpcs.find(vpc => vpc.id === vpcId),
+                regionalVpc = this.vpcs.find(vpc => vpc.account === account && vpc.region === region && vpc.name === baseVpc.name);
             regionalVpcId = regionalVpc ? regionalVpc.id : undefined;
           }
 
@@ -63,7 +63,7 @@ module.exports = angular
           this.configureAvailableVpcs();
         }
         this.availableSecurityGroups = availableSecurityGroups;
-        if (availableSecurityGroups.indexOf(this.rule.name) === -1 && !this.rule.existing) {
+        if (!availableSecurityGroups.includes(this.rule.name) && !this.rule.existing) {
           this.rule.name = null;
         }
       };
@@ -81,14 +81,14 @@ module.exports = angular
       };
 
       let reconcileRuleVpc = (filtered) => {
-        if (this.rule.vpcId) {
+        if (this.rule.vpcId && !this.rule.existing) {
           if (!this.securityGroup.vpcId) {
             this.rule.vpcId = null;
             this.rule.name = null;
             return;
           }
-          let [baseVpc] = filtered.filter(vpc => vpc.id === this.rule.vpcId),
-              [regionalVpc] = filtered.filter(vpc => vpc.account === this.rule.accountName && vpc.name === baseVpc.name);
+          let baseVpc = filtered.find(vpc => vpc.id === this.rule.vpcId),
+              regionalVpc = filtered.find(vpc => vpc.account === this.rule.accountName && vpc.name === baseVpc.name);
           if (regionalVpc) {
             this.rule.vpcId = regionalVpc.id;
           } else {
@@ -126,7 +126,7 @@ module.exports = angular
       this.$onInit = this.setAvailableSecurityGroups;
 
       this.$onDestroy = () => {
-        this.subscriptions.forEach(subscription => subscription.dispose());
+        this.subscriptions.forEach(subscription => subscription.unsubscribe());
       };
     }
   });

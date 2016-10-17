@@ -1,22 +1,17 @@
-<a ng-if="execution.buildInfo.number && !execution.trigger.buildInfo.url && !execution.trigger.buildInfo.lastBuild.url"
-   href="{{execution.buildInfo.host}}job/{{execution.buildInfo.name}}/{{execution.buildInfo.number}}"
+<a ng-if="::execution.trigger.parentPipelineId"
+   analytics-on="click"
+   analytics-category="Pipeline"
+   analytics-event="Execution build number clicked - parent pipeline"
+   ui-sref="^.executionDetails.execution({application: execution.trigger.parentPipelineApplication, executionId: execution.trigger.parentPipelineId})"
+   ui-sref-opts="{inherit: false, reload: 'home.applications.application.pipelines.executionDetails'}">
+  {{::execution.trigger.parentPipelineName}}
+</a>
+<a ng-if="::execution.buildInfo.number"
+   analytics-on="click"
+   analytics-category="Pipeline"
+   analytics-event="Execution build number clicked - build info"
+   href="{{::execution.buildInfo.url}}"
    target="_blank"
    ng-click="$event.stopPropagation()">
-  <span class="build-label">Build</span> #{{ execution.buildInfo.number}}
-</a>
-<a ng-if="execution.trigger.buildInfo.url"
-   href="{{ execution.trigger.buildInfo.url }}"
-   target="_blank"
-   ng-click="$event.stopPropagation()">
-  <span class="build-label">Build</span> #{{ execution.trigger.buildInfo.number }}
-</a>
-<a ng-if="execution.trigger.buildInfo.lastBuild.url"
-   href="{{ execution.trigger.buildInfo.lastBuild.url }}"
-   target="_blank"
-   ng-click="$event.stopPropagation()">
-  <span class="build-label">Build</span> #{{ execution.trigger.buildInfo.lastBuild.number }}
-</a>
-<a ng-if="execution.trigger.parentPipelineId"
-   ui-sref="^.executionDetails.execution({application: execution.trigger.parentPipelineApplication, executionId: execution.trigger.parentPipelineId})">
-  {{execution.trigger.parentPipelineName}}
+  <span class="build-label">Build</span> #{{::execution.buildInfo.number}}
 </a>

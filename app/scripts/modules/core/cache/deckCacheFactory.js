@@ -4,8 +4,9 @@ let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.cache.deckCacheFactory', [
   require('angular-cache'),
+  require('../config/settings'),
 ])
-.factory('deckCacheFactory', function(CacheFactory, $log) {
+.factory('deckCacheFactory', function(CacheFactory, $log, settings) {
 
     var caches = Object.create(null);
 
@@ -59,6 +60,14 @@ module.exports = angular.module('spinnaker.core.cache.deckCacheFactory', [
     var selfClearingLocalStorage = {
       setItem: function(k, v) {
         try {
+          if (k.includes(settings.gateUrl)) {
+            let response = JSON.parse(v);
+            if (response.value && Array.isArray(response.value) && response.value.length > 2 && Array.isArray(response.value[2])) {
+              if (response.value[2]['content-type'] && !response.value[2]['content-type'].includes('application/json')) {
+                return;
+              }
+            }
+          }
           window.localStorage.setItem(k, v);
           cacheProxy[k] = v;
         } catch (e) {
@@ -109,7 +118,7 @@ module.exports = angular.module('spinnaker.core.cache.deckCacheFactory', [
           indexKey = getStoragePrefix(baseKey, currentVersion) + baseKey;
       if (!window.localStorage[indexKey + '.keys'] || window.localStorage[indexKey + '.keys'] === '[]') {
         Object.keys(window.localStorage)
-          .filter(k => k.indexOf(indexKey) > -1)
+          .filter(k => k.includes(indexKey))
           .forEach(k => window.localStorage.removeItem(k));
       }
     }

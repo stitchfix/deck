@@ -1,7 +1,8 @@
 'use strict';
 
-describe('Service: executionFilterService', function () {
+import _ from 'lodash';
 
+describe('Service: executionFilterService', function () {
 
   var service;
   var ExecutionFilterModel;

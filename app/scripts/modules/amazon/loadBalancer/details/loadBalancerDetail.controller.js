@@ -1,21 +1,22 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.loadBalancer.aws.details.controller', [
   require('angular-ui-router'),
-  require('../../../core/securityGroup/securityGroup.read.service.js'),
-  require('../../../core/loadBalancer/loadBalancer.write.service.js'),
-  require('../../../core/loadBalancer/loadBalancer.read.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
-  require('../../../core/presentation/collapsibleSection/collapsibleSection.directive.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
-  require('../../../core/subnet/subnet.read.service'),
+  require('core/securityGroup/securityGroup.read.service.js'),
+  require('core/loadBalancer/loadBalancer.write.service.js'),
+  require('core/loadBalancer/loadBalancer.read.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
+  require('core/presentation/collapsibleSection/collapsibleSection.directive.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
+  require('core/subnet/subnet.read.service'),
 ])
   .controller('awsLoadBalancerDetailsCtrl', function ($scope, $state, $uibModal, $q, loadBalancer, app, InsightFilterStateModel,
-                                                   securityGroupReader, _, confirmationModalService, loadBalancerWriter,
+                                                   securityGroupReader, confirmationModalService, loadBalancerWriter,
                                                       loadBalancerReader, subnetReader) {
 
     $scope.state = {
@@ -25,7 +26,7 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.details.controller',
     $scope.InsightFilterStateModel = InsightFilterStateModel;
 
     function extractLoadBalancer() {
-      let [appLoadBalancer] = app.loadBalancers.data.filter(function (test) {
+      let appLoadBalancer = app.loadBalancers.data.find(function (test) {
         return test.name === loadBalancer.name && test.region === loadBalancer.region && test.account === loadBalancer.accountId;
       });
 
@@ -65,6 +66,8 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.details.controller',
         },
           autoClose
         );
+      } else {
+        autoClose();
       }
       if (!$scope.loadBalancer) {
         autoClose();
@@ -81,16 +84,16 @@ module.exports = angular.module('spinnaker.loadBalancer.aws.details.controller',
       $state.go('^', null, {location: 'replace'});
     }
 
-    extractLoadBalancer().then(() => {
+    app.ready().then(extractLoadBalancer).then(() => {
       // If the user navigates away from the view before the initial extractLoadBalancer call completes,
       // do not bother subscribing to the refresh
       if (!$scope.$$destroyed) {
-        app.loadBalancers.onRefresh($scope, extractLoadBalancer);
+        app.onRefresh($scope, extractLoadBalancer);
       }
     });
 
     this.getFirstSubnetPurpose = function(subnetDetailsList = []) {
-      return _.first(subnetDetailsList.map(subnet => subnet.purpose)) || '';
+      return _.head(subnetDetailsList.map(subnet => subnet.purpose)) || '';
     };
 
     this.editLoadBalancer = function editLoadBalancer() {

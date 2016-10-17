@@ -1,18 +1,18 @@
 'use strict';
 
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
-module.exports = angular.module('spinnaker.core.notification.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
-])
-  .factory('notificationService', function (settings, Restangular) {
+module.exports = angular.module('spinnaker.core.notification.service', [API_SERVICE])
+  .factory('notificationService', function (settings, API) {
 
     function getNotificationsForApplication(applicationName) {
-      return Restangular.one('notifications/application', applicationName).get();
+      return API.one('notifications').one('application', applicationName).get();
     }
 
     function saveNotificationsForApplication(applicationName, notifications) {
-      return Restangular.all('notifications/application/' + applicationName).post(notifications);
+      return API.one('notifications').one('application', applicationName).data(notifications).post();
     }
 
     return {

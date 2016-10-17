@@ -4,12 +4,20 @@ let angular = require('angular');
 
 module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServerGroup', [
   require('angular-ui-router'),
-  require('../../../../core/application/modal/platformHealthOverride.directive.js'),
+  require('core/application/modal/platformHealthOverride.directive.js'),
+  require('./../../../instance/custom/customInstanceBuilder.gce.service.js'),
+  require('core/instance/instanceTypeService.js'),
+  require('core/modal/wizard/wizardSubFormValidation.service.js'),
+  require('./hiddenMetadataKeys.value.js'),
+  require('./securityGroups/tagManager.service.js')
 ])
-  .controller('gceCloneServerGroupCtrl', function($scope, $uibModalInstance, _, $q, $state,
+  .controller('gceCloneServerGroupCtrl', function($scope, $uibModalInstance, $q, $state,
                                                   serverGroupWriter, v2modalWizardService, taskMonitorService,
                                                   gceServerGroupConfigurationService,
-                                                  serverGroupCommand, application, title) {
+                                                  serverGroupCommand, application, title,
+                                                  gceCustomInstanceBuilderService, instanceTypeService,
+                                                  wizardSubFormValidation, gceServerGroupHiddenMetadataKeys,
+                                                  gceTagManager) {
     $scope.pages = {
       templateSelection: require('./templateSelection/templateSelection.html'),
       basicSettings: require('./location/basicSettings.html'),
@@ -38,7 +46,7 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
       if ($scope.$$destroyed) {
         return;
       }
-      let [cloneStage] = $scope.taskMonitor.task.execution.stages.filter((stage) => stage.type === 'cloneServerGroup');
+      let cloneStage = $scope.taskMonitor.task.execution.stages.find((stage) => stage.type === 'cloneServerGroup');
       if (cloneStage && cloneStage.context['deploy.server.groups']) {
         let newServerGroupName = cloneStage.context['deploy.server.groups'][$scope.command.region];
         if (newServerGroupName) {
@@ -86,20 +94,35 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
         $scope.state.loaded = true;
         initializeSelectOptions();
         initializeWatches();
+        wizardSubFormValidation
+          .config({ scope: $scope, form: 'form'})
+          .register({ page: 'location', subForm: 'basicSettings' })
+          .register({ page: 'capacity', subForm: 'capacitySubForm' })
+          .register({ page: 'zones', subForm: 'zonesSubForm' })
+          .register({ page: 'load-balancers', subForm: 'loadBalancerSubForm'});
       });
     }
 
     function initializeWatches() {
       $scope.$watch('command.credentials', createResultProcessor($scope.command.credentialsChanged));
+      $scope.$watch('command.regional', createResultProcessor($scope.command.regionalChanged));
       $scope.$watch('command.region', createResultProcessor($scope.command.regionChanged));
       $scope.$watch('command.network', createResultProcessor($scope.command.networkChanged));
+      $scope.$watch('command.zone', createResultProcessor($scope.command.zoneChanged));
       $scope.$watch('command.viewState.instanceTypeDetails', updateStorageSettingsFromInstanceType());
+      $scope.$watch('command.viewState.customInstance', () => {
+        $scope.command.customInstanceChanged();
+        setInstanceTypeFromCustomChoices();
+      }, true);
     }
 
     function initializeSelectOptions() {
       processCommandUpdateResult($scope.command.credentialsChanged());
+      processCommandUpdateResult($scope.command.regionalChanged());
       processCommandUpdateResult($scope.command.regionChanged());
       processCommandUpdateResult($scope.command.networkChanged());
+      processCommandUpdateResult($scope.command.zoneChanged());
+      processCommandUpdateResult($scope.command.customInstanceChanged());
       gceServerGroupConfigurationService.configureSubnets($scope.command);
     }
 
@@ -118,6 +141,34 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
       }
       if (result.dirty.availabilityZones) {
         v2modalWizardService.markDirty('capacity');
+      }
+      if (result.dirty.instanceType) {
+        v2modalWizardService.markDirty('instance-type');
+      }
+    }
+
+    function setInstanceTypeFromCustomChoices() {
+      let c = $scope.command,
+        location = c.regional ? c.region : c.zone,
+        { locationToInstanceTypesMap } = c.backingData.credentialsKeyedByAccount[c.credentials];
+
+      let customInstanceChoices = [
+          _.get(c, 'viewState.customInstance.vCpuCount'),
+          _.get(c, 'viewState.customInstance.memory'),
+        ];
+
+      if (_.every([...customInstanceChoices,
+                   gceCustomInstanceBuilderService
+                     .customInstanceChoicesAreValid(...customInstanceChoices, location, locationToInstanceTypesMap)])) {
+
+        c.instanceType = gceCustomInstanceBuilderService
+          .generateInstanceTypeString(...customInstanceChoices);
+
+        instanceTypeService
+          .getInstanceTypeDetails(c.selectedProvider, 'buildCustom')
+          .then((instanceTypeDetails) => {
+            c.viewState.instanceTypeDetails = instanceTypeDetails;
+          });
       }
     }
 
@@ -170,13 +221,57 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
       _.fill($scope.command.disks, localSSDDiskDescriptor, 1);
     }
 
+    function buildLoadBalancerMetadata(loadBalancerNames, loadBalancerIndex, backendServices) {
+      let metadata = {};
+
+      if (_.get(loadBalancerNames, 'length') > 0) {
+        metadata = loadBalancerNames.reduce((metadata, name) => {
+          let loadBalancerDetails = loadBalancerIndex[name];
+
+          if (loadBalancerDetails.loadBalancerType === 'HTTP') {
+            metadata['global-load-balancer-names'] =
+              metadata['global-load-balancer-names']
+                .concat(loadBalancerDetails.listeners.map(listener => listener.name));
+          } else {
+            metadata['load-balancer-names'].push(name);
+          }
+          return metadata;
+        }, { 'load-balancer-names' : [], 'global-load-balancer-names': [] });
+      }
+
+      if (_.isObject(backendServices) && Object.keys(backendServices).length > 0) {
+        metadata['backend-service-names'] = _.reduce(
+          backendServices,
+          (accumulatedBackends, backends) => accumulatedBackends.concat(backends),
+          []);
+      }
+
+      for (let key in metadata) {
+        if (metadata[key].length === 0) {
+          delete metadata[key];
+        } else {
+          metadata[key] = _.uniq(metadata[key]).toString();
+        }
+      }
+
+      return metadata;
+    }
+
     this.submit = function () {
       generateDiskDescriptors();
 
       // We use this list of load balancer names when 'Enabling' a server group.
-      if ($scope.command.loadBalancers && $scope.command.loadBalancers.length > 0) {
-        $scope.command.instanceMetadata['load-balancer-names'] = $scope.command.loadBalancers.toString();
-      }
+      var loadBalancerMetadata = buildLoadBalancerMetadata(
+        $scope.command.loadBalancers,
+        $scope.command.backingData.filtered.loadBalancerIndex,
+        $scope.command.backendServices);
+
+      var origLoadBalancers = $scope.command.loadBalancers;
+      $scope.command.loadBalancers = loadBalancerMetadata['load-balancer-names']
+        ? loadBalancerMetadata['load-balancer-names'].split(',')
+        : [];
+
+      angular.extend($scope.command.instanceMetadata, loadBalancerMetadata);
 
       var origTags = $scope.command.tags;
       var transformedTags = [];
@@ -188,9 +283,15 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
 
       $scope.command.targetSize = $scope.command.capacity.desired;
 
-      // We want min/max set to the same value as desired.
-      $scope.command.capacity.min = $scope.command.capacity.desired;
-      $scope.command.capacity.max = $scope.command.capacity.desired;
+      if ($scope.command.autoscalingPolicy) {
+        $scope.command.capacity.min = $scope.command.autoscalingPolicy.minNumReplicas;
+        $scope.command.capacity.max = $scope.command.autoscalingPolicy.maxNumReplicas;
+      } else {
+        $scope.command.capacity.min = $scope.command.capacity.desired;
+        $scope.command.capacity.max = $scope.command.capacity.desired;
+      }
+
+      delete $scope.command.securityGroups;
 
       if ($scope.command.viewState.mode === 'editPipeline' || $scope.command.viewState.mode === 'createPipeline') {
         return $uibModalInstance.close($scope.command);
@@ -200,8 +301,11 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
           var promise = serverGroupWriter.cloneServerGroup(angular.copy($scope.command), application);
 
           // Copy back the original objects so the wizard can still be used if the command needs to be resubmitted.
-          delete $scope.command.instanceMetadata['load-balancer-names'];
+          $scope.command.instanceMetadata = _.omit($scope.command.instanceMetadata, gceServerGroupHiddenMetadataKeys);
+
           $scope.command.tags = origTags;
+          $scope.command.loadBalancers = origLoadBalancers;
+          $scope.command.securityGroups = gceTagManager.inferSecurityGroupIdsFromTags($scope.command.tags);
 
           return promise;
         }
@@ -211,6 +315,8 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
     this.cancel = function () {
       $uibModalInstance.dismiss();
     };
+
+    this.specialInstanceProfiles = new Set(['custom', 'buildCustom']);
 
     if (!$scope.state.requiresTemplateSelection) {
       configureCommand();
@@ -222,4 +328,6 @@ module.exports = angular.module('spinnaker.serverGroup.configure.gce.cloneServer
       $scope.state.requiresTemplateSelection = false;
       configureCommand();
     });
+
+    $scope.$on('$destroy', gceTagManager.reset);
   });
