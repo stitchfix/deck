@@ -87,7 +87,7 @@ ospackage {
   from "build/webpack"
 }
 
-buildRpm {
-  dependsOn test
-  os LINUX
-}
+#buildRpm {
+#  dependsOn test
+#  os LINUX
+#}
