@@ -1,5 +1,8 @@
 'use strict';
 
+import _ from 'lodash';
+import {AUTHENTICATION_SERVICE} from 'core/authentication/authentication.service';
+
 let angular = require('angular');
 
 require('./manualPipelineExecution.less');
@@ -7,17 +10,57 @@ require('./manualPipelineExecution.less');
 module.exports = angular.module('spinnaker.core.delivery.manualPipelineExecution.controller', [
   require('angular-ui-bootstrap'),
   require('./inlinePropertyScope.filter'),
-  require('../../utils/lodash.js'),
   require('../../pipeline/config/pipelineConfigProvider.js'),
-  require('../../pipeline/config/services/pipelineConfigService')
+  require('../../pipeline/config/services/pipelineConfigService'),
+  require('../../notification/notification.service'),
+  AUTHENTICATION_SERVICE
 ])
-  .controller('ManualPipelineExecutionCtrl', function (_, $uibModalInstance, pipeline, application, pipelineConfig, pipelineConfigService) {
+  .controller('ManualPipelineExecutionCtrl', function ($uibModalInstance, pipeline, application, pipelineConfig,
+                                                       notificationService, authenticationService,
+                                                       pipelineConfigService) {
 
     this.origPipeline = {};
+
+    let applicationNotifications = [];
+    let pipelineNotifications = [];
+
+    this.notificationTooltip = require('./notifications.tooltip.html');
+
+    notificationService.getNotificationsForApplication(application.name).then(notifications => {
+      Object.keys(notifications).sort().filter(k => Array.isArray(notifications[k])).forEach(type => {
+        notifications[type].forEach(notification => {
+          applicationNotifications.push(notification);
+        });
+      });
+      synchronizeNotifications();
+    });
+
+    let user = authenticationService.getAuthenticatedUser();
+
+    let synchronizeNotifications = () => {
+      this.notifications = applicationNotifications.concat(pipelineNotifications);
+    };
+
+    this.getNotifications = () => {
+      return _.has(this.command, 'pipeline.notifications') ?
+        this.command.pipeline.notifications.concat(applicationNotifications) :
+        applicationNotifications;
+    };
+
+    let userEmail = user.authenticated && user.name.includes('@') ? user.name : null;
 
     this.command = {
       pipeline: pipeline,
       trigger: null,
+      notificationEnabled: false,
+      notification: {
+        type: 'email',
+        address: userEmail,
+        when: [
+          'pipeline.complete',
+          'pipeline.failed'
+        ]
+      }
     };
 
     let addTriggers = () => {
@@ -37,7 +80,7 @@ module.exports = angular.module('spinnaker.core.delivery.manualPipelineExecution
           return copy;
         });
 
-      this.command.trigger = _.first(this.triggers);
+      this.command.trigger = _.head(this.triggers);
     };
 
 
@@ -61,6 +104,9 @@ module.exports = angular.module('spinnaker.core.delivery.manualPipelineExecution
     this.pipelineSelected = () => {
       let pipeline = this.command.pipeline,
           executions = application.executions.data || [];
+
+      pipelineNotifications = pipeline.notifications || [];
+      synchronizeNotifications();
 
       this.origPipeline = _.cloneDeep(pipeline); // make a copy to diff changes
 
@@ -89,6 +135,10 @@ module.exports = angular.module('spinnaker.core.delivery.manualPipelineExecution
           command = { trigger: selectedTrigger },
           pipeline = this.command.pipeline;
 
+      if (this.command.notificationEnabled && this.command.notification.address) {
+        selectedTrigger.notifications = [this.command.notification];
+      }
+
       // include any extra data populated by trigger manual execution handlers
       angular.extend(selectedTrigger, this.command.extraFields);
 
@@ -115,6 +165,9 @@ module.exports = angular.module('spinnaker.core.delivery.manualPipelineExecution
     };
 
     this.getStagesOf = (stageType) => {
+      if (!this.command.pipeline) {
+        return [];
+      }
       return this.command.pipeline.stages.filter( stage => stage.type === stageType);
     };
 
@@ -127,7 +180,7 @@ module.exports = angular.module('spinnaker.core.delivery.manualPipelineExecution
     }
 
     if (!pipeline) {
-      this.pipelineOptions = application.pipelineConfigs.data;
+      this.pipelineOptions = application.pipelineConfigs.data.filter(c => !c.disabled);
     }
 
   });

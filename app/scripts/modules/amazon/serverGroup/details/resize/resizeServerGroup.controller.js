@@ -3,10 +3,10 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.amazon.serverGroup.details.resize.controller', [
-  require('../../../../core/application/modal/platformHealthOverride.directive.js'),
-  require('../../../../core/task/modal/reason.directive.js'),
-  require('../../../../core/serverGroup/serverGroup.write.service.js'),
-  require('../../../../core/task/monitor/taskMonitorService.js'),
+  require('core/application/modal/platformHealthOverride.directive.js'),
+  require('core/task/modal/reason.directive.js'),
+  require('core/serverGroup/serverGroup.write.service.js'),
+  require('core/task/monitor/taskMonitorService.js'),
   require('./resizeCapacity.directive.js'),
   require('../../../common/footer.directive.js'),
 ])
@@ -27,7 +27,7 @@ module.exports = angular.module('spinnaker.amazon.serverGroup.details.resize.con
     $scope.command.advancedMode = serverGroup.asg.minSize !== serverGroup.asg.maxSize;
 
     if (application && application.attributes) {
-      if (application.attributes.platformHealthOnly) {
+      if (application.attributes.platformHealthOnlyShowOverride && application.attributes.platformHealthOnly) {
         $scope.command.interestingHealthProviderNames = ['Amazon'];
       }
 
@@ -43,6 +43,12 @@ module.exports = angular.module('spinnaker.amazon.serverGroup.details.resize.con
         command.min <= command.max && command.desired >= command.min && command.desired <= command.max :
         command.newSize !== null;
     };
+
+    $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
+      modalInstance: $uibModalInstance,
+      application: application,
+      title: 'Resizing ' + serverGroup.name,
+    });
 
     this.resize = function () {
       if (!this.isValid()) {
@@ -60,14 +66,6 @@ module.exports = angular.module('spinnaker.amazon.serverGroup.details.resize.con
           reason: $scope.command.reason,
         });
       };
-
-      var taskMonitorConfig = {
-        modalInstance: $uibModalInstance,
-        application: application,
-        title: 'Resizing ' + serverGroup.name,
-      };
-
-      $scope.taskMonitor = taskMonitorService.buildTaskMonitor(taskMonitorConfig);
 
       $scope.taskMonitor.submit(submitMethod);
     };

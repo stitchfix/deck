@@ -1,20 +1,21 @@
 'use strict';
 
+import modalWizardServiceModule from 'core/modal/wizard/v2modalWizard.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.aws.cloneServerGroup.controller', [
   require('angular-ui-router'),
-  require('../../../../core/application/modal/platformHealthOverride.directive.js'),
-  require('../../../../core/utils/lodash.js'),
+  require('core/application/modal/platformHealthOverride.directive.js'),
   require('../serverGroupConfiguration.service.js'),
-  require('../../../../core/serverGroup/serverGroup.write.service.js'),
-  require('../../../../core/task/monitor/taskMonitorService.js'),
-  require('../../../../core/modal/wizard/v2modalWizard.service.js'),
-  require('../../../../core/overrideRegistry/override.registry.js'),
-  require('../../../../core/serverGroup/configure/common/serverGroupCommand.registry.js'),
-  require('../../../../core/task/modal/reason.directive.js'),
+  require('core/serverGroup/serverGroup.write.service.js'),
+  require('core/task/monitor/taskMonitorService.js'),
+  modalWizardServiceModule,
+  require('core/overrideRegistry/override.registry.js'),
+  require('core/serverGroup/configure/common/serverGroupCommand.registry.js'),
+  require('core/task/modal/reason.directive.js'),
   ])
-  .controller('awsCloneServerGroupCtrl', function($scope, $uibModalInstance, _, $q, $state,
+  .controller('awsCloneServerGroupCtrl', function($scope, $uibModalInstance, $q, $state,
                                                   serverGroupWriter, v2modalWizardService, taskMonitorService,
                                                   overrideRegistry, awsServerGroupConfigurationService,
                                                   serverGroupCommandRegistry,
@@ -47,7 +48,7 @@ module.exports = angular.module('spinnaker.aws.cloneServerGroup.controller', [
       if ($scope.$$destroyed) {
         return;
       }
-      let [cloneStage] = $scope.taskMonitor.task.execution.stages.filter((stage) => stage.type === 'cloneServerGroup');
+      let cloneStage = $scope.taskMonitor.task.execution.stages.find((stage) => stage.type === 'cloneServerGroup');
       if (cloneStage && cloneStage.context['deploy.server.groups']) {
         let newServerGroupName = cloneStage.context['deploy.server.groups'][$scope.command.region];
         if (newServerGroupName) {
@@ -145,12 +146,16 @@ module.exports = angular.module('spinnaker.aws.cloneServerGroup.controller', [
       if (result.dirty.instanceType) {
         v2modalWizardService.markDirty('instance-type');
       }
+      if (result.dirty.keyPair) {
+        v2modalWizardService.markDirty('advanced');
+        v2modalWizardService.markIncomplete('advanced');
+      }
     }
 
     function initializeCommand() {
       if (serverGroupCommand.viewState.imageId) {
         var foundImage = $scope.command.backingData.packageImages.filter(function(image) {
-          return image.amis[serverGroupCommand.region] && image.amis[serverGroupCommand.region].indexOf(serverGroupCommand.viewState.imageId) !== -1;
+          return image.amis[serverGroupCommand.region] && image.amis[serverGroupCommand.region].includes(serverGroupCommand.viewState.imageId);
         });
         if (foundImage.length) {
           serverGroupCommand.amiName = foundImage[0].imageName;

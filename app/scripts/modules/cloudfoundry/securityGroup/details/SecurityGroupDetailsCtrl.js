@@ -16,21 +16,21 @@
 
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.securityGroup.cf.details.controller', [
   require('angular-ui-router'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/securityGroup/securityGroup.read.service.js'),
-  require('../../../core/securityGroup/securityGroup.write.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
+  require('core/account/account.service.js'),
+  require('core/securityGroup/securityGroup.read.service.js'),
+  require('core/securityGroup/securityGroup.write.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
 ])
   .controller('cfSecurityGroupDetailsCtrl', function ($scope, $state, resolvedSecurityGroup, accountService, app, InsightFilterStateModel,
-                                                    confirmationModalService, securityGroupWriter, securityGroupReader,
-                                                    $uibModal, _) {
+                                                    confirmationModalService, securityGroupWriter, securityGroupReader) {
 
     const application = app;
     const securityGroup = resolvedSecurityGroup;
@@ -45,7 +45,7 @@ module.exports = angular.module('spinnaker.securityGroup.cf.details.controller',
       securityGroupReader.getSecurityGroupDetails(application, securityGroup.accountId, securityGroup.provider, securityGroup.region, securityGroup.vpcId, securityGroup.name).then(function (details) {
         $scope.state.loading = false;
 
-        if (!details || _.isEmpty( details.plain())) {
+        if (!details || _.isEmpty( details ) ) {
           fourOhFour();
         } else {
           $scope.securityGroup = details;

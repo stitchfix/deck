@@ -3,10 +3,10 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.netflix.pipeline.stage.canaryStage', [
-  require('../../../../core/application/listExtractor/listExtractor.service'),
-  require('../../../../core/serverGroup/configure/common/serverGroupCommandBuilder.js'),
-  require('../../../../core/cloudProvider/cloudProvider.registry.js'),
-  require('../../../../core/config/settings.js'),
+  require('core/application/listExtractor/listExtractor.service'),
+  require('core/serverGroup/configure/common/serverGroupCommandBuilder.js'),
+  require('core/cloudProvider/cloudProvider.registry.js'),
+  require('core/config/settings.js'),
 ])
   .config(function (pipelineConfigProvider, settings) {
     if (settings.feature && settings.feature.netflixMode) {
@@ -30,7 +30,7 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canaryStage', 
       });
     }
   })
-  .controller('CanaryStageCtrl', function ($scope, $uibModal, stage, _,
+  .controller('CanaryStageCtrl', function ($scope, $uibModal, stage,
                                            namingService, providerSelectionService,
                                            authenticationService, cloudProviderRegistry,
                                            serverGroupCommandBuilder, awsServerGroupTransformer, accountService, appListExtractorService) {
@@ -47,11 +47,29 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canaryStage', 
     $scope.stage.canary.canaryConfig.canaryAnalysisConfig.notificationHours = $scope.stage.canary.canaryConfig.canaryAnalysisConfig.notificationHours || [];
     $scope.stage.canary.canaryConfig.canaryAnalysisConfig.useLookback = $scope.stage.canary.canaryConfig.canaryAnalysisConfig.useLookback || false;
     $scope.stage.canary.canaryConfig.canaryAnalysisConfig.lookbackMins = $scope.stage.canary.canaryConfig.canaryAnalysisConfig.lookbackMins || 0;
-
+    $scope.stage.canary.canaryConfig.canaryAnalysisConfig.useGlobalDataset = $scope.stage.canary.canaryConfig.canaryAnalysisConfig.useGlobalDataset || false;
     $scope.stage.canary.canaryConfig.actionsForUnhealthyCanary = $scope.stage.canary.canaryConfig.actionsForUnhealthyCanary || [
       {action: 'DISABLE'},
       {action: 'TERMINATE', delayBeforeActionInMins: 60}
     ];
+
+    this.recipients = $scope.stage.canary.watchers
+      ? angular.isArray($scope.stage.canary.watchers)
+        ? $scope.stage.canary.watchers.join(', ')
+        : $scope.stage.canary.watchers
+      : '';
+
+
+    this.updateWatchersList = () => {
+      if (this.recipients.includes('${')) { //check if SpEL; we don't want to convert to array
+        $scope.stage.canary.watchers = this.recipients;
+      } else {
+        $scope.stage.canary.watchers = [];
+        this.recipients.split(',').forEach((email) => {
+          $scope.stage.canary.watchers.push(email.trim());
+        });
+      }
+    };
 
     this.terminateUnhealthyCanaryEnabled = function (isEnabled) {
       if (isEnabled === true) {
@@ -83,8 +101,8 @@ module.exports = angular.module('spinnaker.netflix.pipeline.stage.canaryStage', 
       return terminateAction ? terminateAction.delayBeforeActionInMins : 60;
     };
 
-    accountService.listAccounts('aws').then(function(accounts) {
-      $scope.accounts = accounts;
+    $scope.application.serverGroups.ready().then(() => {
+      accountService.listAccounts('aws').then(accounts => $scope.accounts = accounts);
       setClusterList();
     });
 

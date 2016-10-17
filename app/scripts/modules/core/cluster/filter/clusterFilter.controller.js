@@ -1,5 +1,7 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 // controllerAs: clustersFilters
@@ -8,9 +10,12 @@ module.exports = angular.module('cluster', [
   require('./collapsibleFilterSection.directive.js'),
   require('./clusterFilter.service.js'),
   require('./clusterFilter.model.js'),
-  require('../../utils/lodash.js'),
+  require('../../filterModel/dependentFilter/dependentFilter.service.js'),
+  require('./clusterDependentFilterHelper.service.js')
 ])
-  .controller('ClusterFilterCtrl', function ($scope, app, _, $log, clusterFilterService, ClusterFilterModel, $rootScope) {
+  .controller('ClusterFilterCtrl', function ($scope, app, $log, clusterFilterService,
+                                             ClusterFilterModel, $rootScope,
+                                             clusterDependentFilterHelper, dependentFilterService) {
 
     $scope.application = app;
     $scope.sortFilter = ClusterFilterModel.sortFilter;
@@ -18,52 +23,38 @@ module.exports = angular.module('cluster', [
     var ctrl = this;
 
     this.updateClusterGroups = () => {
-      ClusterFilterModel.reconcileDependentFilters();
+      let { providerType, instanceType, account, availabilityZone, region } = dependentFilterService.digestDependentFilters({
+        sortFilter: ClusterFilterModel.sortFilter,
+        dependencyOrder: ['providerType', 'account', 'region', 'availabilityZone', 'instanceType'],
+        pool: clusterDependentFilterHelper.poolBuilder(app.serverGroups.data)
+      });
+
+      ctrl.providerTypeHeadings = providerType;
+      ctrl.accountHeadings = account;
+      ctrl.availabilityZoneHeadings = availabilityZone;
+      ctrl.regionHeadings = region;
+      ctrl.instanceTypeHeadings = instanceType;
+
       ClusterFilterModel.applyParamsToUrl();
       clusterFilterService.updateClusterGroups(app);
     };
 
-    ctrl.getAvailabilityZoneHeadings = () => {
-      let selectedRegions = ClusterFilterModel.getSelectedRegions();
-
-      return selectedRegions.length === 0 ?
-        ctrl.availabilityZoneHeadings :
-        ctrl.availabilityZoneHeadings.filter((azName) => {
-          return selectedRegions.reduce((matches, region) => {
-            return matches ? matches : _.includes(azName, region);
-          }, false);
-        });
-    };
-
-
     function getHeadingsForOption(option) {
-      return _.compact(_.uniq(_.pluck(app.serverGroups.data, option))).sort();
-    }
-
-    function getAvailabilityZones() {
-      return _(app.serverGroups.data)
-        .pluck('instances')
-        .flatten()
-        .pluck('availabilityZone')
-        .unique()
-        .valueOf();
+      return _.compact(_.uniq(_.map(app.serverGroups.data, option))).sort();
     }
 
     function clearFilters() {
       clusterFilterService.clearFilters();
       clusterFilterService.updateClusterGroups(app);
+      ctrl.updateClusterGroups();
     }
 
     this.initialize = function() {
-      ctrl.accountHeadings = getHeadingsForOption('account');
-      ctrl.regionHeadings = getHeadingsForOption('region');
-      ctrl.instanceTypeHeadings = getHeadingsForOption('instanceType');
-      ctrl.providerTypeHeadings = getHeadingsForOption('type');
       ctrl.stackHeadings = ['(none)'].concat(getHeadingsForOption('stack'));
-      ctrl.availabilityZoneHeadings = getAvailabilityZones();
       ctrl.categoryHeadings = getHeadingsForOption('category');
       ctrl.clearFilters = clearFilters;
       $scope.clusters = app.clusters;
+      ctrl.updateClusterGroups();
     };
 
 

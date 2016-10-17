@@ -1,19 +1,21 @@
 'use strict';
 
+import _ from 'lodash';
+import displayableTaskFilter from './displayableTasks.filter';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.task.controller', [
   require('angular-ui-router'),
-  require('../utils/lodash.js'),
   require('./taskProgressBar.directive.js'),
   require('../cache/viewStateCache.js'),
   require('./task.write.service.js'),
   require('../confirmationModal/confirmationModal.service.js'),
-  require('./displayableTasks.filter.js'),
+  displayableTaskFilter,
   require('../cache/deckCacheFactory.js'),
   require('../config/settings.js'),
 ])
-  .controller('TasksCtrl', function ($scope, $state, $q, settings, app, _, viewStateCache, taskWriter, confirmationModalService) {
+  .controller('TasksCtrl', function ($scope, $state, $q, settings, app, viewStateCache, taskWriter, confirmationModalService) {
 
     if (app.notFound) {
       return;
@@ -67,7 +69,7 @@ module.exports = angular.module('spinnaker.core.task.controller', [
     };
 
     controller.isExpanded = function(taskId) {
-      return taskId && $scope.viewState.expandedTasks.indexOf(taskId) !== -1;
+      return taskId && $scope.viewState.expandedTasks.includes(taskId);
     };
 
     controller.sortTasksAndResetPaginator = function() {
@@ -81,9 +83,12 @@ module.exports = angular.module('spinnaker.core.task.controller', [
       if ($scope.viewState.nameFilter) {
         var normalizedSearch = $scope.viewState.nameFilter.toLowerCase();
         controller.sortedTasks = _.filter(joinedLists, function(task) {
-          return task.name.toLowerCase().indexOf(normalizedSearch) !== -1 ||
-            task.id.toLowerCase().indexOf(normalizedSearch) !== -1 ||
-            (task.getValueFor('user') || '').toLowerCase().indexOf(normalizedSearch) !== -1;
+          return task.name.toLowerCase().includes(normalizedSearch) ||
+            task.id.toLowerCase().includes(normalizedSearch) ||
+            (task.getValueFor('credentials') || '').toLowerCase().includes(normalizedSearch) ||
+            (task.getValueFor('region') || '').toLowerCase().includes(normalizedSearch) ||
+            (task.getValueFor('regions') || []).join(' ').toLowerCase().includes(normalizedSearch) ||
+            (task.getValueFor('user') || '').toLowerCase().includes(normalizedSearch);
         });
       }
       if ($scope.viewState.taskStateFilter) {
@@ -106,7 +111,7 @@ module.exports = angular.module('spinnaker.core.task.controller', [
     controller.cancelTask = function(taskId) {
       var task = application.tasks.data.filter(function(task) { return task.id === taskId; })[0];
       var submitMethod = function () {
-        return taskWriter.cancelTask(application.name, taskId).then(application.tasks.refresh);
+        return taskWriter.cancelTask(application.name, taskId).then(() => application.tasks.refresh());
       };
 
       confirmationModalService.confirm({
@@ -120,7 +125,7 @@ module.exports = angular.module('spinnaker.core.task.controller', [
     controller.deleteTask = function(taskId) {
       var task = application.tasks.data.filter(function(task) { return task.id === taskId; })[0];
       var submitMethod = function () {
-        return taskWriter.deleteTask(taskId).then(application.tasks.refresh);
+        return taskWriter.deleteTask(taskId).then(() => application.tasks.refresh());
       };
 
       confirmationModalService.confirm({
@@ -163,21 +168,19 @@ module.exports = angular.module('spinnaker.core.task.controller', [
 
     controller.getFirstDeployServerGroupName = function(task) {
       if(task.execution && task.execution.stages) {
-        var stage = findStageWithTaskInExecution(task.execution, ['createCopyLastAsg', 'createDeploy']);
-        return _(stage)
-          .chain()
+        var stage = findStageWithTaskInExecution(task.execution, ['createCopyLastAsg', 'createDeploy', 'cloneServerGroup', 'createServerGroup']);
+        return _.chain(stage)
           .get('context')
           .get('deploy.server.groups')
           .values()
-          .first()
-          .first()
+          .head()
+          .head()
           .value();
       }
     };
 
     controller.getAccountId = function(task) {
-      return _(task.variables)
-        .chain()
+      return _.chain(task.variables)
         .find({'key': 'account'})
         .result('value')
         .value();
@@ -193,8 +196,7 @@ module.exports = angular.module('spinnaker.core.task.controller', [
 
     controller.getProviderForServerGroupByTask = function(task) {
       var serverGroupName = controller.getFirstDeployServerGroupName(task);
-      return _(application.serverGroups.data)
-        .chain()
+      return _.chain(application.serverGroups.data)
         .find(function(serverGroup) {
           return serverGroup.name === serverGroupName;
         })
@@ -203,13 +205,12 @@ module.exports = angular.module('spinnaker.core.task.controller', [
     };
 
     function findStageWithTaskInExecution(execution, stageName) {
-      return _(execution.stages).find(function(stage) {
-        return _.any(stage.tasks, function(task) {
-          return stageName.indexOf(task.name) !== -1;
+      return _.chain(execution.stages).find(function(stage) {
+        return _.some(stage.tasks, function(task) {
+          return stageName.includes(task.name);
         });
-      });
+      }).value();
     }
-
 
     function filterRunningTasks() {
       var running = _.chain(application.tasks.data)
@@ -244,7 +245,7 @@ module.exports = angular.module('spinnaker.core.task.controller', [
     // the value on the scope
     $scope.$on('$stateChangeSuccess', function(event, toState, toParams) {
       var taskId = toParams.taskId;
-      if ($scope.viewState.expandedTasks.indexOf(taskId) === -1) {
+      if (!$scope.viewState.expandedTasks.includes(taskId)) {
         controller.toggleDetails(taskId);
       }
       $scope.viewState.nameFilter = taskId;
@@ -254,6 +255,8 @@ module.exports = angular.module('spinnaker.core.task.controller', [
 
     initializeViewState();
 
+    application.tasks.activate();
+
     application.tasks.ready().then(() => {
       $scope.viewState.loading = false;
       $scope.viewState.loadError = app.tasks.loadFailure;
@@ -262,7 +265,6 @@ module.exports = angular.module('spinnaker.core.task.controller', [
       }
     });
 
-    application.tasks.activate();
     application.activeState = application.tasks;
     $scope.$on('$destroy', () => {
       application.activeState = application;

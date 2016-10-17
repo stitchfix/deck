@@ -1,19 +1,23 @@
 'use strict';
 
+import modalWizardServiceModule from 'core/modal/wizard/v2modalWizard.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.clone', [
   require('angular-ui-router'),
-  require('../../../../core/application/modal/platformHealthOverride.directive.js'),
-  require('../../../../core/serverGroup/serverGroup.write.service.js'),
-  require('../../../../core/modal/wizard/v2modalWizard.service.js'),
-  require('../../../../core/task/monitor/taskMonitorService.js'),
+  require('core/application/modal/platformHealthOverride.directive.js'),
+  require('core/serverGroup/serverGroup.write.service.js'),
+  modalWizardServiceModule,
+  require('core/task/monitor/taskMonitorService.js'),
   require('../configuration.service.js'),
+  require('core/modal/wizard/wizardSubFormValidation.service.js'),
 ])
-  .controller('kubernetesCloneServerGroupController', function($scope, $uibModalInstance, _, $q, $state,
+  .controller('kubernetesCloneServerGroupController', function($scope, $uibModalInstance, $q, $state,
                                                                serverGroupWriter, v2modalWizardService, taskMonitorService,
                                                                kubernetesServerGroupConfigurationService,
-                                                               serverGroupCommand, application, title) {
+                                                               serverGroupCommand, application, title, $timeout,
+                                                               wizardSubFormValidation) {
     $scope.pages = {
       templateSelection: require('./templateSelection.html'),
       basicSettings: require('./basicSettings.html'),
@@ -47,8 +51,8 @@ module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.clon
       serverGroupCommand.viewState.contextImages = $scope.contextImages;
       $scope.contextImages = null;
       kubernetesServerGroupConfigurationService.configureCommand(application, serverGroupCommand).then(function () {
-        $scope.state.loaded = true;
-        initializeWizardState();
+        $scope.state.loaded = true; // allows wizard directive to run (after digest).
+        $timeout(initializeWizardState); // wait for digest.
         initializeWatches();
       });
     }
@@ -66,6 +70,10 @@ module.exports = angular.module('spinnaker.serverGroup.configure.kubernetes.clon
         v2modalWizardService.markComplete('replicas');
         v2modalWizardService.markComplete('volumes');
       }
+
+      wizardSubFormValidation
+        .config({ scope: $scope, form: 'form' })
+        .register({ page: 'location', subForm: 'basicSettings'});
     }
 
     this.isValid = function () {

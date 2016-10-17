@@ -1,22 +1,23 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.instance.detail.kubernetes.controller', [
   require('angular-ui-router'),
   require('angular-ui-bootstrap'),
-  require('../../../core/instance/instance.write.service.js'),
-  require('../../../core/instance/instance.read.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
-  require('../../../core/history/recentHistory.service.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
-  require('../../../core/cloudProvider/cloudProvider.registry.js'),
+  require('core/instance/instance.write.service.js'),
+  require('core/instance/instance.read.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
+  require('core/history/recentHistory.service.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
+  require('core/cloudProvider/cloudProvider.registry.js'),
 ])
   .controller('kubernetesInstanceDetailsController', function ($scope, $state, $uibModal, InsightFilterStateModel,
                                                                instanceWriter, confirmationModalService, recentHistoryService,
-                                                               cloudProviderRegistry, instanceReader, _, instance, app, $q) {
+                                                               cloudProviderRegistry, instanceReader, instance, app, $q) {
     // needed for standalone instances
     $scope.detailsTemplateUrl = cloudProviderRegistry.getValue('kubernetes', 'instance.detailsTemplateUrl');
 
@@ -31,7 +32,7 @@ module.exports = angular.module('spinnaker.instance.detail.kubernetes.controller
       $scope.userDataModalTitle = 'Pod YAML';
       $scope.userData = $scope.instance.yaml;
       $uibModal.open({
-        templateUrl: require('../../../core/serverGroup/details/userData.html'),
+        templateUrl: require('core/serverGroup/details/userData.html'),
         controller: 'CloseableModalCtrl',
         scope: $scope
       });
@@ -99,7 +100,6 @@ module.exports = angular.module('spinnaker.instance.detail.kubernetes.controller
         extraData.namespace = namespace;
         recentHistoryService.addExtraDataToLatest('instances', extraData);
         return instanceReader.getInstanceDetails(account, namespace, instance.instanceId).then(function(details) {
-          details = details.plain();
           $scope.state.loading = false;
           $scope.instance = _.defaults(details, instanceSummary);
           $scope.instance.account = account;
@@ -260,7 +260,7 @@ module.exports = angular.module('spinnaker.instance.detail.kubernetes.controller
       //     is no point in subscribing to the refresh
       //  2. If this is a standalone instance, there is no application that will refresh
       if (!$scope.$$destroyed && !app.isStandalone) {
-        app.serverGroups.onRefresh(retrieveInstance);
+        app.serverGroups.onRefresh($scope, retrieveInstance);
       }
     });
 

@@ -1,8 +1,9 @@
 'use strict';
 
+import _ from 'lodash';
+
 // Most of this logic has been moved to filter.model.service.js, so these act more as integration tests
 describe('Service: securityGroupFilterService', function () {
-
 
   var service;
   var SecurityGroupFilterModel;
@@ -13,7 +14,6 @@ describe('Service: securityGroupFilterService', function () {
   beforeEach(function() {
     spyOn(_, 'debounce').and.callFake(fn => (app) => $timeout(fn(app)));
     window.module(
-      require('../../utils/lodash.js'),
       require('./securityGroup.filter.service.js'),
       require('./securityGroup.filter.model.js')
     );
@@ -36,7 +36,7 @@ describe('Service: securityGroupFilterService', function () {
     };
     resultJson = [
       { heading: 'us-east-1', vpcName: '', securityGroup: app.securityGroups.data[0], },
-      { heading: 'us-west-1', vpcName: 'main', securityGroup: app.securityGroups.data[1], },
+      { heading: 'us-west-1 (main)', vpcName: 'main', securityGroup: app.securityGroups.data[1], },
       { heading: 'us-east-1', vpcName: '', securityGroup: app.securityGroups.data[2], }
     ];
     SecurityGroupFilterModel.clearFilters();

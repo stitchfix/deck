@@ -1,13 +1,14 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.pipeline.config.trigger.pipeline', [
   require('../../services/pipelineConfigService.js'),
   require('../../pipelineConfigProvider.js'),
-  require('../../../../application/service/applications.read.service.js'),
+  require('core/application/service/applications.read.service.js'),
   require('../trigger.directive.js'),
-  require('../../../../utils/lodash.js'),
   require('./pipelineTriggerOptions.directive.js'),
 ])
   .config(function (pipelineConfigProvider) {
@@ -30,7 +31,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.trigger.pipeline
       formatLabel: (trigger) => {
 
         let loadSuccess = (pipelines) => {
-          let [pipeline] = pipelines.filter((config) => config.id === trigger.pipeline);
+          let pipeline = pipelines.find((config) => config.id === trigger.pipeline);
           return pipeline ? `(Pipeline) ${trigger.application}: ${pipeline.name}` : '[pipeline not found]';
         };
 
@@ -44,7 +45,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.trigger.pipeline
       selectorTemplate: require('./selectorTemplate.html'),
     };
   })
-  .controller('pipelineTriggerCtrl', function ($scope, trigger, pipelineConfigService, applicationReader, _) {
+  .controller('pipelineTriggerCtrl', function ($scope, trigger, pipelineConfigService, applicationReader) {
 
     $scope.trigger = trigger;
 
@@ -89,7 +90,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.trigger.pipeline
     };
 
     applicationReader.listApplications().then(function(applications) {
-      $scope.applications = _.pluck(applications, 'name').sort();
+      $scope.applications = _.map(applications, 'name').sort();
     });
 
 
@@ -97,7 +98,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.trigger.pipeline
     $scope.userSuppliedParameters = {};
 
     this.updateParam = function(parameter) {
-      if($scope.useDefaultParameters[parameter] === true) {
+      if ($scope.useDefaultParameters[parameter] === true) {
         delete $scope.userSuppliedParameters[parameter];
         delete $scope.trigger.parameters[parameter];
       } else if($scope.userSuppliedParameters[parameter]) {

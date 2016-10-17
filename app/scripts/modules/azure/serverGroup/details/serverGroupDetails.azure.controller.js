@@ -1,6 +1,8 @@
 'use strict';
 /* jshint camelcase:false */
 
+import _ from 'lodash';
+
 require('../configure/serverGroup.configure.azure.module.js');
 
 let angular = require('angular');
@@ -8,15 +10,14 @@ let angular = require('angular');
 module.exports = angular.module('spinnaker.azure.serverGroup.details.controller', [
   require('angular-ui-router'),
   require('../configure/serverGroupCommandBuilder.service.js'),
-  require('../../../core/serverGroup/serverGroup.read.service.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/serverGroup/serverGroup.write.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
+  require('core/serverGroup/serverGroup.read.service.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/serverGroup/serverGroup.write.service.js'),
+  require('core/insight/insightFilterState.model.js'),
 ])
   .controller('azureServerGroupDetailsCtrl', function ($scope, $state, $templateCache, $compile, app, serverGroup, InsightFilterStateModel,
-                                                     serverGroupReader, azureServerGroupCommandBuilder, $uibModal, confirmationModalService, _, serverGroupWriter) {
+                                                     serverGroupReader, azureServerGroupCommandBuilder, $uibModal, confirmationModalService, serverGroupWriter) {
 
     $scope.state = {
       loading: true
@@ -51,11 +52,10 @@ module.exports = angular.module('spinnaker.azure.serverGroup.details.controller'
       return serverGroupReader.getServerGroup(app.name, serverGroup.accountId, serverGroup.region, serverGroup.name).then(function(details) {
         cancelLoader();
 
-        var restangularlessDetails = details.plain();
-        angular.extend(restangularlessDetails, summary);
-        restangularlessDetails.account = serverGroup.accountId; // it's possible the summary was not found because the clusters are still loading
+        angular.extend(details, summary);
+        details.account = serverGroup.accountId; // it's possible the summary was not found because the clusters are still loading
 
-        $scope.serverGroup = restangularlessDetails;
+        $scope.serverGroup = details;
 
         if (!_.isEmpty($scope.serverGroup)) {
 
@@ -72,7 +72,7 @@ module.exports = angular.module('spinnaker.azure.serverGroup.details.controller'
           }
 
           if (details.launchConfig && details.launchConfig.securityGroups) {
-            $scope.securityGroups = _(details.launchConfig.securityGroups).map(function(id) {
+            $scope.securityGroups = _.chain(details.launchConfig.securityGroups).map(function(id) {
               return _.find(app.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': serverGroup.region, 'id': id }) ||
                 _.find(app.securityGroups.data, { 'accountName': serverGroup.accountId, 'region': serverGroup.region, 'name': id });
             }).compact().value();
@@ -140,7 +140,7 @@ module.exports = angular.module('spinnaker.azure.serverGroup.details.controller'
 
     this.getBodyTemplate = function(serverGroup, app) {
       if(this.isLastServerGroupInRegion(serverGroup, app)) {
-        var template = $templateCache.get(require('../../../core/serverGroup/details/deleteLastServerGroupWarning.html'));
+        var template = $templateCache.get(require('core/serverGroup/details/deleteLastServerGroupWarning.html'));
         $scope.deletingServerGroup = serverGroup;
         return $compile(template)($scope);
       }
@@ -202,14 +202,15 @@ module.exports = angular.module('spinnaker.azure.serverGroup.details.controller'
 
     };
 
-    this.cloneServerGroup = function cloneServerGroup(serverGroup) {
+    this.cloneServerGroup = (serverGroup) => {
       $uibModal.open({
         templateUrl: require('../configure/wizard/serverGroupWizard.html'),
         controller: 'azureCloneServerGroupCtrl as ctrl',
+        size: 'lg',
         resolve: {
-          title: function() { return 'Clone ' + serverGroup.name; },
-          application: function() { return app; },
-          serverGroupCommand: function() { return azureServerGroupCommandBuilder.buildServerGroupCommandFromExisting(app, serverGroup); },
+          title: () => 'Clone ' + serverGroup.name,
+          application: () => app,
+          serverGroupCommand: () => azureServerGroupCommandBuilder.buildServerGroupCommandFromExisting(app, serverGroup),
         }
       });
     };

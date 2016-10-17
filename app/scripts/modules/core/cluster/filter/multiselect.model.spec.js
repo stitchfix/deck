@@ -22,7 +22,7 @@ describe('Multiselect Model', function () {
       ClusterFilterModel.sortFilter.multiselect = true;
       this.result = null;
       this.currentStates = [];
-      spyOn($state, 'includes').and.callFake((substate) => this.currentStates.indexOf(substate) > -1);
+      spyOn($state, 'includes').and.callFake((substate) => this.currentStates.includes(substate));
       spyOn($state, 'go').and.callFake((newState) => this.result = newState);
       $state.params = {};
     });
@@ -37,14 +37,14 @@ describe('Multiselect Model', function () {
         it('navigates to multipleInstances child view when not already there and instances are selected', function () {
           this.instanceGroup.instanceIds.push('i-123');
           this.instanceGroup.instanceIds.push('i-124');
-          this.currentStates = ['**.clusters'];
+          $state.$current = { name: 'clusters' };
           MultiselectModel.syncNavigation();
           expect(this.result).toBe('.multipleInstances');
         });
 
         it('navigates to multipleInstances child view when not already there and an instance is selected', function () {
           this.instanceGroup.instanceIds.push('i-123');
-          this.currentStates = ['**.clusters'];
+          $state.$current = { name: 'clusters' };
           MultiselectModel.syncNavigation();
           expect(this.result).toBe('.multipleInstances');
         });
@@ -52,7 +52,7 @@ describe('Multiselect Model', function () {
         it('navigates to multipleInstances sibling view when not already there and instances are selected', function () {
           this.instanceGroup.instanceIds.push('i-123');
           this.instanceGroup.instanceIds.push('i-124');
-          this.currentStates = ['**.clusters.*', '**.clusters.instanceDetails'];
+          $state.$current = { name: 'clusters.instanceDetails' };
           MultiselectModel.syncNavigation();
           expect(this.result).toBe('^.multipleInstances');
         });
@@ -78,7 +78,7 @@ describe('Multiselect Model', function () {
         });
 
         it('navigates to multipleServerGroups child view when not already there and group is selected', function () {
-          this.currentStates = ['**.clusters'];
+          $state.$current = { name: 'clusters' };
           MultiselectModel.toggleServerGroup(this.serverGroup);
           expect(this.result).toBe('.multipleServerGroups');
         });
@@ -116,6 +116,7 @@ describe('Multiselect Model', function () {
 
       it('navigates to details child view when multiselect is not enabled and not in clusters child view', function () {
         ClusterFilterModel.sortFilter.multiselect = false;
+        $state.$current = { name: 'clusters' };
         MultiselectModel.toggleServerGroup(this.serverGroup);
         expect(this.result).toBe('.serverGroup');
       });
@@ -134,13 +135,13 @@ describe('Multiselect Model', function () {
         expect(instanceGroup.instanceIds).toEqual([]);
       });
 
-      it('toggles server group, creates model when added, always calls onNext', function () {
+      it('toggles server group, creates model when added, always calls next', function () {
         expect(MultiselectModel.serverGroups.length).toBe(0);
-        let onNextCalls = 0;
-        MultiselectModel.serverGroupsStream.subscribe(() => onNextCalls++);
+        let nextCalls = 0;
+        MultiselectModel.serverGroupsStream.subscribe(() => nextCalls++);
 
         MultiselectModel.toggleServerGroup(this.serverGroup);
-        expect(onNextCalls).toBe(1);
+        expect(nextCalls).toBe(1);
         expect(MultiselectModel.serverGroups.length).toBe(1);
         let model = MultiselectModel.serverGroups[0];
         expect(model.name).toBe('asg-v001');
@@ -150,7 +151,26 @@ describe('Multiselect Model', function () {
 
         MultiselectModel.toggleServerGroup(this.serverGroup);
         expect(MultiselectModel.serverGroups.length).toBe(0);
-        expect(onNextCalls).toBe(2);
+        expect(nextCalls).toBe(2);
+      });
+
+      it('handles multiple server groups', function () {
+        let otherServerGroup = {
+          name: 'asg-v002',
+          account: 'prod',
+          region: 'us-east-1',
+          type: 'aws',
+          category: 'serverGroup'
+        };
+
+        expect(MultiselectModel.serverGroups.length).toBe(0);
+        MultiselectModel.toggleServerGroup(this.serverGroup);
+        MultiselectModel.toggleServerGroup(otherServerGroup);
+        expect(MultiselectModel.serverGroups.length).toBe(2);
+
+        MultiselectModel.toggleServerGroup(this.serverGroup);
+        expect(MultiselectModel.serverGroups.length).toBe(1);
+        expect(MultiselectModel.serverGroups[0].name).toBe('asg-v002');
       });
     });
 
@@ -256,6 +276,12 @@ describe('Multiselect Model', function () {
         this.instanceGroup = MultiselectModel.getOrCreateInstanceGroup(this.serverGroup);
 
         spyOn(MultiselectModel, 'syncNavigation');
+      });
+
+      it('clears server groups', function () {
+        MultiselectModel.toggleServerGroup(this.serverGroup);
+        MultiselectModel.toggleSelectAll(this.serverGroup);
+        expect(MultiselectModel.serverGroups.length).toBe(0);
       });
 
       it('sets selectAll flag to true and adds supplied instanceIds when selectAll is false', function () {

@@ -1,17 +1,18 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.core.delivery.filter.executionFilter.service', [
     require('angular-ui-router'),
     require('./executionFilter.model.js'),
-    require('../../utils/lodash.js'),
     require('../../utils/waypoints/waypoint.service.js'),
     require('../../filterModel/filter.model.service.js'),
     require('../../orchestratedItem/timeBoundaries.service.js'),
   ])
-  .factory('executionFilterService', function (ExecutionFilterModel, _, timeBoundaries, waypointService, $log,
+  .factory('executionFilterService', function (ExecutionFilterModel, timeBoundaries, waypointService, $log,
                                                filterModelService) {
 
     var lastApplication = null;
@@ -25,7 +26,7 @@ module.exports = angular
     function pipelineNameFilter(execution) {
       if(isFilterable(ExecutionFilterModel.sortFilter.pipeline)) {
         var checkedPipelineNames = filterModelService.getCheckValues(ExecutionFilterModel.sortFilter.pipeline);
-        return _.contains(checkedPipelineNames, execution.name);
+        return _.includes(checkedPipelineNames, execution.name);
       } else {
         return true;
       }
@@ -40,7 +41,7 @@ module.exports = angular
       }
       if (object instanceof Object) {
         return Object.keys(object).map((key) => {
-          if (blacklist.indexOf(key) !== -1) {
+          if (blacklist.includes(key)) {
             return '';
           }
           return getValuesAsString(object[key], blacklist);
@@ -67,13 +68,13 @@ module.exports = angular
         return true;
       }
       addSearchText(execution);
-      return execution.searchField.indexOf(filter) !== -1;
+      return execution.searchField.includes(filter);
     }
 
     function statusFilter(execution) {
       if (isFilterable(ExecutionFilterModel.sortFilter.status)) {
         var checkedStatus = filterModelService.getCheckValues(ExecutionFilterModel.sortFilter.status);
-        return _.contains(checkedStatus, execution.status);
+        return _.includes(checkedStatus, execution.status);
       } else {
         return true;
       }
@@ -191,6 +192,7 @@ module.exports = angular
           groupsToRemove.push(idx);
         } else {
           oldGroup.runningExecutions = newGroup.runningExecutions;
+          oldGroup.config = newGroup.config;
           diffExecutions(oldGroup, newGroup);
         }
       });

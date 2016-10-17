@@ -1,12 +1,13 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.subnet.subnetSelectField.directive', [
-  require('../../core/config/settings'),
-  require('../../core/utils/lodash'),
+  require('core/config/settings'),
 ])
-  .directive('subnetSelectField', function (settings, _) {
+  .directive('subnetSelectField', function (settings) {
     return {
       restrict: 'E',
       templateUrl: require('./subnetSelectField.directive.html'),
@@ -32,6 +33,9 @@ module.exports = angular.module('spinnaker.subnet.subnetSelectField.directive', 
             scope.hideClassic = true;
             if (!scope.component[scope.field] && scope.subnets && scope.subnets.length) {
               scope.component[scope.field] = scope.subnets[0].purpose;
+              if (scope.onChange) {
+                scope.onChange();
+              }
             }
           }
         }

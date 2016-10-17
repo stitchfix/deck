@@ -1,21 +1,23 @@
 'use strict';
 
+import {Observable, Subject} from 'rxjs';
+import modalWizardServiceModule from 'core/modal/wizard/v2modalWizard.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.google.serverGroup.configure.wizard.basicSettings.controller', [
   require('angular-ui-router'),
   require('angular-ui-bootstrap'),
-  require('../../../../../core/serverGroup/configure/common/basicSettingsMixin.controller.js'),
-  require('../../../../../core/modal/wizard/v2modalWizard.service.js'),
-  require('../../../../../core/utils/rx.js'),
-  require('../../../../../core/image/image.reader.js'),
-  require('../../../../../core/naming/naming.service.js'),
+  require('core/serverGroup/configure/common/basicSettingsMixin.controller.js'),
+  modalWizardServiceModule,
+  require('core/image/image.reader.js'),
+  require('core/naming/naming.service.js'),
   require('../../../../gceRegionSelectField.directive.js'),
   require('../../../../gceNetworkSelectField.directive.js'),
   require('../../../../subnet/subnetSelectField.directive.js'),
 ])
   .controller('gceServerGroupBasicSettingsCtrl', function($scope, $controller, $uibModalStack, $state,
-                                                          v2modalWizardService, rx, imageReader, namingService) {
+                                                          v2modalWizardService, imageReader, namingService) {
 
     function searchImages(q) {
       $scope.command.backingData.filtered.images = [
@@ -23,7 +25,7 @@ module.exports = angular.module('spinnaker.google.serverGroup.configure.wizard.b
           message: '<span class="glyphicon glyphicon-spinning glyphicon-asterisk"></span> Finding results matching "' + q + '"...'
         }
       ];
-      return rx.Observable.fromPromise(
+      return Observable.fromPromise(
         imageReader.findImages({
           provider: $scope.command.selectedProvider,
           q: q,
@@ -31,11 +33,11 @@ module.exports = angular.module('spinnaker.google.serverGroup.configure.wizard.b
       );
     }
 
-    var imageSearchResultsStream = new rx.Subject();
+    var imageSearchResultsStream = new Subject();
 
     imageSearchResultsStream
-      .throttle(250)
-      .flatMapLatest(searchImages)
+      .debounceTime(250)
+      .switchMap(searchImages)
       .subscribe(function (data) {
         $scope.command.backingData.filtered.images = data.map(function(image) {
           if (image.message && !image.imageName) {
@@ -50,7 +52,7 @@ module.exports = angular.module('spinnaker.google.serverGroup.configure.wizard.b
       });
 
     this.searchImages = function(q) {
-      imageSearchResultsStream.onNext(q);
+      imageSearchResultsStream.next(q);
     };
 
     this.enableAllImageSearch = () => {
@@ -95,14 +97,5 @@ module.exports = angular.module('spinnaker.google.serverGroup.configure.wizard.b
         return null;
       }
     };
-
-    $scope.$watch('form.$valid', function(newVal) {
-      if (newVal) {
-        v2modalWizardService.markClean('location');
-        v2modalWizardService.markComplete('location');
-      } else {
-        v2modalWizardService.markIncomplete('location');
-      }
-    });
 
   });

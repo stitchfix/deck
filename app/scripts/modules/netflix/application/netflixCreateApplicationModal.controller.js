@@ -1,19 +1,20 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.netflix.application.create.modal.controller', [
     require('angular-ui-router'),
-    require('../../core/application/service/applications.write.service.js'),
-    require('../../core/application/service/applications.read.service.js'),
-    require('../../core/utils/lodash.js'),
-    require('../../core/account/account.service.js'),
-    require('../../core/config/settings.js'),
+    require('core/application/service/applications.write.service.js'),
+    require('core/application/service/applications.read.service.js'),
+    require('core/account/account.service.js'),
+    require('core/config/settings.js'),
   ])
   .controller('netflixCreateApplicationModalCtrl', function($controller, $scope, $q, $log, $state, $uibModalInstance,
                                                             settings,
-                                                            accountService, applicationWriter, applicationReader, _) {
+                                                            accountService, applicationWriter, applicationReader) {
 
     angular.extend(this, $controller('CreateApplicationModalCtrl', {
       $scope: $scope,

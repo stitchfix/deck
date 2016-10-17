@@ -1,23 +1,28 @@
 'use strict';
 
+import modalWizardServiceModule from 'core/modal/wizard/v2modalWizard.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.openstack.serverGroup.configure.clone', [
   require('angular-ui-router'),
-  require('../../../../core/application/modal/platformHealthOverride.directive.js'),
-  require('../../../../core/serverGroup/serverGroup.write.service.js'),
-  require('../../../../core/modal/wizard/v2modalWizard.service.js'),
-  require('../../../../core/task/monitor/taskMonitorService.js'),
+  require('core/application/modal/platformHealthOverride.directive.js'),
+  require('core/serverGroup/serverGroup.write.service.js'),
+  modalWizardServiceModule,
+  require('core/task/monitor/taskMonitorService.js'),
   require('../serverGroupConfiguration.service.js'),
 ])
-  .controller('openstackCloneServerGroupCtrl', function($scope, $uibModalInstance, _, $q, $state,
+  .controller('openstackCloneServerGroupCtrl', function($scope, $uibModalInstance, $q, $state,
                                                                serverGroupWriter, v2modalWizardService, taskMonitorService,
                                                                openstackServerGroupConfigurationService,
                                                                serverGroupCommand, application, title) {
     $scope.pages = {
       templateSelection: require('./templateSelection.html'),
-      basicSettings: require('./basicSettings.html'),
-      loadBalancers: require('./loadBalancers.html'),
+      basicSettings: require('./location/basicSettings.html'),
+      instanceSettings: require('./instance/instanceSettings.html'),
+      clusterSettings: require('./clusterSettings.html'),
+      accessSettings: require('./access/accessSettings.html'),
+      advancedSettings: require('./advanced/advancedSettings.html')
     };
 
     $scope.title = title;
@@ -60,12 +65,12 @@ module.exports = angular.module('spinnaker.openstack.serverGroup.configure.clone
       var mode = serverGroupCommand.viewState.mode;
       if (mode === 'clone' || mode === 'editPipeline') {
         v2modalWizardService.markComplete('location');
-        v2modalWizardService.markComplete('load-balancers');
+        v2modalWizardService.markComplete('access-settings');
       }
     }
 
     this.isValid = function () {
-      return $scope.command && $scope.command.containers.length > 0 &&
+      return $scope.command &&
         $scope.command.account !== null &&
         v2modalWizardService.isComplete();
     };
@@ -74,7 +79,7 @@ module.exports = angular.module('spinnaker.openstack.serverGroup.configure.clone
       return v2modalWizardService.allPagesVisited();
     };
 
-    this.clone = function () {
+    this.submit = function () {
       if ($scope.command.viewState.mode === 'editPipeline' || $scope.command.viewState.mode == 'createPipeline') {
         return $uibModalInstance.close($scope.command);
       }

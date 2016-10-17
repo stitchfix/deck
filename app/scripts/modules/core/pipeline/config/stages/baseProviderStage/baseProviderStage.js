@@ -1,12 +1,17 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.pipeline.stage.baseProviderStage', [
-  require('../../../../utils/lodash.js'),
-  require('../../../../cloudProvider/providerSelection/providerSelector.directive.js'),
+  require('core/config/settings'),
+  require('core/cloudProvider/providerSelection/providerSelector.directive.js'),
 ])
-  .controller('BaseProviderStageCtrl', function($scope, stage, accountService, pipelineConfig, _) {
+  .controller('BaseProviderStageCtrl', function($scope, stage, accountService, pipelineConfig, settings) {
+
+    // Docker Bake is wedged in here because it doesn't really fit our existing cloud provider paradigm
+    let dockerBakeEnabled = _.get(settings, 'feature.dockerBake') && stage.type === 'bake';
 
     $scope.stage = stage;
 
@@ -15,9 +20,16 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.baseProviderStage
 
     var stageProviders = pipelineConfig.getProvidersFor(stage.type);
 
+    if (dockerBakeEnabled) {
+      stageProviders.push({cloudProvider: 'docker'});
+    }
+
     accountService.listProviders($scope.application).then(function (providers) {
       $scope.viewState.loading = false;
-      var availableProviders = _.intersection(providers, _.pluck(stageProviders, 'cloudProvider'));
+      var availableProviders = _.intersection(providers, _.map(stageProviders, 'cloudProvider'));
+      if (dockerBakeEnabled) {
+        availableProviders.push('docker');
+      }
       if (availableProviders.length === 1) {
         $scope.stage.cloudProviderType = availableProviders[0];
       } else {

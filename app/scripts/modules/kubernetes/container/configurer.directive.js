@@ -17,6 +17,7 @@ module.exports = angular.module('spinnaker.kubernetes.container.configurer.direc
   .controller('kubernetesContainerConfigurerController', function($scope) {
     this.cpuPattern = /^\d+(m)?$/;
     this.memoryPattern = /^\d+(Mi|Gi)?$/;
+    this.pullPolicies = ['IFNOTPRESENT', 'ALWAYS', 'NEVER'];
 
     this.removePort = function(index) {
       $scope.container.ports.splice(index, 1);
@@ -32,14 +33,6 @@ module.exports = angular.module('spinnaker.kubernetes.container.configurer.direc
 
     this.addMount = function() {
       $scope.container.volumeMounts.push({ name: '', readOnly: false, mountPath: '/', });
-    };
-
-    this.removeEnvVar = function(index) {
-      $scope.container.envVars.splice(index, 1);
-    };
-
-    this.addEnvVar = function() {
-      $scope.container.envVars.push({ name: '', value: '', });
     };
 
     this.removeCommand = function(index) {

@@ -1,22 +1,24 @@
 'use strict';
 
+import modalWizardServiceModule from 'core/modal/wizard/v2modalWizard.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.loadBalancer.kubernetes.create.controller', [
   require('angular-ui-router'),
-  require('../../../../core/loadBalancer/loadBalancer.write.service.js'),
-  require('../../../../core/loadBalancer/loadBalancer.read.service.js'),
-  require('../../../../core/account/account.service.js'),
-  require('../../../../core/modal/wizard/v2modalWizard.service.js'),
-  require('../../../../core/task/monitor/taskMonitorService.js'),
-  require('../../../../core/search/search.service.js'),
+  require('core/loadBalancer/loadBalancer.write.service.js'),
+  require('core/loadBalancer/loadBalancer.read.service.js'),
+  require('core/account/account.service.js'),
+  modalWizardServiceModule,
+  require('core/task/monitor/taskMonitorService.js'),
+  require('core/search/search.service.js'),
   require('../../../namespace/selectField.directive.js'),
   require('../../transformer.js'),
 ])
   .controller('kubernetesUpsertLoadBalancerController', function($scope, $uibModalInstance, $state,
                                                                  application, loadBalancer, isNew, loadBalancerReader,
                                                                  accountService, kubernetesLoadBalancerTransformer,
-                                                                 _, searchService, v2modalWizardService, loadBalancerWriter, taskMonitorService) {
+                                                                 searchService, v2modalWizardService, loadBalancerWriter, taskMonitorService) {
     var ctrl = this;
     $scope.isNew = isNew;
 
@@ -73,8 +75,8 @@ module.exports = angular.module('spinnaker.loadBalancer.kubernetes.create.contro
         $scope.accounts = accounts;
         $scope.state.accountsLoaded = true;
 
-        var accountNames = _.pluck($scope.accounts, 'name');
-        if (accountNames.length && accountNames.indexOf($scope.loadBalancer.account) === -1) {
+        var accountNames = _.map($scope.accounts, 'name');
+        if (accountNames.length && !accountNames.includes($scope.loadBalancer.account)) {
           $scope.loadBalancer.account = accountNames[0];
         }
 
@@ -103,11 +105,13 @@ module.exports = angular.module('spinnaker.loadBalancer.kubernetes.create.contro
 
     function updateLoadBalancerNames() {
       var account = $scope.loadBalancer.account;
+      var namespace = $scope.loadBalancer.namespace;
 
-      if (allLoadBalancerNames[account]) {
-        $scope.existingLoadBalancerNames = _.flatten(_.map(allLoadBalancerNames[account]));
-      } else {
-        $scope.existingLoadBalancerNames = [];
+      $scope.existingLoadBalancerNames = [];
+      if (account && namespace &&
+          allLoadBalancerNames[account] &&
+          allLoadBalancerNames[account][namespace]) {
+        $scope.existingLoadBalancerNames = allLoadBalancerNames[account][namespace];
       }
     }
 
@@ -130,7 +134,7 @@ module.exports = angular.module('spinnaker.loadBalancer.kubernetes.create.contro
     this.getName = function() {
       var loadBalancer = $scope.loadBalancer;
       var loadBalancerName = [application.name, (loadBalancer.stack || ''), (loadBalancer.detail || '')].join('-');
-      return _.trimRight(loadBalancerName, '-');
+      return _.trimEnd(loadBalancerName, '-');
     };
 
     this.accountUpdated = function() {

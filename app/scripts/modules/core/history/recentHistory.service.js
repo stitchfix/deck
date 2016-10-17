@@ -1,13 +1,14 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.history.service', [
   require('../cache/deckCacheFactory.js'),
-  require('../utils/lodash.js'),
   require('../utils/uuid.service.js'),
 ])
-  .factory('recentHistoryService', function (_, deckCacheFactory, uuidService) {
+  .factory('recentHistoryService', function (deckCacheFactory, uuidService) {
     const maxItems = 5;
 
     deckCacheFactory.createCache('history', 'user', {
@@ -75,8 +76,26 @@ module.exports = angular.module('spinnaker.core.history.service', [
     }
 
     function getItems(type) {
-      var items = cache.get(type);
-      return items ? _.sortBy(items, 'accessTime').reverse() : [];
+      // Note: "application.executions" and "application.pipelineConfig" can be removed after 10/31/16
+      let replacements = [
+        {
+          state: 'application.executions',
+          replacement: 'application.pipelines.executions'
+        },
+        {
+          state: 'application.pipelineConfig',
+          replacement: 'application.pipelines.pipelineConfig'
+        },
+      ];
+      var items = cache.get(type) || [];
+      items.forEach(item => {
+        replacements.forEach(replacement => {
+          if (item.state && item.state.includes(replacement.state)) {
+            item.state = item.state.replace(replacement.state, replacement.replacement);
+          }
+        });
+      });
+      return _.sortBy(items, 'accessTime').reverse();
     }
 
     /**

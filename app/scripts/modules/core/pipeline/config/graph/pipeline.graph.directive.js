@@ -1,16 +1,17 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 require('./pipelineGraph.less');
 
 module.exports = angular.module('spinnaker.core.pipeline.config.graph.directive', [
-  require('../../../utils/d3.js'),
-  require('../../../utils/lodash.js'),
-  require('../../../utils/jQuery.js'),
+  require('core/utils/d3.js'),
+  require('core/utils/jQuery.js'),
   require('./pipelineGraph.service.js'),
 ])
-  .directive('pipelineGraph', function ($window, d3Service, _, $, pipelineGraphService) {
+  .directive('pipelineGraph', function ($window, d3Service, $, pipelineGraphService) {
     return {
       restrict: 'E',
       scope: {
@@ -21,6 +22,14 @@ module.exports = angular.module('spinnaker.core.pipeline.config.graph.directive'
       },
       templateUrl: require('./pipelineGraph.directive.html'),
       link: function (scope, elem) {
+
+        // track and save the graph scroll position for executions so it doesn't get reset to
+        // zero every second due to repaint.
+        elem.on('mousewheel', function() {
+          if(scope.execution) {
+            pipelineGraphService.xScrollOffset[scope.execution.id] = elem.scrollLeft();
+          }
+        });
 
         var minLabelWidth = 100;
 
@@ -145,7 +154,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.graph.directive'
           if (!allPhasesResolved) {
             applyPhasesAndLink(nodes);
           } else {
-            scope.phaseCount = _.max(nodes, 'phase').phase;
+            scope.phaseCount = _.maxBy(nodes, 'phase').phase;
             if (scope.phaseCount > 6) {
               scope.nodeRadius = 6;
               scope.labelOffsetX = scope.nodeRadius + 3;
@@ -165,11 +174,11 @@ module.exports = angular.module('spinnaker.core.pipeline.config.graph.directive'
 
             // Collision minimization "Algorithm"
             _.forOwn(grouped, function(group, phase) {
-              var sortedPhase = _.sortByAll(group,
+              var sortedPhase = _.sortBy(group,
                 // farthest, highest parent, e.g. phase 1 always before phase 2, row 1 always before row 2
                 function(node) {
                   if (node.parents.length) {
-                    var parents = _.sortByAll(node.parents,
+                    var parents = _.sortBy(node.parents,
                       function(parent) {
                         return 1 - parent.phase;
                       },
@@ -200,7 +209,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.graph.directive'
                 },
                 // same number of children, so sort by number of grandchildren (more first)
                 function(node) {
-                  return 1 - _.sum(node.children, function(child) { return child.children.length; });
+                  return 1 - _.sumBy(node.children, function(child) { return child.children.length; });
                 },
                 // great, same number of grandchildren, how about by nearest children, alphabetically by name, why not
                 function(node) {
@@ -238,6 +247,13 @@ module.exports = angular.module('spinnaker.core.pipeline.config.graph.directive'
             scope.graphWidth = '100%';
             scope.graphClass = '';
           }
+
+          // get the saved horizontal scroll position for executions
+          if(scope.execution) {
+            let offsetForId = pipelineGraphService.xScrollOffset[scope.execution.id] || 0;
+            elem.scrollLeft(offsetForId);
+          }
+
         }
 
         function applyNodeHeights() {
@@ -249,7 +265,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.graph.directive'
               placeholderNode.html('<a href>' + node.name + '</a>');
               node.height = placeholderNode.height() + scope.rowPadding;
             });
-            scope.graphHeight = Math.max(_.sum(nodes, 'height'), scope.graphHeight);
+            scope.graphHeight = Math.max(_.sumBy(nodes, 'height'), scope.graphHeight);
           });
           placeholderNode.empty();
           scope.graphHeight += 3 * scope.graphVerticalPadding;
@@ -321,7 +337,6 @@ module.exports = angular.module('spinnaker.core.pipeline.config.graph.directive'
           setNodePositions();
           createLinks();
           applyAllNodes();
-
         }
 
         var handleWindowResize = _.throttle(function() {
@@ -332,6 +347,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.graph.directive'
 
         scope.$watch('pipeline', updateGraph, true);
         scope.$watch('viewState', updateGraph, true);
+        scope.$watch('execution', updateGraph, true);
         $($window).bind('resize.pipelineGraph-' + graphId, handleWindowResize);
 
         scope.$on('$destroy', function() {

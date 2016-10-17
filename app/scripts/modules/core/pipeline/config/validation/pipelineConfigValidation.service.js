@@ -1,14 +1,52 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.pipeline.config.validator.service', [
   require('../pipelineConfigProvider.js'),
   require('../services/pipelineConfigService.js'),
-  require('../../../naming/naming.service.js'),
-  require('../../../utils/lodash.js'),
+  require('core/naming/naming.service.js'),
 ])
-  .factory('pipelineConfigValidator', function($log, _, pipelineConfig, pipelineConfigService, namingService) {
+  .factory('pipelineConfigValidator', function($log, pipelineConfig, pipelineConfigService, namingService, $q) {
+
+    // Stores application pipeline configs so we don't needlessly fetch them every time we validate the pipeline
+    let pipelineCache = new Map();
+
+    let clearCache = () => {
+      pipelineCache.clear();
+    };
+
+    let addTriggers = (pipelines, pipelineIdToFind, stagesToTest) => {
+      let [match] = pipelines.filter(p => p.id === pipelineIdToFind);
+      if (match) {
+        stagesToTest.push(...match.triggers);
+      }
+    };
+
+    function addExternalTriggers(trigger, stagesToTest, deferred) {
+      pipelineConfigService.getPipelinesForApplication(trigger.application).then(pipelines => {
+        pipelineCache.set(trigger.application, pipelines);
+        addTriggers(pipelines, trigger.pipeline, stagesToTest);
+        deferred.resolve();
+      });
+    }
+
+    function addPipelineTriggers(pipeline, stagesToTest) {
+      let pipelineTriggers = pipeline.triggers.filter(t => t.type === 'pipeline');
+      let parentTriggersToCheck = [];
+      pipelineTriggers.forEach(trigger => {
+        let deferred = $q.defer();
+        if (pipelineCache.has(trigger.application)) {
+          addTriggers(pipelineCache.get(trigger.application), trigger.pipeline, stagesToTest);
+        } else {
+          addExternalTriggers(trigger, stagesToTest, deferred);
+          parentTriggersToCheck.push(deferred.promise);
+        }
+      });
+      return parentTriggersToCheck;
+    }
 
     var validators = {
       stageOrTriggerBeforeType: function(pipeline, index, validationConfig, messages) {
@@ -19,9 +57,12 @@ module.exports = angular.module('spinnaker.core.pipeline.config.validator.servic
         }
         stagesToTest = stagesToTest.concat(pipeline.triggers);
 
-        if (stagesToTest.every((stage) => stageTypes.indexOf(stage.type) === -1)) {
-          messages.push(validationConfig.message);
-        }
+        var parentTriggersToCheck = validationConfig.checkParentTriggers ? addPipelineTriggers(pipeline, stagesToTest) : [];
+        return $q.all(parentTriggersToCheck).then(() => {
+          if (stagesToTest.every((stage) => !stageTypes.includes(stage.type))) {
+            messages.push(validationConfig.message);
+          }
+        });
       },
       stageBeforeType: function(pipeline, index, validationConfig, messages) {
         if (pipeline.strategy === true && pipeline.stages[index].type === 'deploy') {
@@ -33,12 +74,12 @@ module.exports = angular.module('spinnaker.core.pipeline.config.validator.servic
         if (pipeline.parallel) {
           stagesToTest = pipelineConfigService.getAllUpstreamDependencies(pipeline, pipeline.stages[index]);
         }
-        if (stagesToTest.every((stage) => stageTypes.indexOf(stage.type) === -1)) {
+        if (stagesToTest.every((stage) => !stageTypes.includes(stage.type))) {
           messages.push(validationConfig.message);
         }
       },
       checkRequiredField: function(pipeline, stage, validationConfig, config, messages) {
-       if (pipeline.strategy === true && ['cluster', 'regions', 'zones', 'credentials'].indexOf(validationConfig.fieldName) > -1) {
+        if (pipeline.strategy === true && ['cluster', 'regions', 'zones', 'credentials'].includes(validationConfig.fieldName)) {
           return;
         }
 
@@ -86,6 +127,8 @@ module.exports = angular.module('spinnaker.core.pipeline.config.validator.servic
                   regionFound = true;
                 }
               });
+            } else if (toTest.type === 'cloneServerGroup' && toTest.targetCluster === stage.cluster && toTest.region === region) {
+              regionFound = true;
             }
           });
           if (!regionFound) {
@@ -101,7 +144,9 @@ module.exports = angular.module('spinnaker.core.pipeline.config.validator.servic
     function validatePipeline(pipeline) {
       var stages = pipeline.stages || [],
           triggers = pipeline.triggers || [],
-          messages = [];
+          parameters = pipeline.parameterConfig || [],
+          messages = [],
+          asyncValidations = [];
 
       triggers.forEach(function(trigger, index) {
         let config = pipelineConfig.getTriggerConfig(trigger.type);
@@ -126,7 +171,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.validator.servic
             }
             switch(validator.type) {
               case 'stageOrTriggerBeforeType':
-                validators.stageOrTriggerBeforeType(pipeline, index, validator, messages);
+                asyncValidations.push(validators.stageOrTriggerBeforeType(pipeline, index, validator, messages));
                 break;
               case 'stageBeforeType':
                 validators.stageBeforeType(pipeline, index, validator, messages);
@@ -146,10 +191,22 @@ module.exports = angular.module('spinnaker.core.pipeline.config.validator.servic
           });
         }
       });
-      return _.uniq(messages);
+      parameters.forEach(function (parameter) {
+        var validationConfig = {
+          type: 'requiredField',
+          fieldName: 'name',
+          message: '<b>Name</b> is a required field for parameters.',
+        };
+
+        validators.checkRequiredField(pipeline, parameter, validationConfig, {}, messages);
+      });
+      return $q.all(asyncValidations).then(() => {
+        return _.uniq(messages);
+      });
     }
 
     return {
       validatePipeline: validatePipeline,
+      clearCache: clearCache,
     };
   });

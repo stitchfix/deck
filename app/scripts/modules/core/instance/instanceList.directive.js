@@ -39,12 +39,12 @@ module.exports = angular.module('spinnaker.core.instance.instanceList.directive'
         scope.showProviderHealth = !scope.hasDiscovery && !scope.hasLoadBalancers;
 
         scope.columnWidth = {
-          id: 14,
+          id: 20,
           launchTime: 23,
-          zone: 13,
+          zone: 12,
           discovery: 16,
-          loadBalancers: 34,
-          cloudProvider: 34,
+          loadBalancers: 31,
+          cloudProvider: 31,
         };
 
         if (!scope.hasDiscovery) {
@@ -59,7 +59,7 @@ module.exports = angular.module('spinnaker.core.instance.instanceList.directive'
         let multiselectWatcher = MultiselectModel.instancesStream.subscribe(setInstanceGroup);
 
         scope.$on('$destroy', () => {
-          multiselectWatcher.dispose();
+          multiselectWatcher.unsubscribe();
         });
       }
     };

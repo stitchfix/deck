@@ -4,16 +4,16 @@ let angular = require('angular');
 
 module.exports = angular.module('spinnaker.gce.securityGroup.create.controller', [
   require('angular-ui-router'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/cache/infrastructureCaches.js'),
-  require('../../../core/cache/cacheInitializer.js'),
-  require('../../../core/task/monitor/taskMonitorService.js'),
-  require('../../../core/securityGroup/securityGroup.read.service.js'),
+  require('core/account/account.service.js'),
+  require('core/cache/infrastructureCaches.js'),
+  require('core/cache/cacheInitializer.js'),
+  require('core/task/monitor/taskMonitorService.js'),
+  require('core/securityGroup/securityGroup.read.service.js'),
 ])
   .controller('gceCreateSecurityGroupCtrl', function($scope, $uibModalInstance, $state, $controller,
                                                   accountService, securityGroupReader,
                                                   taskMonitorService, cacheInitializer, infrastructureCaches,
-                                                  _, application, securityGroup ) {
+                                                  application, securityGroup ) {
 
     $scope.pages = {
       location: require('./createSecurityGroupProperties.html'),

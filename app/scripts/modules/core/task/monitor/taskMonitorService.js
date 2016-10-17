@@ -1,13 +1,14 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.tasks.monitor.service', [
-  require('../../utils/lodash.js'),
   require('./taskMonitor.directive.js'),
   require('../task.read.service.js'),
 ])
-  .factory('taskMonitorService', function($log, _, taskReader, $timeout) {
+  .factory('taskMonitorService', function($log, taskReader, $timeout) {
 
     function buildTaskMonitor(params) {
       var monitor = {
@@ -61,6 +62,9 @@ module.exports = angular.module('spinnaker.tasks.monitor.service', [
       monitor.handleTaskSuccess = function (task) {
         let applicationName = monitor.application ? monitor.application.name : 'ad-hoc';
         monitor.task = task;
+        if (_.has(monitor, 'application.runningOrchestrations.refresh')) {
+          monitor.application.runningOrchestrations.refresh();
+        }
         taskReader.waitUntilTaskCompletes(applicationName, task, monitor.monitorInterval)
           .then(monitor.onTaskComplete, monitor.setError);
       };

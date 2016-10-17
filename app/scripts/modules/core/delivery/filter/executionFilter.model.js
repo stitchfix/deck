@@ -6,7 +6,7 @@ module.exports = angular
   .module('spinnaker.core.delivery.filter.executionFilter.model', [
     require('../../filterModel/filter.model.service.js'),
     require('../../navigation/urlParser.service.js'),
-    require('../../cache/viewStateCache.js')
+    require('core/cache/viewStateCache.js')
   ])
   .factory('ExecutionFilterModel', function($rootScope, filterModelService, urlParser, viewStateCache) {
 
@@ -75,8 +75,8 @@ module.exports = angular
     });
 
     function isExecutionState(stateName) {
-      return stateName === 'home.applications.application.executions' ||
-        stateName === 'home.project.application.executions';
+      return stateName === 'home.applications.application.pipelines.executions' ||
+        stateName === 'home.project.application.pipelines.executions';
     }
 
     function isExecutionStateOrChild(stateName) {
@@ -84,7 +84,7 @@ module.exports = angular
     }
 
     function isChildState(stateName) {
-      return stateName.indexOf('executions.execution') > -1;
+      return stateName.includes('executions.execution');
     }
 
     function movingToExecutionsState(toState) {

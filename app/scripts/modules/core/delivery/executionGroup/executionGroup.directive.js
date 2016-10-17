@@ -9,6 +9,7 @@ module.exports = angular
     require('../filter/executionFilter.service.js'),
     require('../filter/executionFilter.model.js'),
     require('../triggers/triggersTag.directive.js'),
+    require('../triggers/nextRun.component'),
     require('./execution/execution.directive.js'),
   ])
   .directive('executionGroup', function() {
@@ -24,7 +25,7 @@ module.exports = angular
       controllerAs: 'vm',
     };
   })
-  .controller('executionGroupCtrl', function($scope, $timeout, _, $state, settings, $stateParams, $uibModal, executionService, collapsibleSectionStateCache,
+  .controller('executionGroupCtrl', function($scope, $timeout, $state, settings, $stateParams, $uibModal, executionService, collapsibleSectionStateCache,
                                                ExecutionFilterModel, pipelineConfigService) {
     this.showDetails = function(executionId) {
       return executionId === $stateParams.executionId &&
@@ -36,7 +37,7 @@ module.exports = angular
       .some(this.showDetails);
 
     this.configure = (id) => {
-      if ($state.current.name.indexOf('.executions.execution') === -1) {
+      if (!$state.current.name.includes('.executions.execution')) {
         $state.go('^.pipelineConfig', { pipelineId: id });
       } else {
         $state.go('^.^.pipelineConfig', { pipelineId: id });
@@ -58,7 +59,6 @@ module.exports = angular
       poll: null,
       canTriggerPipelineManually: this.pipelineConfig,
       canConfigure: this.pipelineConfig,
-      isRetired: ExecutionFilterModel.sortFilter.groupBy === 'name' && !this.pipelineConfig,
       showPipelineName: ExecutionFilterModel.sortFilter.groupBy !== 'name',
     };
 

@@ -5,19 +5,17 @@ var angular = require('angular');
 module.exports = angular
   .module('spinnaker.azure.securityGroup.create.controller', [
     require('angular-ui-router'),
-    require('../../../core/task/monitor/taskMonitorService.js'),
+    require('core/task/monitor/taskMonitorService.js'),
     require('../securityGroup.write.service.js'),
-    require('../../../core/region/regionSelectField.directive.js'),
-    require('../../../core/account/account.service.js'),
-    require('../../../core/utils/lodash.js'),
-    require('../../../core/securityGroup/securityGroup.read.service.js'),
-    require('../../../core/cache/infrastructureCaches.js'),
-    require('../../../core/cache/cacheInitializer.js'),
+    require('core/region/regionSelectField.directive.js'),
+    require('core/account/account.service.js'),
+    require('core/securityGroup/securityGroup.read.service.js'),
+    require('core/cache/infrastructureCaches.js'),
+    require('core/cache/cacheInitializer.js'),
   ])
 
   .controller('azureCreateSecurityGroupCtrl', function ($scope, $uibModalInstance, $state, $controller, accountService, securityGroupReader,
-    taskMonitorService, cacheInitializer, infrastructureCaches, application, securityGroup, azureSecurityGroupWriter
-    ) {
+    taskMonitorService, cacheInitializer, infrastructureCaches, application, securityGroup, azureSecurityGroupWriter) {
 
     $scope.pages = {
       location: require('./createSecurityGroupProperties.html'),

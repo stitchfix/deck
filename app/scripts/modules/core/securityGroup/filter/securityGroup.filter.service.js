@@ -1,16 +1,16 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular
   .module('securityGroup.filter.service', [
     require('./securityGroup.filter.model.js'),
-    require('../../utils/lodash.js'),
     require('../../utils/waypoints/waypoint.service.js'),
     require('../../filterModel/filter.model.service.js'),
   ])
-  .factory('securityGroupFilterService', function (SecurityGroupFilterModel, _, waypointService, filterModelService,
-                                                  $log) {
+  .factory('securityGroupFilterService', function (SecurityGroupFilterModel, waypointService, filterModelService) {
 
     var lastApplication = null;
 
@@ -21,8 +21,8 @@ module.exports = angular
           securityGroup.id,
           securityGroup.accountName,
           securityGroup.region,
-          _.pluck(securityGroup.usages.serverGroups, 'name').join(' '),
-          _.pluck(securityGroup.usages.loadBalancers, 'name').join(' ')
+          _.map(securityGroup.usages.serverGroups, 'name').join(' '),
+          _.map(securityGroup.usages.loadBalancers, 'name').join(' ')
         ].join(' ');
       }
     }
@@ -33,14 +33,14 @@ module.exports = angular
         return true;
       }
 
-      if(filter.indexOf('vpc:') !== -1) {
+      if (filter.includes('vpc:')) {
         let [, vpcName] = /vpc:([\w-]*)/.exec(filter);
         return securityGroup.vpcName.toLowerCase() === vpcName.toLowerCase();
       }
 
       addSearchFields(securityGroup);
       return filter.split(' ').every(function(testWord) {
-        return securityGroup.searchField.indexOf(testWord) !== -1;
+        return securityGroup.searchField.includes(testWord);
       });
     }
 
@@ -80,15 +80,18 @@ module.exports = angular
         _.forOwn(subGroupings, function(subGroup, subKey) {
           var subSubGroups = [];
           subGroup.forEach(function(securityGroup) {
+            let heading = securityGroup.vpcName ?
+              `${securityGroup.region} (${securityGroup.vpcName})` :
+              securityGroup.region;
             subSubGroups.push({
-              heading: securityGroup.region,
+              heading: heading,
               vpcName: securityGroup.vpcName,
               securityGroup: securityGroup,
             });
           });
           subGroups.push( {
             heading: subKey,
-            subgroups: _.sortBy(subSubGroups, 'heading'),
+            subgroups: _.sortBy(subSubGroups, ['heading', 'vpcName']),
           });
         });
 
@@ -114,9 +117,6 @@ module.exports = angular
           if (newGroup.securityGroup) {
             oldGroup.securityGroup = newGroup.securityGroup;
           }
-          if (newGroup.serverGroups) {
-            diffServerGroups(oldGroup, newGroup);
-          }
           if (newGroup.subgroups) {
             diffSubgroups(oldGroup.subgroups, newGroup.subgroups);
           }
@@ -129,27 +129,6 @@ module.exports = angular
         var match = _.find(oldGroups, { heading: newGroup.heading });
         if (!match) {
           oldGroups.push(newGroup);
-        }
-      });
-    }
-
-    function diffServerGroups(oldGroup, newGroup) {
-      var toRemove = [];
-      oldGroup.serverGroups.forEach(function(serverGroup, idx) {
-        var newServerGroup = _.find(newGroup.serverGroups, { name: serverGroup.name, account: serverGroup.account, region: serverGroup.region });
-        if (!newServerGroup) {
-          $log.debug('server group no longer found, removing:', serverGroup.name, serverGroup.account, serverGroup.region);
-          toRemove.push(idx);
-        }
-      });
-      toRemove.reverse().forEach(function(idx) {
-        oldGroup.serverGroups.splice(idx, 1);
-      });
-      newGroup.serverGroups.forEach(function(serverGroup) {
-        var oldServerGroup = _.find(oldGroup.serverGroups, { name: serverGroup.name, account: serverGroup.account, region: serverGroup.region });
-        if (!oldServerGroup) {
-          $log.debug('new server group found, adding', serverGroup.name, serverGroup.account, serverGroup.region);
-          oldGroup.serverGroups.push(serverGroup);
         }
       });
     }

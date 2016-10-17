@@ -6,10 +6,8 @@ module.exports = angular
   .module('cluster.filter.model', [
     require('../../filterModel/filter.model.service.js'),
     require('../../navigation/urlParser.service.js'),
-    require('../../utils/rx.js'),
-    require('../../utils/lodash'),
   ])
-  .factory('ClusterFilterModel', function($rootScope, filterModelService, urlParser, $state, rx, _) {
+  .factory('ClusterFilterModel', function($rootScope, filterModelService, urlParser) {
 
     var filterModel = this;
     var mostRecentParams = null;
@@ -34,24 +32,6 @@ module.exports = angular
 
     filterModelService.configureFilterModel(this, filterModelConfig);
 
-    this.getSelectedRegions = () => Object.keys(this.sortFilter.region || {}).filter((key) => this.sortFilter.region[key]);
-    this.getSelectedAvailabilityZones = () => Object.keys(this.sortFilter.availabilityZone || {}).filter((key) => this.sortFilter.availabilityZone[key]);
-
-    this.removeCheckedAvailabilityZoneIfRegionIsNotChecked = () => {
-      this.getSelectedAvailabilityZones()
-        .filter( (az) => { //select the az that need don't match a region and need to be 'unchecked'
-          let regions = this.getSelectedRegions();
-          return regions.length && !_.any(regions, (region) => _.includes(az, region));
-        })
-        .forEach( (azKey) => {
-          delete this.sortFilter.availabilityZone[azKey];
-        });
-    };
-
-    this.reconcileDependentFilters = () => {
-      this.removeCheckedAvailabilityZoneIfRegionIsNotChecked();
-    };
-
     function isClusterState(stateName) {
       return stateName === 'home.applications.application.insight.clusters' ||
         stateName === 'home.project.application.insight.clusters';
@@ -62,7 +42,7 @@ module.exports = angular
     }
 
     function isChildState(stateName) {
-      return stateName.indexOf('clusters.') > -1;
+      return stateName.includes('clusters.');
     }
 
     function movingToClusterState(toState) {

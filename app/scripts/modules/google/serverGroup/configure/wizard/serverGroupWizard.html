@@ -6,11 +6,11 @@
     <h3 us-spinner="{radius:30, width:8, length: 16}"></h3>
   </div>
   <div ng-if="!state.requiresTemplateSelection">
-    <v2-modal-wizard ng-show="state.loaded" heading="{{title}}">
+    <v2-modal-wizard ng-show="state.loaded" heading="{{title}}" task-monitor="taskMonitor" dismiss="$dismiss()">
       <v2-wizard-page key="location" label="Basic Settings" mark-complete-on-view="false">
         <ng-include src="pages.basicSettings"></ng-include>
       </v2-wizard-page>
-      <v2-wizard-page key="load-balancers" label="Load Balancers" done="true">
+      <v2-wizard-page key="load-balancers" label="Load Balancers" mark-complete-on-view="false">
         <ng-include src="pages.loadBalancers"></ng-include>
       </v2-wizard-page>
       <v2-wizard-page key="security-groups" label="Security Groups" done="true">
@@ -19,10 +19,10 @@
       <v2-wizard-page key="instance-type" label="Instance Type" mark-complete-on-view="false">
         <ng-include src="pages.instanceType"></ng-include>
       </v2-wizard-page>
-      <v2-wizard-page key="capacity" label="Capacity" done="true">
+      <v2-wizard-page key="capacity" label="Capacity" mark-complete-on-view="false">
         <ng-include src="pages.capacity"></ng-include>
       </v2-wizard-page>
-      <v2-wizard-page key="zones" label="Zones" mark-complete-on-view="false">
+      <v2-wizard-page key="zones" label="Zones" mark-complete-on-view="false" done="true">
         <ng-include src="pages.zones"></ng-include>
       </v2-wizard-page>
       <v2-wizard-page key="advanced" label="Advanced Settings" mandatory="false" done="true">

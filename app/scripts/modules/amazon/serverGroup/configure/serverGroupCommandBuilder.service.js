@@ -1,19 +1,19 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service', [
-  require('exports?"restangular"!imports?_=lodash!restangular'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/subnet/subnet.read.service.js'),
-  require('../../../core/instance/instanceTypeService.js'),
-  require('../../../core/naming/naming.service.js'),
+  require('core/account/account.service.js'),
+  require('core/subnet/subnet.read.service.js'),
+  require('core/instance/instanceTypeService.js'),
+  require('core/naming/naming.service.js'),
   require('./serverGroupConfiguration.service.js'),
-  require('../../../core/utils/lodash.js'),
 ])
-  .factory('awsServerGroupCommandBuilder', function (settings, Restangular, $q,
+  .factory('awsServerGroupCommandBuilder', function (settings, $q,
                                                      accountService, subnetReader, namingService, instanceTypeService,
-                                                     awsServerGroupConfigurationService, _) {
+                                                     awsServerGroupConfigurationService) {
 
     function buildNewServerGroupCommand (application, defaults) {
       defaults = defaults || {};
@@ -35,6 +35,9 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
           var keyPair = credentials ? credentials.defaultKeyPair : null;
           var applicationAwsSettings = _.get(application, 'attributes.providerSettings.aws', {});
 
+          var defaultIamRole = settings.providers.aws.defaults.iamRole || 'BaseIAMRole';
+          defaultIamRole = defaultIamRole.replace('{{application}}', application.name);
+
           var command = {
             application: application.name,
             credentials: defaultCredentials,
@@ -52,7 +55,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
             instanceMonitoring: false,
             ebsOptimized: false,
             selectedProvider: 'aws',
-            iamRole: 'BaseIAMRole', // TODO: should not be hard coded here
+            iamRole: defaultIamRole,
             terminationPolicies: ['Default'],
             vpcId: null,
             availabilityZones: availabilityZones,
@@ -72,7 +75,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
             },
           };
 
-          if (application && application.attributes && application.attributes.platformHealthOnly) {
+          if (application.attributes && application.attributes.platformHealthOnlyShowOverride && application.attributes.platformHealthOnly) {
             command.interestingHealthProviderNames = ['Amazon'];
           }
 
@@ -200,7 +203,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
           },
           suspendedProcesses: (serverGroup.asg.suspendedProcesses || [])
             .map((process) => process.processName)
-            .filter((name) => enabledProcesses.indexOf(name) < 0),
+            .filter((name) => !enabledProcesses.includes(name)),
           tags: serverGroup.tags || {},
           useAmiBlockDeviceMappings: applicationAwsSettings.useAmiBlockDeviceMappings || false,
           viewState: {
@@ -214,11 +217,11 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
           },
         };
 
-        if (application && application.attributes && application.attributes.platformHealthOnly) {
+        if (application.attributes && application.attributes.platformHealthOnlyShowOverride && application.attributes.platformHealthOnly) {
           command.interestingHealthProviderNames = ['Amazon'];
         }
 
-        if (mode === 'clone') {
+        if (mode === 'clone' || mode === 'editPipeline') {
           command.useSourceCapacity = true;
           command.viewState.useSimpleCapacity = false;
         }
@@ -231,7 +234,7 @@ module.exports = angular.module('spinnaker.aws.serverGroupCommandBuilder.service
         var vpcZoneIdentifier = serverGroup.asg.vpczoneIdentifier;
         if (vpcZoneIdentifier !== '') {
           var subnetId = vpcZoneIdentifier.split(',')[0];
-          var subnet = _(asyncData.subnets).find({'id': subnetId});
+          var subnet = _.chain(asyncData.subnets).find({'id': subnetId}).value();
           command.subnetType = subnet.purpose;
           command.vpcId = subnet.vpcId;
         } else {

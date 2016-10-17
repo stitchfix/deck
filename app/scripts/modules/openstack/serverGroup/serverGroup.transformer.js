@@ -1,41 +1,46 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular
-  .module('spinnaker.openstack.serverGroup.transformer', [
-    require('../../core/utils/lodash.js'),
-  ])
-  .factory('openstackServerGroupTransformer', function ($q, _) {
+  .module('spinnaker.openstack.serverGroup.transformer', [])
+  .factory('openstackServerGroupTransformer', function ($q) {
 
     function normalizeServerGroup(serverGroup) {
+      if( serverGroup.loadBalancers ) {
+        serverGroup.loadBalancerIds = _.map(serverGroup.loadBalancers, function(lb) {
+          return /^openstack:/.test(lb) ? lb.split(':')[4] : lb;
+        });
+        serverGroup.loadBalancers = _.map(serverGroup.loadBalancers, function(lb) {
+          return /^openstack:/.test(lb) ? lb.split(':')[5] : lb;
+        });
+      }
+
       return $q.when(serverGroup); // no-op
     }
 
     function convertServerGroupCommandToDeployConfiguration(base) {
-      // use _.defaults to avoid copying the backingData, which is huge and expensive to copy over
-      var command = _.defaults({backingData: [], viewState: []}, base);
-      if (base.viewState.mode !== 'clone') {
-        delete command.source;
+      //avoid copying the backingData or viewState, which are expensive to copy over
+      var params = _.omit(base, 'backingData', 'viewState', 'selectedProvider', 'credentials',
+        'stack', 'region', 'account', 'cloudProvider', 'application', 'type', 'freeFormDetails', 'userDataType', 'userData');
+      var command = {
+        type: base.type,
+        application: base.application,
+        cloudProvider: 'openstack',
+        account: base.account || base.credentials,
+        region: base.region,
+        stack: base.stack,
+        freeFormDetails: base.freeFormDetails,
+        userDataType: base.userDataType,
+        userData: base.userData,
+        serverGroupParameters: params
+      };
+
+      if (base.viewState.mode === 'clone' && base.source) {
+        command.source = base.source;
       }
-      command.account = command.credentials;
-      if (command.resources.ports) {
-        var ports = '' + command.resources.ports;
-        command.resources.ports = ports.split(/\s*,\s*/);
-      }
-      if (command.securityGroups) {
-        var securityGroups = '' + command.securityGroups;
-        command.securityGroups = securityGroups.split(/\s*,\s*/);
-      }
-      if (command.securityGroups === '') {
-        delete command.securityGroups;
-      }
-      if (command.resources.allocateIpAddress === true) {
-        delete command.resources.ports;
-      }
-      delete command.viewState;
-      delete command.backingData;
-      delete command.selectedProvider;
       return command;
     }
 

@@ -1,11 +1,11 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
-module.exports = angular.module('spinnaker.core.pipeline.stage.deploy.transformer', [
-  require('../../../../utils/lodash.js'),
-])
-  .service('deployStageTransformer', function(_) {
+module.exports = angular.module('spinnaker.core.pipeline.stage.deploy.transformer', [])
+  .service('deployStageTransformer', function () {
 
     /**
      * Removes rollingPush, modifyAsgLaunchConfiguration stages, adding them as tasks to the parent deploy stage,
@@ -48,7 +48,7 @@ module.exports = angular.module('spinnaker.core.pipeline.stage.deploy.transforme
         }
       });
       execution.stages = execution.stages.filter(function(stage) {
-        return stagesToRemove.indexOf(stage) === -1;
+        return !stagesToRemove.includes(stage);
       });
     }
 

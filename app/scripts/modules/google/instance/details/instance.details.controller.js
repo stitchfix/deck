@@ -1,22 +1,26 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
   require('angular-ui-router'),
   require('angular-ui-bootstrap'),
-  require('../../../core/instance/instance.write.service.js'),
-  require('../../../core/instance/instance.read.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
-  require('../../../core/history/recentHistory.service.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
-  require('../../../core/cloudProvider/cloudProvider.registry.js'),
+  require('core/instance/instance.write.service.js'),
+  require('core/instance/instance.read.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
+  require('core/history/recentHistory.service.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
+  require('core/cloudProvider/cloudProvider.registry.js'),
+  require('core/instance/details/instanceLinks.component'),
+  require('../../loadBalancer/elSevenUtils.service.js')
 ])
   .controller('gceInstanceDetailsCtrl', function ($scope, $state, $uibModal, InsightFilterStateModel,
                                                   instanceWriter, confirmationModalService, recentHistoryService,
-                                                  cloudProviderRegistry, instanceReader, _, instance, app, $q) {
+                                                  cloudProviderRegistry, instanceReader, instance, app, $q,
+                                                  elSevenUtils) {
 
     // needed for standalone instances
     $scope.detailsTemplateUrl = cloudProviderRegistry.getValue('gce', 'instance.detailsTemplateUrl');
@@ -27,6 +31,7 @@ module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
     };
 
     $scope.InsightFilterStateModel = InsightFilterStateModel;
+    $scope.application = app;
 
     function extractHealthMetrics(instance, latest) {
       // do not backfill on standalone instances
@@ -118,7 +123,6 @@ module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
         extraData.region = region;
         recentHistoryService.addExtraDataToLatest('instances', extraData);
         return instanceReader.getInstanceDetails(account, region, instance.instanceId).then(function(details) {
-          details = details.plain();
           $scope.state.loading = false;
           extractHealthMetrics(instanceSummary, details);
           $scope.instance = _.defaults(details, instanceSummary);
@@ -126,16 +130,16 @@ module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
           $scope.instance.region = region;
           $scope.instance.vpcId = vpcId;
           $scope.instance.loadBalancers = loadBalancers;
-          $scope.baseIpAddress = details.publicDnsName || details.privateIpAddress;
 
           $scope.instance.internalDnsName = $scope.instance.instanceId;
           $scope.instance.internalIpAddress = $scope.instance.networkInterfaces[0].networkIP;
           $scope.instance.externalIpAddress = $scope.instance.networkInterfaces[0].accessConfigs[0].natIP;
+          $scope.baseIpAddress = $scope.instance.externalIpAddress || $scope.instance.internalIpAddress;
           $scope.instance.network = getNetwork();
           $scope.instance.subnet = getSubnet();
 
           $scope.instance.sshLink =
-            $scope.instance.selfLink.replace(/www.googleapis.com\/compute\/(alpha|v1)/, 'cloudssh.developers.google.com') + '?authuser=0&hl=en_US';
+            $scope.instance.selfLink.replace(/www.googleapis.com\/compute\/(alpha|beta|v1)/, 'cloudssh.developers.google.com') + '?authuser=0&hl=en_US';
 
           var pathSegments = $scope.instance.selfLink.split('/');
           var projectId = pathSegments[pathSegments.indexOf('projects') + 1];
@@ -167,15 +171,15 @@ module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
 
     function augmentTagsWithHelp() {
       if (_.has($scope, 'instance.tags.items') && _.has($scope, 'instance.securityGroups')) {
-        let securityGroups = _($scope.instance.securityGroups).map(securityGroup => {
-          return _.find(app.securityGroups.data, { accountName: $scope.instance.account, region: 'global', id: securityGroup.groupdId });
+        let securityGroups = _.chain($scope.instance.securityGroups).map(securityGroup => {
+          return _.find(app.securityGroups.data, { accountName: $scope.instance.account, region: 'global', id: securityGroup.groupId });
         }).compact().value();
 
         let helpMap = {};
 
         $scope.instance.tags.items.forEach(tag => {
           let securityGroupsMatches = _.filter(securityGroups, securityGroup => _.includes(securityGroup.targetTags, tag));
-          let securityGroupMatchNames = _.pluck(securityGroupsMatches, 'name');
+          let securityGroupMatchNames = _.map(securityGroupsMatches, 'name');
 
           if (!_.isEmpty(securityGroupMatchNames)) {
             let groupOrGroups = securityGroupMatchNames.length > 1 ? 'groups' : 'group';
@@ -214,7 +218,17 @@ module.exports = angular.module('spinnaker.instance.detail.gce.controller', [
 
     this.canDeregisterFromLoadBalancer = function() {
       var instance = $scope.instance;
-      if (!instance.loadBalancers || !instance.loadBalancers.length) {
+      // TODO(dpeach): remove when it's possible to degister from l7 load balancer.
+      var attachedToElSeven = _.chain(app.loadBalancers.data)
+        .filter(elSevenUtils.isElSeven)
+        .map('name')
+        .intersection(instance.loadBalancers)
+        .value()
+        .length;
+
+      if (!instance.loadBalancers ||
+          !instance.loadBalancers.length ||
+          attachedToElSeven) {
         return false;
       }
       var hasLoadBalancerHealth = instance.health.some(function(health) {

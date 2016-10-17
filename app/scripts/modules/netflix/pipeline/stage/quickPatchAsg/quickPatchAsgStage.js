@@ -3,16 +3,18 @@
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.netflix.pipeline.stage.quickPatchAsgStage', [
-  require('../../../../core/pipeline/config/pipelineConfigProvider.js'),
-  require('../../../../core/application/listExtractor/listExtractor.service'),
-  require('../../../../core/config/settings.js'),
-  require('../../../../core/widgets')
+  require('core/pipeline/config/pipelineConfigProvider.js'),
+  require('core/application/listExtractor/listExtractor.service'),
+  require('core/config/settings.js'),
+  require('core/widgets')
 ])
   .config(function(pipelineConfigProvider, settings) {
     if (settings.feature && settings.feature.netflixMode) {
       pipelineConfigProvider.registerStage({
         label: 'Quick Patch Server Group',
         description: 'Quick Patches a server group',
+        extendedDescription: `<a target="_blank" href="https://confluence.netflix.com/display/ENGTOOLS/Quick+Patch+In+Spinnaker">
+          <span class="small glyphicon glyphicon-file"></span> Documentation</a>`,
         key: 'quickPatch',
         controller: 'QuickPatchAsgStageCtrl',
         controllerAs: 'QuickPatchAsgStageCtrl',

@@ -1,14 +1,14 @@
 'use strict';
 
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
-module.exports = angular.module('spinnaker.cf.image.reader', [
-  require('exports?"restangular"!imports?_=lodash!restangular')
-])
-  .factory('cfImageReader', function ($q, Restangular) {
+module.exports = angular.module('spinnaker.cf.image.reader', [API_SERVICE])
+  .factory('cfImageReader', function ($q, API) {
 
     function findImages(params) {
-      return Restangular.all('images/find').getList(params, {}).then(function(results) {
+      return API.all('images/find').getList(params).then(function(results) {
           return results;
         },
         function() {

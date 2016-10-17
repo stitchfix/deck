@@ -1,12 +1,17 @@
 'use strict';
 
+import _ from 'lodash';
+
+import modalWizardServiceModule from '../../../modal/wizard/v2modalWizard.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.serverGroup.configure.common.v2instanceArchetypeSelector', [
   require('./costFactor.js'),
   require('../../../presentation/isVisible/isVisible.directive.js'),
   require('../../../modal/wizard/modalWizard.service.js'),
-  require('../../../modal/wizard/v2modalWizard.service.js'),
+  modalWizardServiceModule,
+  require('../../../cloudProvider/cloudProvider.registry.js'),
 ])
   .directive('v2InstanceArchetypeSelector', function() {
     return {
@@ -21,7 +26,7 @@ module.exports = angular.module('spinnaker.core.serverGroup.configure.common.v2i
   })
   .controller('v2InstanceArchetypeSelectorCtrl', function($scope, instanceTypeService, infrastructureCaches,
                                                         serverGroupConfigurationService, modalWizardService,
-                                                        v2modalWizardService, $log) {
+                                                        v2modalWizardService, $log, cloudProviderRegistry) {
     var controller = this;
     instanceTypeService.getCategories($scope.command.selectedProvider).then(function(categories) {
       $scope.instanceProfiles = categories;
@@ -47,7 +52,7 @@ module.exports = angular.module('spinnaker.core.serverGroup.configure.common.v2i
         if (profile.type === type) {
           $scope.selectedInstanceProfile = profile;
           let current = $scope.command.instanceType;
-          if (current && profile.type !== 'custom') {
+          if (current && !_.includes(['custom', 'buildCustom'], profile.type)) {
             let found = profile.families
               .some((family) => family.instanceTypes.
                 some((instanceType) => instanceType.name === current && !instanceType.unavailable)
@@ -125,5 +130,11 @@ module.exports = angular.module('spinnaker.core.serverGroup.configure.common.v2i
         controller.refreshInstanceTypes();
       }
     });
+
+    this.getInstanceBuilderTemplate = cloudProviderRegistry
+      .getValue
+      .bind(cloudProviderRegistry,
+        $scope.command.cloudProvider,
+        'instance.customInstanceBuilderTemplateUrl');
 
   });

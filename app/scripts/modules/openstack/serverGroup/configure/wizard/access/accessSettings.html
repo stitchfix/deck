@@ -1,0 +1,64 @@
+<div class="container-fluid form-horizontal" ng-controller="openstackServerGroupAccessSettingsCtrl as accessCtrl">
+  <div class="modal-body">
+    <ng-form name="accessSettings" novalidate>
+
+    <div class="col-md-12" ng-if="command.viewState.dirty.loadBalancers">
+      <div class="alert alert-warning">
+        <p><span class="glyphicon glyphicon-warning-sign"></span>
+          The following load balancers could not be found in the selected namespace and were removed:
+        </p>
+        <ul>
+          <li ng-repeat="loadBalancer in command.viewState.dirty.loadBalancers">{{loadBalancer}}</li>
+        </ul>
+        <p class="text-right">
+          <a class="btn btn-sm btn-default dirty-flag-dismiss" href ng-click="command.viewState.dirty.loadBalancers = null">Okay</a>
+        </p>
+      </div>
+    </div>
+
+    <os-app-cache-backed-multi-select-field label="Load Balancers"
+                                            cache-key="loadBalancers"
+                                            filter="filter"
+                                            required="false"
+                                            model="command.loadBalancers"></os-app-cache-backed-multi-select-field>
+
+    <os-app-cache-backed-multi-select-field label="Security Groups"
+                                            cache-key="securityGroups"
+                                            filter="filter"
+                                            required="true"
+                                            model="command.securityGroups"></os-app-cache-backed-multi-select-field>
+
+    <div class="form-group">
+      <div class="col-md-5 sm-label-left">
+        <b>Associate Floating IP Address</b>
+        <help-field key="openstack.network.floatingip"></help-field>
+      </div>
+      <div class="col-md-2 radio">
+        <label>
+          <input type="radio" ng-model="command.associatePublicIpAddress" ng-value="true"/>
+          Yes
+        </label>
+      </div>
+      <div class="col-md-2 radio">
+        <label>
+          <input type="radio" ng-model="command.associatePublicIpAddress" ng-value="false"/>
+          No
+        </label>
+      </div>
+      <div class="col-md-2 radio">
+        <label>
+          <input type="radio" ng-model="command.associatePublicIpAddress" ng-value="null"/>
+          Default
+        </label>
+      </div>
+    </div>
+
+    <div ng-if="command.associatePublicIpAddress === true" class="form-group">
+      <network-select-field label="Network"
+                            model="command.floatingNetworkId"
+                            help-key="openstack.network.floatpool"></network-select-field>
+    </div>
+    </ng-form>
+  </div>
+</div>
+

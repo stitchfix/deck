@@ -1,6 +1,10 @@
 'use strict';
 
-var webpackConf = require('./webpack.config.js');
+var HappyPack = require('happypack');
+var happyThreadPool = HappyPack.ThreadPool({ size: 3 });
+
+var path = require('path');
+var nodeModulePath = path.join(__dirname, 'node_modules');
 
 module.exports = function(config) {
   config.set({
@@ -17,24 +21,46 @@ module.exports = function(config) {
       './node_modules/jquery/dist/jquery.js',
       './node_modules/angular/angular.js',
       './node_modules/angular-mocks/angular-mocks.js',
-      './node_modules/phantomjs-polyfill/bind-polyfill.js',
-      //'app/**/*.spec.js',
       'settings.js',
       'test/test_index.js'
     ],
 
     preprocessors: {
       './**/*.spec.js': ['webpack'],
+      './**/*.spec.ts': ['webpack'],
       'settings.js': ['webpack'],
       'test/**/*.js': ['webpack'],
     },
 
     webpack: {
+      resolve: {
+        extensions: ['', '.js', '.ts'],
+        root: [
+          nodeModulePath,
+          path.join(__dirname, 'app', 'scripts', 'modules'),
+        ]
+      },
       module: {
+        preLoaders: [
+          {
+            test: /\.spec.ts$/,
+            loader: "tslint"
+          }
+        ],
         loaders: [
           {
             test: /jquery\.js$/,
             loader: 'expose?jQuery',
+          },
+          {
+            test: /\.ts$/,
+            loader: 'ts',
+            query: {
+              ignoreDiagnostics: [
+                2300 // 2300 -> Duplicate identifier, needed or it'll barf on typings files
+              ]
+            },
+            exclude: /node_modules/
           },
           {
             test: /\.css$/,
@@ -42,7 +68,7 @@ module.exports = function(config) {
           },
           {
             test: /\.js$/,
-            loader: 'ng-annotate!angular!babel!envify!eslint',
+            loader: 'happypack/loader?id=jstest',
             exclude: /node_modules(?!\/clipboard)/,
           },
           {
@@ -70,6 +96,16 @@ module.exports = function(config) {
           }
         ]
       },
+      plugins: [
+        new HappyPack({
+          id: 'jstest',
+          loaders: [ 'ng-annotate!angular!babel!envify!eslint' ],
+          threadPool: happyThreadPool,
+          cacheContext: {
+            env: process.env,
+          },
+        }),
+      ],
       watch: true,
     },
 
@@ -77,11 +113,17 @@ module.exports = function(config) {
       noInfo: true,
     },
 
+    customLaunchers: {
+      Chrome_travis_ci: {
+        base: 'Chrome',
+        flags: ['--no-sandbox']
+      }
+    },
+
     plugins: [
       require('karma-webpack'),
       require('karma-jasmine'),
-      require('karma-phantomjs-launcher'),
-      //require('karma-chrome-launcher'),
+      require('karma-chrome-launcher'),
       require('karma-junit-reporter'),
       require('karma-mocha-reporter'),
       require('karma-jenkins-reporter'),
@@ -94,17 +136,8 @@ module.exports = function(config) {
     // web server port
     port: 8081,
 
-    // Start these browsers, currently available:
-    // - Chrome
-    // - ChromeCanary
-    // - Firefox
-    // - Opera
-    // - Safari (only Mac)
-    // - PhantomJS
-    // - IE (only Windows)
     browsers: [
-      'PhantomJS',
-      //'Chrome',
+      process.env.TRAVIS ? 'Chrome_travis_ci' : 'Chrome',
     ],
 
     colors: true,

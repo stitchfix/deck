@@ -1,23 +1,27 @@
 'use strict';
 
+import _ from 'lodash';
+
 var angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.amazon.securityGroup.clone.controller', [
-    require('../../../core/account/account.service.js'),
-    require('../../../core/task/monitor/taskMonitorService.js'),
-    require('../../../core/securityGroup/securityGroup.write.service.js'),
+    require('core/account/account.service.js'),
+    require('core/task/monitor/taskMonitorService.js'),
+    require('core/securityGroup/securityGroup.write.service.js'),
     require('../../vpc/vpc.read.service.js'),
-    require('../../../core/utils/lodash.js'),
     require('../configure/configSecurityGroup.mixin.controller.js')
   ])
-  .controller('awsCloneSecurityGroupController', function($scope, $uibModalInstance, $controller, taskMonitorService, accountService, securityGroupWriter, securityGroup, application, _) {
+  .controller('awsCloneSecurityGroupController', function($scope, $uibModalInstance, $controller, taskMonitorService, accountService, securityGroupWriter, securityGroup, application) {
     var vm = this;
 
     $scope.pages = {
       location: require('../configure/createSecurityGroupProperties.html'),
       ingress: require('../configure/createSecurityGroupIngress.html'),
     };
+
+    securityGroup.credentials = securityGroup.accountName;
+    $scope.namePreview = securityGroup.name;
 
     angular.extend(this, $controller('awsConfigSecurityGroupMixin', {
       $scope: $scope,
@@ -32,7 +36,7 @@ module.exports = angular
       vm.accountUpdated();
     });
 
-    securityGroup.securityGroupIngress = _(securityGroup.inboundRules)
+    securityGroup.securityGroupIngress = _.chain(securityGroup.inboundRules)
       .filter(function(rule) {
         return rule.securityGroup;
       }).map(function(rule) {
@@ -48,7 +52,7 @@ module.exports = angular
       .flatten()
       .value();
 
-    securityGroup.ipIngress = _(securityGroup.inboundRules)
+    securityGroup.ipIngress = _.chain(securityGroup.inboundRules)
       .filter(function(rule) {
         return rule.range;
       }).map(function(rule) {

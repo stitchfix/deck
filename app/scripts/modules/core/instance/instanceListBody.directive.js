@@ -66,7 +66,7 @@ module.exports = angular.module('spinnaker.core.instance.instanceListBody.direct
           let row = '<td>';
           loadBalancers.forEach(function (loadBalancer) {
             var tooltip = loadBalancer.state === 'OutOfService' ? loadBalancer.description.replace(/"/g, '&quot;') : null;
-            var icon = loadBalancer.state === 'InService' ? 'Up' : 'Down';
+            var icon = (loadBalancer.healthState === 'Up' || loadBalancer.state === 'InService') ? 'Up' : 'Down';
 
             if (tooltip) {
               tooltipEnabled = true;
@@ -139,6 +139,7 @@ module.exports = angular.module('spinnaker.core.instance.instanceListBody.direct
         }
 
         function renderInstances() {
+          instanceGroup = MultiselectModel.getOrCreateInstanceGroup(scope.serverGroup);
           var instances = (scope.instances || [])
             .filter(clusterFilterService.shouldShowInstance)
             .sort(instanceSorter);
@@ -247,7 +248,7 @@ module.exports = angular.module('spinnaker.core.instance.instanceListBody.direct
         let multiselectWatcher = MultiselectModel.instancesStream.subscribe(renderIfMultiselectChanges);
 
         scope.$on('$destroy', function() {
-          multiselectWatcher.dispose();
+          multiselectWatcher.unsubscribe();
           if (tooltipEnabled) {
             $('[data-toggle="tooltip"]', elem).tooltip('destroy').removeData();
           }

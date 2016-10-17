@@ -8,7 +8,7 @@ describe('DeployExecutionDetailsCtrl', function() {
     )
   );
 
-  beforeEach(window.inject(function ($controller, $rootScope, _, $timeout) {
+  beforeEach(window.inject(function ($controller, $rootScope, $timeout) {
     this.$controller = $controller;
     this._ = _;
     this.$timeout = $timeout;
@@ -27,10 +27,9 @@ describe('DeployExecutionDetailsCtrl', function() {
           $scope: $scope,
           _: _,
           $stateParams: { details: 'deploymentConfig' },
-          executionDetailsSectionService: jasmine.createSpyObj('executionDetailsSectionService', ['synchronizeSection']),
+          executionDetailsSectionService: { synchronizeSection: (a, fn) => fn(), },
           urlBuilderService: this.urlBuilderService,
         });
-        this.$timeout.flush();
       };
 
     });

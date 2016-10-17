@@ -4,16 +4,16 @@ let angular = require('angular');
 
 module.exports = angular.module('spinnaker.azure.securityGroup.azure.edit.controller', [
   require('angular-ui-router'),
-  require('../../../core/account/account.service.js'),
-  require('../../../core/cache/infrastructureCaches.js'),
-  require('../../../core/cache/cacheInitializer.js'),
-  require('../../../core/task/monitor/taskMonitorService.js'),
+  require('core/account/account.service.js'),
+  require('core/cache/infrastructureCaches.js'),
+  require('core/cache/cacheInitializer.js'),
+  require('core/task/monitor/taskMonitorService.js'),
     require('../securityGroup.write.service.js'),
 ])
   .controller('azureEditSecurityGroupCtrl', function($scope, $uibModalInstance, $exceptionHandler, $state,
                                                 accountService, securityGroupReader,
                                                 taskMonitorService, cacheInitializer, infrastructureCaches,
-                                                _, application, securityGroup, azureSecurityGroupWriter) {
+                                                application, securityGroup, azureSecurityGroupWriter) {
 
     $scope.pages = {
       ingress: require('./createSecurityGroupIngress.html'),
@@ -57,7 +57,7 @@ module.exports = angular.module('spinnaker.azure.securityGroup.azure.edit.contro
         var account = securityGroup.accountName,
           region = securityGroup.region,
           availableGroups = _.filter(securityGroups[account].azure[region], { /*vpcId: vpcId*/ });
-        $scope.availableSecurityGroups = _.pluck(availableGroups, 'name');
+        $scope.availableSecurityGroups = _.map(availableGroups, 'name');
       });
     }
 

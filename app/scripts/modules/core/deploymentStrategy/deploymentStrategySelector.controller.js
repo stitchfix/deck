@@ -13,7 +13,7 @@ module.exports = angular.module('spinnaker.core.deploymentStrategy.deploymentStr
 
       if (oldStrategy && oldStrategy.additionalFields) {
         oldStrategy.additionalFields.forEach(function(field) {
-          if (!newStrategy || !newStrategy.additionalFields || newStrategy.additionalFields.indexOf(field) === -1) {
+          if (!newStrategy || !newStrategy.additionalFields || !newStrategy.additionalFields.includes(field)) {
             var fieldParts = field.split('.'),
                 finalField = fieldParts.pop(),
                 toDelete = $scope.command;
@@ -39,8 +39,7 @@ module.exports = angular.module('spinnaker.core.deploymentStrategy.deploymentStr
         newStrategy.initializationMethod($scope.command);
       }
     }
-
-    $scope.deploymentStrategies = deploymentStrategyService.listAvailableStrategies($scope.command.selectedProvider);
+    $scope.deploymentStrategies = deploymentStrategyService.listAvailableStrategies($scope.command.selectedProvider || $scope.command.cloudProvider);
 
     $scope.$watch('command.strategy', selectStrategy);
 

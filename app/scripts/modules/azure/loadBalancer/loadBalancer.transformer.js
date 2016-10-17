@@ -1,5 +1,7 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.azure.loadBalancer.transformer', [
@@ -23,8 +25,8 @@ module.exports = angular.module('spinnaker.azure.loadBalancer.transformer', [
       });
       var activeServerGroups = _.filter(loadBalancer.serverGroups, {isDisabled: false});
       loadBalancer.provider = loadBalancer.type;
-      loadBalancer.instances = _(activeServerGroups).pluck('instances').flatten().valueOf();
-      loadBalancer.detachedInstances = _(activeServerGroups).pluck('detachedInstances').flatten().valueOf();
+      loadBalancer.instances = _.chain(activeServerGroups).map('instances').flatten().value();
+      loadBalancer.detachedInstances = _.chain(activeServerGroups).map('detachedInstances').flatten().value();
       return loadBalancer;
     }
 
@@ -33,7 +35,7 @@ module.exports = angular.module('spinnaker.azure.loadBalancer.transformer', [
         serverGroup.account === loadBalancer.account &&
         serverGroup.region === loadBalancer.region &&
         (typeof loadBalancer.vpcId === 'undefined' || serverGroup.vpcId === loadBalancer.vpcId) &&
-        serverGroup.loadBalancers.indexOf(loadBalancer.name) !== -1;
+        serverGroup.loadBalancers.includes(loadBalancer.name);
     }
 
     function convertLoadBalancerForEditing(loadBalancer) {
@@ -41,11 +43,13 @@ module.exports = angular.module('spinnaker.azure.loadBalancer.transformer', [
         editMode: true,
         region: loadBalancer.region,
         credentials: loadBalancer.account,
-        loadBalancingRules: [],
         name: loadBalancer.name,
         stack: loadBalancer.stack,
         detail: loadBalancer.detail,
-        probes: []
+        vnet: loadBalancer.vnet,
+        subnet: loadBalancer.subnet,
+        probes: [],
+        loadBalancingRules: [],
       };
 
       if (loadBalancer.elb) {
@@ -73,6 +77,7 @@ module.exports = angular.module('spinnaker.azure.loadBalancer.transformer', [
         region: defaultRegion,
         cloudProvider: 'azure',
         vnet: null,
+        subnet: null,
         probes: [
           {
             probeName: '',

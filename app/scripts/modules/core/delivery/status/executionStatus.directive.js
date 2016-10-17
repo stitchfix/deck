@@ -1,4 +1,5 @@
 'use strict';
+import executionUserFilter from './executionUser.filter';
 
 let angular = require('angular');
 
@@ -7,7 +8,7 @@ require('./executionStatus.less');
 module.exports = angular
   .module('spinnaker.core.delivery.executionStatus.directive', [
     require('../filter/executionFilter.model.js'),
-    require('./executionUser.filter.js'),
+    executionUserFilter
   ])
   .directive('executionStatus', function() {
     return {
@@ -37,7 +38,7 @@ module.exports = angular
 
     if (this.execution.trigger && this.execution.trigger.parameters) {
       this.parameters = Object.keys(this.execution.trigger.parameters).sort()
-        .filter((paramKey) => this.execution.isStrategy ? strategyExclusions.indexOf(paramKey) < 0 : true)
+        .filter((paramKey) => this.execution.isStrategy ? !strategyExclusions.includes(paramKey) : true)
         .map((paramKey) => {
           return { key: paramKey, value: this.execution.trigger.parameters[paramKey] };
         });

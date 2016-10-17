@@ -1,30 +1,33 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.openstack.serverGroup.configure.configuration.service', [
   require('../../image/image.reader.js'),
-  require('../../../core/account/account.service.js'),
+  require('core/account/account.service.js'),
   require('../../../netflix/serverGroup/diff/diff.service.js'),
-  require('../../../core/naming/naming.service.js'),
-  require('../../../core/securityGroup/securityGroup.read.service.js'),
-  require('../../../core/loadBalancer/loadBalancer.read.service.js'),
-  require('../../../core/cache/cacheInitializer.js'),
-  require('../../../core/utils/lodash.js'),
+  require('core/naming/naming.service.js'),
+  require('core/securityGroup/securityGroup.read.service.js'),
+  require('core/loadBalancer/loadBalancer.read.service.js'),
+  require('core/cache/cacheInitializer.js'),
 ])
   .factory('openstackServerGroupConfigurationService', function($q, openstackImageReader, accountService, securityGroupReader,
                                                           cacheInitializer,
                                                           diffService, namingService,
-                                                          loadBalancerReader, _) {
+                                                          loadBalancerReader) {
 
 
     var healthCheckTypes = [],
-      terminationPolicies = ['OldestInstance', 'NewestInstance', 'OldestLaunchConfiguration', 'ClosestToNextInstanceHour', 'Default'];
+      terminationPolicies = ['OldestInstance', 'NewestInstance', 'OldestLaunchConfiguration', 'ClosestToNextInstanceHour', 'Default'],
+      userDataTypes = ['Text', 'Swift', 'URL'];
 
     function configureUpdateCommand(command) {
       command.backingData = {
         healthCheckTypes: angular.copy(healthCheckTypes),
-        terminationPolicies: angular.copy(terminationPolicies)
+        terminationPolicies: angular.copy(terminationPolicies),
+        userDataTypes: angular.copy(userDataTypes)
       };
     }
 
@@ -33,6 +36,7 @@ module.exports = angular.module('spinnaker.openstack.serverGroup.configure.confi
         credentialsKeyedByAccount: accountService.getCredentialsKeyedByAccount('openstack'),
         securityGroups: securityGroupReader.loadSecurityGroups(),
         loadBalancers: loadBalancerReader.loadLoadBalancers(application.name),
+        userDataTypes: $q.when(angular.copy(userDataTypes))
       }).then(function(backingData) {
         var loadBalancerReloader = $q.when(null);
         backingData.accounts = _.keys(backingData.credentialsKeyedByAccount);
@@ -82,9 +86,9 @@ module.exports = angular.module('spinnaker.openstack.serverGroup.configure.confi
 
     function getRegionalSecurityGroups(command) {
       var newSecurityGroups = command.backingData.securityGroups[command.credentials] || { openstack: {}};
-      return _(newSecurityGroups[command.region])
+      return _.chain(newSecurityGroups[command.region])
         .sortBy('name')
-        .valueOf();
+        .value();
     }
 
     function configureSecurityGroupOptions(command) {
@@ -128,10 +132,10 @@ module.exports = angular.module('spinnaker.openstack.serverGroup.configure.confi
     }
 
     function getLoadBalancerNames(loadBalancers) {
-      return _(loadBalancers)
-        .pluck('name')
-        .unique()
-        .valueOf()
+      return _.chain(loadBalancers)
+        .map('name')
+        .uniq()
+        .value()
         .sort();
     }
 
@@ -193,7 +197,7 @@ module.exports = angular.module('spinnaker.openstack.serverGroup.configure.confi
         if (command.credentials) {
           var regionsForAccount = backingData.credentialsKeyedByAccount[command.credentials] || {regions: [], defaultKeyPair: null};
           backingData.filtered.regions = regionsForAccount.regions;
-          if (!_(backingData.filtered.regions).some({name: command.region})) {
+          if (!_.chain(backingData.filtered.regions).some({name: command.region}).value()) {
             command.region = null;
             result.dirty.region = true;
           } else {

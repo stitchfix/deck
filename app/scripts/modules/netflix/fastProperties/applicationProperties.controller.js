@@ -1,5 +1,7 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular
@@ -7,13 +9,12 @@ module.exports = angular
     require('angular-ui-router'),
     require('./fastProperty.read.service.js'),
     require('./fastProperty.write.service.js'),
-    require('../../core/confirmationModal/confirmationModal.service.js'),
+    require('core/confirmationModal/confirmationModal.service.js'),
     require('./fastPropertyTransformer.service.js'),
-    require('../../core/application/service/applications.read.service'),
-    require('../../core/utils/lodash.js'),
+    require('core/application/service/applications.read.service'),
   ])
   .controller('ApplicationPropertiesController', function ($scope, $filter, $uibModal, $state, app, applicationReader, $log,
-                                                           fastPropertyReader, fastPropertyWriter, fastPropertyTransformer, _) {
+                                                           fastPropertyReader, fastPropertyWriter, fastPropertyTransformer) {
     var vm = this;
     const application = app;
 
@@ -38,8 +39,7 @@ module.exports = angular
     vm.openRolloutDetailsList = [];
 
     vm.isRolloutDetailsOpen = function(id) {
-      var idIndex = vm.openRolloutDetailsList.indexOf(id);
-      return idIndex > -1;
+      return vm.openRolloutDetailsList.includes(id);
     };
 
     vm.toggleRolloutDetails = function(promotion) {
@@ -101,7 +101,7 @@ module.exports = angular
     };
 
     vm.showPropertyDetails = (propertyId) => {
-      if($state.current.name.indexOf('.properties.propertyDetails') !== -1 ) {
+      if ($state.current.name.includes('.properties.propertyDetails')) {
         $state.go('^.propertyDetails', {propertyId: propertyId}, {inherit: true});
       } else {
         $state.go('.propertyDetails', {propertyId: propertyId}, {inherit: true});

@@ -12,9 +12,8 @@ module.exports = angular.module('spinnaker.application.controller', [
   require('../overrideRegistry/override.registry.js'),
   require('../presentation/refresher/componentRefresher.directive.js'),
 ])
-  .controller('ApplicationCtrl', function($scope, $state, hotkeys, app, recentHistoryService, overrideRegistry) {
-    this.applicationNavTemplate = overrideRegistry.getTemplate('applicationNavHeader', require('./applicationNav.html'));
-
+  .controller('ApplicationCtrl', function($scope, $state, hotkeys, app, recentHistoryService, overrideRegistry,
+                                          $uibModal) {
     $scope.application = app;
     $scope.insightTarget = app;
     $scope.refreshTooltipTemplate = require('./applicationRefresh.tooltip.html');
@@ -26,14 +25,9 @@ module.exports = angular.module('spinnaker.application.controller', [
     var hotkeyBind = hotkeys.bindTo($scope);
     var applicationHotkeys = [
       {
-        combo: 'ctrl+alt+0',
-        description: 'Pipeline Config',
-        callback: () => $state.go('home.applications.application.pipelineConfig'),
-      },
-      {
         combo: 'ctrl+alt+1',
         description: 'Pipelines',
-        callback: () => $state.go('home.applications.application.executions'),
+        callback: () => $state.go('home.applications.application.pipelines.executions'),
       },
       {
         combo: 'ctrl+alt+2',
@@ -68,8 +62,16 @@ module.exports = angular.module('spinnaker.application.controller', [
     ];
 
     applicationHotkeys.forEach(hotkeyBind.add);
-
     app.enableAutoRefresh($scope);
+
+    this.pageApplicationOwner = () => {
+      $uibModal.open({
+        templateUrl: require('./modal/pageApplicationOwner.html'),
+        controller: 'PageApplicationOwner as ctrl',
+        resolve: {
+          application: () => $scope.application
+        }
+      });
+    };
   }
 );
-

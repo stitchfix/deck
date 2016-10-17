@@ -1,22 +1,23 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.azure.instance.detail.controller', [
   require('angular-ui-router'),
   require('angular-ui-bootstrap'),
-  require('../../../core/utils/lodash.js'),
-  require('../../../core/instance/instance.write.service.js'),
-  require('../../../core/instance/instance.read.service.js'),
-  require('../../../core/confirmationModal/confirmationModal.service.js'),
-  require('../../../core/insight/insightFilterState.model.js'),
-  require('../../../core/history/recentHistory.service.js'),
-  require('../../../core/utils/selectOnDblClick.directive.js'),
-  require('../../../core/cloudProvider/cloudProvider.registry.js'),
+  require('core/instance/instance.write.service.js'),
+  require('core/instance/instance.read.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/insight/insightFilterState.model.js'),
+  require('core/history/recentHistory.service.js'),
+  require('core/utils/selectOnDblClick.directive.js'),
+  require('core/cloudProvider/cloudProvider.registry.js'),
 ])
   .controller('azureInstanceDetailsCtrl', function ($scope, $state, $uibModal, InsightFilterStateModel,
                                                     instanceWriter, confirmationModalService, recentHistoryService,
-                                                    cloudProviderRegistry, instanceReader, _, instance, app, $q) {
+                                                    cloudProviderRegistry, instanceReader, instance, app, $q) {
 
     // needed for standalone instances
     $scope.detailsTemplateUrl = cloudProviderRegistry.getValue('azure', 'instance.detailsTemplateUrl');
@@ -120,7 +121,6 @@ module.exports = angular.module('spinnaker.azure.instance.detail.controller', [
         extraData.region = region;
         recentHistoryService.addExtraDataToLatest('instances', extraData);
         return instanceReader.getInstanceDetails(account, region, instance.instanceId).then(function(details) {
-          details = details.plain();
           $scope.state.loading = false;
           extractHealthMetrics(instanceSummary, details);
           $scope.instance = _.defaults(details, instanceSummary);
@@ -131,7 +131,7 @@ module.exports = angular.module('spinnaker.azure.instance.detail.controller', [
           var discoveryMetric = _.find($scope.healthMetrics, function(metric) { return metric.type === 'Discovery'; });
           if( discoveryMetric && discoveryMetric.vipAddress) {
             var vipList = discoveryMetric.vipAddress;
-            $scope.instance.vipAddress = vipList.contains(',') ? vipList.split(',') : [vipList];
+            $scope.instance.vipAddress = vipList.includes(',') ? vipList.split(',') : [vipList];
           }
           $scope.baseIpAddress = details.publicDnsName || details.privateIpAddress;
         },
@@ -344,7 +344,7 @@ module.exports = angular.module('spinnaker.azure.instance.detail.controller', [
 
     this.showConsoleOutput = function () {
       $uibModal.open({
-        templateUrl: require('../../../core/instance/details/console/consoleOutput.modal.html'),
+        templateUrl: require('core/instance/details/console/consoleOutput.modal.html'),
         controller: 'ConsoleOutputCtrl as ctrl',
         size: 'lg',
         resolve: {

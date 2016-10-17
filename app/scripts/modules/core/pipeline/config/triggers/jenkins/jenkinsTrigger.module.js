@@ -5,7 +5,7 @@ let angular = require('angular');
 module.exports = angular.module('spinnaker.core.pipeline.config.trigger.jenkins', [
   require('./jenkinsTriggerOptions.directive.js'),
   require('../trigger.directive.js'),
-  require('../../../../ci/jenkins/igor.service.js'),
+  require('core/ci/jenkins/igor.service.js'),
   require('../../pipelineConfigProvider.js'),
 ])
   .config(function(pipelineConfigProvider) {
@@ -76,7 +76,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.trigger.jenkins'
           $scope.viewState.jobsLoaded = true;
           $scope.viewState.jobsRefreshing = false;
           $scope.jobs = jobs;
-          if (jobs.length && $scope.jobs.indexOf($scope.trigger.job) === -1) {
+          if (jobs.length && !$scope.jobs.includes($scope.trigger.job)) {
             $scope.trigger.job = '';
           }
         });

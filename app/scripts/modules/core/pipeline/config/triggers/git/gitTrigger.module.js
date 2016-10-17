@@ -1,9 +1,11 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.pipeline.trigger.git', [
-    require('../../../../../core/config/settings.js'),
+    require('core/config/settings.js'),
   ])
   .config(function (pipelineConfigProvider) {
     pipelineConfigProvider.registerTrigger({
@@ -29,4 +31,11 @@ module.exports = angular.module('spinnaker.core.pipeline.trigger.git', [
       trigger.source = $scope.gitTriggerTypes[0];
     }
 
+    function updateBranch() {
+      if (_.trim(trigger.branch) === '') {
+        trigger.branch = null;
+      }
+    }
+
+    $scope.$watch('trigger.branch', updateBranch);
   });

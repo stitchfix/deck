@@ -2,26 +2,24 @@
 
 /* eslint consistent-return:0 */
 
+import _ from 'lodash';
+import {API_SERVICE} from '../api/api.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.cluster.service', [
   require('../naming/naming.service.js'),
-  require('exports?"restangular"!imports?_=lodash!restangular'),
-  require('../utils/lodash.js'),
+  API_SERVICE,
   require('../serverGroup/serverGroup.transformer.js'),
-  require('../job/job.transformer.js'),
 ])
-  .factory('clusterService', function ($q, Restangular, _, serverGroupTransformer,
-                                       jobTransformer, namingService) {
+  .factory('clusterService', function ($q, API, serverGroupTransformer, namingService) {
 
     function loadServerGroups(applicationName) {
       var serverGroupLoader = $q.all({
-        serverGroups: Restangular.one('applications', applicationName).all('serverGroups').getList().then(g => g, () => []),
-        jobs: Restangular.one('applications', applicationName).all('jobs').getList().then(jobs => jobs, () => []),
+        serverGroups: API.one('applications').one(applicationName).all('serverGroups').getList().then(g => g, () => []),
       });
       return serverGroupLoader.then(function(results) {
         results.serverGroups = results.serverGroups || [];
-        results.jobs = results.jobs || [];
 
         results.serverGroups.forEach(addHealthStatusCheck);
         results.serverGroups.forEach(parseName);
@@ -29,14 +27,7 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
             serverGroup.category = 'serverGroup'
           );
 
-        results.jobs.forEach(addHealthStatusCheck);
-        results.jobs.forEach(parseName);
-        results.jobs.forEach((job) =>
-            job.category = 'job'
-          );
-
-        return $q.all(results.serverGroups.map(serverGroupTransformer.normalizeServerGroup)
-            .concat(results.jobs.map(jobTransformer.normalizeJob)));
+        return $q.all(results.serverGroups.map(serverGroupTransformer.normalizeServerGroup));
       });
     }
 
@@ -68,7 +59,7 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
         failed: 0,
         total: 0,
       };
-      var operand = cluster.serverGroups || cluster.jobs || [];
+      var operand = cluster.serverGroups || [];
       operand.forEach(function(serverGroup) {
         if (!serverGroup.instanceCounts) {
           return;
@@ -85,7 +76,7 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
     }
 
     function baseTaskMatcher(task, serverGroup) {
-      var taskRegion = task.getValueFor('regions') ? task.getValueFor('regions')[0] : null;
+      var taskRegion = task.getValueFor('regions') ? task.getValueFor('regions')[0] : task.getValueFor('region') || null;
       return serverGroup.account === task.getValueFor('credentials') &&
         serverGroup.region === taskRegion &&
         serverGroup.name === task.getValueFor('asgName');
@@ -94,9 +85,9 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
     function instanceIdsTaskMatcher(task, serverGroup) {
       if (task.getValueFor('region') === serverGroup.region && task.getValueFor('credentials') === serverGroup.account) {
         if (task.getValueFor('knownInstanceIds')) {
-          return _.intersection(_.pluck(serverGroup.instances, 'id'), task.getValueFor('knownInstanceIds')).length > 0;
+          return _.intersection(_.map(serverGroup.instances, 'id'), task.getValueFor('knownInstanceIds')).length > 0;
         } else {
-          return _.intersection(_.pluck(serverGroup.instances, 'id'), task.getValueFor('instanceIds')).length > 0;
+          return _.intersection(_.map(serverGroup.instances, 'id'), task.getValueFor('instanceIds')).length > 0;
         }
       }
       return false;
@@ -148,6 +139,7 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
       'enableservergroup': baseTaskMatcher,
       'enablegoogleservergroup': baseTaskMatcher,
       'disablegoogleservergroup': baseTaskMatcher,
+      'resumeasgprocessesdescription': baseTaskMatcher, // fun fact, this is how an AWS resize starts
       'rollbackServerGroup': function(task, serverGroup) {
         var account = task.getValueFor('credentials'),
             region = task.getValueFor('regions') ? task.getValueFor('regions')[0] : null;
@@ -171,12 +163,15 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
     }
 
     function addTasksToServerGroups(application) {
-      let runningTasks = application.runningTasks.data || [];
+      let runningTasks = _.get(application, 'runningTasks.data', []);
       if (!application.serverGroups.data) {
         return; // still run if there are no running tasks, since they may have all finished and we need to clear them.
       }
       application.serverGroups.data.forEach(function(serverGroup) {
-        serverGroup.runningTasks = [];
+        if (!serverGroup.runningTasks) {
+          serverGroup.runningTasks = [];
+        }
+        serverGroup.runningTasks.length = 0;
         runningTasks.forEach(function(task) {
           if (taskMatches(task, serverGroup)) {
             serverGroup.runningTasks.push(task);
@@ -195,15 +190,15 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
     }
 
     function extractServerGroupNameFromContext(context) {
-      return _.first(_.values(context['deploy.server.groups'])) || context['targetop.asg.disableAsg.name'] || undefined;
+      return _.head(_.values(context['deploy.server.groups'])) || context['targetop.asg.disableAsg.name'] || undefined;
     }
 
     function extractRegionFromContext(context) {
-      return _.first(_.keys(context['deploy.server.groups'])) || _.first(context['targetop.asg.disableAsg.regions']) || undefined;
+      return _.head(_.keys(context['deploy.server.groups'])) || _.head(context['targetop.asg.disableAsg.regions']) || undefined;
     }
 
     function addExecutionsToServerGroups(application) {
-      let executions = application.runningExecutions.data || [];
+      let executions = _.get(application, 'runningExecutions.data', []);
 
       if(!application.serverGroups.data) {
         return; // still run if there are no running tasks, since they may have all finished and we need to clear them.
@@ -280,18 +275,19 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
     }
 
     function getCluster(application, account, cluster) {
-      return Restangular.one('applications', application).one('clusters', account).one(cluster).get();
+      return API.one('applications').one(application).one('clusters', account).one(cluster).get();
     }
 
     function getClusters(application) {
-      return Restangular.one('applications', application).one('clusters').get();
+      return API.one('applications').one(application).one('clusters').get();
     }
 
     function addServerGroupsToApplication(application, serverGroups = []) {
       if (application.serverGroups.data) {
+        let data = application.serverGroups.data;
         // remove any that have dropped off, update any that have changed
         let toRemove = [];
-        application.serverGroups.data.forEach((serverGroup, idx) => {
+        data.forEach((serverGroup, idx) => {
           let matches = serverGroups.filter((test) =>
             test.name === serverGroup.name &&
             test.account === serverGroup.account &&
@@ -302,12 +298,12 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
             toRemove.push(idx);
           } else {
             if (serverGroup.stringVal && matches[0].stringVal && serverGroup.stringVal !== matches[0].stringVal) {
-              application.serverGroups.data[idx] = matches[0];
+              data[idx] = matches[0];
             }
           }
         });
 
-        toRemove.forEach((idx) => application.serverGroups.data.splice(idx, 1));
+        toRemove.forEach((idx) => data.splice(idx, 1));
 
         // add any new ones
         serverGroups.forEach((serverGroup) => {
@@ -317,11 +313,12 @@ module.exports = angular.module('spinnaker.core.cluster.service', [
               test.region === serverGroup.region &&
               test.category === serverGroup.category
             ).length) {
-            application.serverGroups.data.push(serverGroup);
+            data.push(serverGroup);
           }
         });
+        return data;
       } else {
-        application.serverGroups.data = serverGroups;
+        return serverGroups;
       }
     }
 

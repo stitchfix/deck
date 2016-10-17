@@ -278,10 +278,9 @@ describe('Service: executionService', function () {
     });
     it('should add all executions if there are none on application', function () {
       let execs = [{a:1}];
+      let data = executionService.addExecutionsToApplication(application, execs);
 
-      executionService.addExecutionsToApplication(application, execs);
-
-      expect(application.executions.data).toBe(execs);
+      expect(data).toBe(execs);
     });
 
     it('should add new executions', function () {
@@ -295,9 +294,50 @@ describe('Service: executionService', function () {
       expect(application.executions.data).toEqual([original, newOne]);
     });
 
-    it('should replace an existing execution if stringVal has changed', function () {
-      let original = {id:1, stringVal: 'ac'};
-      let updated = {id:1, stringVal: 'ab'};
+    it('should update mutated states in an existing execution if stringVal has changed', function () {
+      var originalStages = [
+        { id: 'a', status: 'COMPLETED' },
+        { id: 'b', status: 'RUNNING' },
+        { id: 'c', status: 'RUNNING' },
+        { id: 'd', status: 'NOT_STARTED' }
+      ];
+      var updatedStages = [
+        { id: 'a', status: 'COMPLETED' },
+        { id: 'b', status: 'RUNNING', newField: 'x' },
+        { id: 'c', status: 'RUNNING' },
+        { id: 'd', status: 'NOT_STARTED' }
+      ];
+      let original = {
+        id:1,
+        stringVal: 'ac',
+        stageSummaries: originalStages.slice()
+      };
+      let updated = {
+        id:1,
+        stringVal: 'ab',
+        stageSummaries: updatedStages.slice()
+      };
+      let execs = [updated];
+      application.executions.data = [original];
+
+      executionService.addExecutionsToApplication(application, execs);
+
+      expect(application.executions.data).toEqual([updated]);
+      expect(application.executions.data).not.toBe([updated]);
+      expect(application.executions.data[0].stageSummaries[0]).toBe(originalStages[0]);
+      expect(application.executions.data[0].stageSummaries[0]).toEqual(updatedStages[0]);
+      expect(application.executions.data[0].stageSummaries[1]).toBe(originalStages[1]);
+      expect(application.executions.data[0].stageSummaries[1]).toEqual(updatedStages[1]);
+      expect(application.executions.data[0].stageSummaries[2]).toBe(originalStages[2]);
+      expect(application.executions.data[0].stageSummaries[2]).toEqual(updatedStages[2]);
+      expect(application.executions.data[0].stageSummaries[3]).toBe(originalStages[3]);
+      expect(application.executions.data[0].stageSummaries[3]).toEqual(updatedStages[3]);
+
+    });
+
+    it('should replace an existing execution if status changes', function () {
+      let original = {id:1, stringVal: 'ac', status: 'RUNNING'};
+      let updated = {id:1, stringVal: 'ab', status: 'COMPLETED'};
       let execs = [updated];
       application.executions.data = [original];
 
@@ -333,9 +373,9 @@ describe('Service: executionService', function () {
       let execs = [];
       application.executions.data = [{a:1}];
 
-      executionService.addExecutionsToApplication(application, execs);
+      let data = executionService.addExecutionsToApplication(application, execs);
 
-      expect(application.executions.data).toEqual([]);
+      expect(data).toEqual([]);
     });
 
   });

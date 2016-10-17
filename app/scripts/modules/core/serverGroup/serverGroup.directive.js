@@ -10,7 +10,7 @@ module.exports = angular.module('spinnaker.core.serverGroup.serverGroup.directiv
   require('../instance/instanceList.directive'),
   require('./serverGroup.transformer'),
 ])
-  .directive('serverGroup', function ($rootScope, $timeout, $filter, _, clusterFilterService,
+  .directive('serverGroup', function ($rootScope, $timeout, $filter, clusterFilterService,
                                       MultiselectModel, ClusterFilterModel, serverGroupTransformer) {
     return {
       restrict: 'E',
@@ -46,7 +46,7 @@ module.exports = angular.module('spinnaker.core.serverGroup.serverGroup.directiv
           };
 
           if (serverGroup.buildInfo && serverGroup.buildInfo.jenkins &&
-              (serverGroup.buildInfo.jenkins.host || serverGroup.buildInfo.jenkins.fullUrl)) {
+              (serverGroup.buildInfo.jenkins.host || serverGroup.buildInfo.jenkins.fullUrl || serverGroup.buildInfo.buildInfoUrl)) {
             var jenkins = serverGroup.buildInfo.jenkins;
 
             viewModel.jenkins = {
@@ -59,6 +59,11 @@ module.exports = angular.module('spinnaker.core.serverGroup.serverGroup.directiv
             if (serverGroup.buildInfo.jenkins.fullUrl) {
               viewModel.jenkins.href = serverGroup.buildInfo.jenkins.fullUrl;
             }
+            if (serverGroup.buildInfo.buildInfoUrl) {
+              viewModel.jenkins.href = serverGroup.buildInfo.buildInfoUrl;
+            }
+          } else if (_.has(serverGroup, 'buildInfo.images')) {
+            viewModel.images = serverGroup.buildInfo.images.join(', ');
           }
 
           let modelStringVal = JSON.stringify(viewModel, serverGroupTransformer.jsonReplacer);

@@ -8,6 +8,7 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
       'determine task completion. When this option is disabled, tasks will normally need health status reported by some other health provider (e.g. a ' +
       'load balancer or discovery service) to determine task completion.',
     'application.showPlatformHealthOverride': 'When this option is enabled, users will be able to toggle the option above on a task-by-task basis.',
+    'core.serverGroup.strategy': 'The deployment strategy tells Spinnaker what to do with the previous version of the server group.',
     'aws.associateElasticIp.elasticIp': '<p>(Optional) <b>Elastic IP</b> is an IP address that Spinnaker will associate with this cluster.' +
       '<p>If specified, this elastic IP must exist and not already be attached to an instance or cluster.</p>' +
       '<p>If left blank, Spinnaker will make a selection from the list of available elastic IPs in the provided account and region.</p>',
@@ -46,9 +47,9 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'aws.serverGroup.tags': '(Optional) <b>Tags</b> are propagated to the instances in this cluster.',
     'aws.serverGroup.allImages': 'Search for an image that does not match the name of your application.',
     'aws.serverGroup.filterImages': 'Select from a pre-filtered list of images matching the name of your application.',
-    'aws.serverGroup.strategy': 'The deployment strategy tells Spinnaker what to do with the previous version of the server group.',
-    'aws.serverGroup.traffic': 'Enables the "AddToLoadBalancer" scaling process, which is used by Spinnaker and ' +
-    ' discovery services to determine if the server group is enabled.',
+    'aws.serverGroup.traffic': '' +
+      '<p>Enables the "AddToLoadBalancer" scaling process, which is used by Spinnaker and discovery services to determine if the server group is enabled.</p>' +
+      '<p>Will be automatically enabled when any non "custom" deployment strategy is selected.</p>',
     'aws.securityGroup.vpc': '<p>The VPC to which this security group will apply.</p>' +
       '<p>If you wish to use VPC but are unsure which VPC to use, the most common one is "Main".</p>' +
       '<p>If you do not wish to use VPC, select "None".</p>',
@@ -103,42 +104,94 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
       '<li>Trigger</li>' +
       '<li>Context - server groups, bakery results, etc.</li>' +
       '</ul>',
+    'gce.instance.customInstance.cores': '<ul><li>Above 1, vCPU count must be even.</li><li>Zones that support Haswell and Ivy Bridge processors can support custom machine types up to 32 vCPUs.</li><li>Zones that support Sandy Bridge processors can support up to 16 vCPUs.</li></ul>',
+    'gce.instance.customInstance.memory': '<ul><li>Memory per vCPU must be between .9 GB and 6.5 GB.</li><li>Total memory must be a multiple of 256 MB.</li></ul>',
     'gce.instance.customMetadata.instance-template': 'The instance template used to configure this instance.',
     'gce.instance.customMetadata.load-balancer-names': 'This field is used to "remember" what load balancers this instance is associated with, even if it is deregistered.',
+    'gce.instance.customMetadata.global-load-balancer-names': 'This field is used to "remember" what global load balancers this instance is associated with, even if it is deregistered.',
+    'gce.instance.customMetadata.backend-service-names': 'This field is used to "remember" what backend services this instance is associated with, even if it is deregistered.',
+    'gce.instance.customMetadata.load-balancing-policy': 'This field is used to "remember" the load balancing policy this instance is associated with, even if it is deregistered.',
     'gce.instance.customMetadata.startup-script': 'This script will run automatically on every boot.',
     'gce.instance.storage': '<p>Storage options can be fully-configured on the <b>Advanced Settings</b> tab. These are just default settings. Please be aware of your Local SSD quotas as you provision VMs.</p>',
     'gce.instance.storage.localSSD': '<p>Local SSD disks are always 375GB. All non shared-core instance types support attaching up to 4 Local SSD disks. Please be aware of your Local SSD quotas as you provision VMs.</p>',
     'gce.instance.serviceAccount': '<p>Service accounts authenticate applications running on your virtual machine instances to other Google Cloud Platform services. Valid values are either "default" or the full email address of a custom service account.</p>',
     'gce.instance.authScopes': '<p>Service account scopes specify which Google Cloud Platform APIs your instances can authenticate with, and define the level of access that your instances have with those services.</p>',
     'gce.instance.authScopes.cloud-platform': '<p>The instances in this server group have full API access to all Google Cloud services.</p>',
-    'gce.instanceType.32core': '<p>32-core machine types are in Beta and are available only in Ivy Bridge and Haswell zones. Attempting to provision a 32-core machine in an unsupported zone will result in a <b>machine type not found</b> error message.</p>',
+    'gce.instanceType.32core': '<p>32-core machine types are in Beta and are available only in Ivy Bridge and Haswell zones.</p>',
     'gce.loadBalancer.detail': '<p>(Optional) <b>Detail</b> is a string of free-form alphanumeric characters and hyphens to describe any other variables.</p>',
     'gce.loadBalancer.advancedSettings.healthInterval': '<p>Configures the interval, in seconds, between load balancer health checks.</p><p>Default: <b>10</b></p>',
     'gce.loadBalancer.advancedSettings.healthyThreshold': '<p>Configures the number of healthy observations before reinstituting an instance into the load balancer’s traffic rotation.</p><p>Default: <b>10</b></p>',
     'gce.loadBalancer.advancedSettings.unhealthyThreshold': '<p>Configures the number of unhealthy observations before deservicing an instance from the load balancer.</p><p>Default: <b>2</b></p>',
     'gce.loadBalancer.healthCheck': '(Optional) <b>Health Checks</b> use HTTP requests to determine if a VM instance is healthy.',
     'gce.loadBalancer.portRange': '(Optional) Only packets addressed to ports in the specified <b>Port Range</b> will be forwarded. If left empty, all ports are forwarded. Must be a single port number or two port numbers separated by a dash. Each port number must be between 1 and 65535, inclusive. For example: 5000-5999.',
+    'gce.httpLoadBalancer.defaultService': 'A default service handles any requests that do not match a specified host rule or path matching rule.',
+    'gce.httpLoadBalancer.hostRule.hostPattern': 'For example, <b>example.com</b>.',
+    'gce.httpLoadBalancer.pathRule.paths': 'For example, <b>/path</b> in <b>example.com/path</b>',
+    'gce.httpLoadBalancer.port': 'HTTP requests can be load balanced based on port 80 or port 8080. HTTPS requests can be load balanced on port 443.',
+    'gce.httpLoadBalancer.certificate': 'The name of an SSL certificate. If specified, Spinnaker will create an HTTPS load balancer.',
+    'gce.httpLoadBalancer.namedPort': `
+      For HTTP(S) load balancers,
+      incoming traffic is directed through a named port (for Spinnaker, the named port is <b>http</b>).
+      The mapping from named port to port number is specified per server group
+      and can be configured within the server group creation dialogue under <b>Port Name Mapping</b>.`,
+    'gce.serverGroup.resizeWithAutoscalingPolicy': `
+      Setting the desired instance count for a server group with an autoscaler is not supported by Spinnaker;
+      if the desired instance count differs from the instance count that the autoscaler wants to maintain for its configured metrics,
+      it will quickly override the desired instance count.`,
+    'gce.serverGroup.scalingPolicy.coolDownPeriodSec': 'How long to wait before collecting information from a new instance. This should be at least the time it takes to initialize the instance.',
+    'gce.serverGroup.scalingPolicy.cpuUtilization' : 'Autoscaler adds or removes instances to maintain this CPU usage on each instance.',
+    'gce.serverGroup.scalingPolicy.loadBalancingUtilization' : 'Autoscaler adds or removes instances to maintain this usage of load-balancing capacity.',
+    'gce.serverGroup.scalingPolicy.customMetricUtilizations' : 'Autoscaler adds or removes instances to maintain this usage for custom metric.',
     'gce.serverGroup.imageName': '(Required) <b>Image</b> is the Google Compute Engine image. Images are restricted to the account selected.',
     'gce.serverGroup.capacity': 'The number of instances that the instance group manager will attempt to maintain. Deleting or abandoning instances will affect this number, as will resizing the group.',
     'gce.serverGroup.customMetadata': '<b>Custom Metadata</b> will be propagated to the instances in this server group. This is useful for passing in arbitrary values that can be queried by your code on the instance.',
     'gce.serverGroup.customMetadata.load-balancer-names': 'This field is used to "remember" what load balancers this server group is associated with, even if the instances are deregistered.',
+    'gce.serverGroup.customMetadata.global-load-balancer-names': 'This field is used to "remember" what global load balancers this server group is associated with, even if the instances are deregistered.',
+    'gce.serverGroup.customMetadata.backend-service-names': 'This field is used to "remember" what backend services this server group is associated with, even if the instances are deregistered.',
+    'gce.serverGroup.customMetadata.load-balancing-policy': 'This field is used to "remember" the load balancing policy this server group is configured with, even if the server group is deregistered from the load balancer. This allows us to re-enable the server group with the same load balancing policy specified on creation.',
     'gce.serverGroup.customMetadata.startup-script': 'This script will run automatically on every boot.',
     'gce.serverGroup.preemptibility': 'A preemptible VM costs much less, but lasts only 24 hours. It can be terminated sooner due to system demands.',
     'gce.serverGroup.automaticRestart': 'Compute Engine can automatically restart VM instances if they are terminated for non-user-initiated reasons (maintenance event, hardware failure, software failure, etc.).',
     'gce.serverGroup.onHostMaintenance': 'When Compute Engine performs periodic infrastructure maintenance it can migrate your VM instances to other hardware without downtime.',
     'gce.serverGroup.securityGroups.implicit': 'Firewall rules with no target tags defined will permit incoming connections that match the ingress rules to all instances in the network.',
+    'gce.serverGroup.securityGroups.targetTags': 'This security group will be associated with this server group only if a target tag is selected.',
     'gce.serverGroup.autoscaling.targetCPUUsage': 'Autoscaling adds or removes VMs in the group to maintain this level of CPU usage on each VM.',
     'gce.serverGroup.autoscaling.targetHTTPLoadBalancingUsage': 'Autoscaling adds or removes VMs in the group to maintain this usage of load-balancing capacity. This value is a percentage of the \'Maximum rate\' setting of the load balancer this group is used by.',
     'gce.serverGroup.autoscaling.targetMetric': 'Autoscaling adds or removes VMs in the group to maintain these target levels.',
     'gce.serverGroup.autoscaling.minVMs': 'The least number of VM instances the group will contain, even if the target is not met.',
     'gce.serverGroup.autoscaling.maxVMs': 'The largest number of VM instances allowed, even if the target is exceeded.',
     'gce.serverGroup.autoscaling.cooldown': 'How long to wait before collecting information from a new instance. This should be at least the time it takes to initialize the instance. To find the minimum, create an instance from the same image and note how long it takes to start.',
+    'gce.serverGroup.autoHealing': 'VMs in the group are recreated as needed. You can use a health check to recreate a VM if the health check finds the VM unresponsive. If you do not select a health check, VMs are recreated only when stopped.',
+    'gce.serverGroup.initialDelaySec': 'The time to allow an instance to boot and applications to fully start before the first health check.',
+    'gce.serverGroup.maxUnavailable': 'Maximum number of instances that can be unavailable when auto-healing. The instance is considered available if all of the following conditions are satisfied:' +
+      '<ul>' +
+      '<li>1. Instance\'s status is RUNNING.</li>' +
+      '<li>2. Instance\'s liveness health check result was observed to be HEALTHY at least once.</li>' +
+      '</ul>',
     'gce.serverGroup.subnet': 'Subnetworks allow you to regionally segment the network IP space into prefixes (subnets) and control which prefix a VM instance\'s internal IP address is allocated from. There are several types of GCE networks:' +
       '<ul>' +
       '<li><b>Legacy (non-subnet) Network</b>: IP address allocation occurs at the global network level. This means the network address space spans across all regions.</li>' +
       '<li><b>Auto Subnet Network</b>: Server groups will be automatically assigned to the specified region\'s subnet.</li>' +
       '<li><b>Custom Subnet Network</b>: A subnet must be selected for the server group. If no subnets have been created for the specified region, you will not be able to provision the server group.</li>' +
       '</ul>',
+    'gce.serverGroup.loadBalancingPolicy.balancingMode': 'Tells the load balancer when the backend is at capacity. If a backend is at capacity, new requests are routed to the nearest region that can handle requests. The balancing mode can be based on CPU utilization or requests per second (RPS).',
+    'gce.serverGroup.loadBalancingPolicy.maxRatePerInstance': 'The maximum number of requests per second that can be sent to the backend instance group. Input must be a number greater than zero.',
+    'gce.serverGroup.loadBalancingPolicy.maxUtilization': 'The maximum CPU utilization allowed for the backend. CPU utilization is calculated by averaging CPU use across all instances in the backend instance group. Input must be a number between 0 and 100.',
+    'gce.serverGroup.loadBalancingPolicy.capacityScaler': `
+      An additional control to manage your maximum CPU utilization or RPS.
+      If you want your instances to operate at a max 80% CPU utilization, set your balancing mode to 80% max CPU utilization and your capacity to 100%.
+      If you want to cut instance utilization by half, set your balancing mode to 80% max CPU utilization and your capacity to 50%. Input must be a number between 0 and 100.`,
+    'gce.serverGroup.loadBalancingPolicy.listeningPort': 'A load balancer sends traffic to an instance group through a named port. Input must be a port number (i.e., between 1 and 65535).',
+    'gce.serverGroup.traffic': 'Registers the server group with any associated load balancers. These registrations are used by Spinnaker to determine if the server group is enabled.',
+    'titus.serverGroup.traffic': '' +
+      '<p>Enables the "inService" scaling process, which is used by Spinnaker and discovery services to determine if the server group is enabled.</p>' +
+      '<p>Will be automatically enabled when any non "custom" deployment strategy is selected.</p>',
+    'pipeline.config.lock.allowUnlockUi': '' +
+      '<p><strong>Checked</strong> - the pipeline can be unlocked via the Spinnaker UI.</p>' +
+      '<p><strong>Unchecked</strong> - the pipeline can only be unlocked via the Spinnaker API.</p>',
+    'pipeline.config.lock.description': '' +
+      '<p>Friendly description of why this pipeline is locked.</p>' +
+      '<p>Please include an email address or slack channel as appropriate.</p>',
     'pipeline.config.optionalStage': '' +
       '<p>When this option is enabled, stage will only execute when the supplied expression evaluates true.</p>' +
       '<p>The expression <em>does not</em> need to be wrapped in ${ and }.</p>',
@@ -182,24 +235,28 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'pipeline.config.bake.enhancedNetworking': '<p>(Optional) Enable enhanced networking (sr-iov) support for image (requires hvm and trusty base_os).</p>',
     'pipeline.config.bake.amiName': '<p>(Optional) Default = $package-$arch-$ami_suffix-$store_type</p>',
     'pipeline.config.bake.templateFileName': '<p>(Optional) The explicit packer template to use, instead of resolving one from rosco\'s configuration.</p>',
+    'pipeline.config.bake.varFileName': '<p>(Optional) The name of a json file containing key/value pairs to add to the packer command.</p>',
     'pipeline.config.bake.extendedAttributes': '<p>(Optional) Any additional attributes that you want to pass onto rosco, which will be injected into your packer runtime variables.</p>',
     'pipeline.config.gce.bake.baseImage': '<p>(Optional) A GCE image name. For example: ubuntu-1204-precise-v20150910.</p>',
     'pipeline.config.manualJudgment.instructions': '<p>(Optional) Instructions are shown to the user when making a manual judgment.</p><p>May contain HTML.</p>',
     'pipeline.config.manualJudgment.failPipeline': '' +
       '<p><strong>Checked</strong> - the overall pipeline will fail whenever the manual judgment is negative.</p>' +
       '<p><strong>Unchecked</strong> - the overall pipeline will continue executing but this particular branch will stop.</p>',
+    'pipeline.config.manualJudgment.propagateAuthentication': '' +
+    '<p><strong>Checked</strong> - the pipeline will continue with the permissions of the approver.</p>' +
+    '<p><strong>Unchecked</strong> - the pipeline will continue with it\'s current permissions.</p>',
     'pipeline.config.manualJudgment.judgmentInputs': '<p>(Optional) Entries populate a dropdown displayed when ' +
       'performing a manual judgment.</p>' +
       '<p>The selected value can be used in a subsequent <strong>Check Preconditions</strong> stage to determine branching.</p>' +
       '<p>For example, if the user selects "rollback" from this list of options, that branch can be activated by using the ' +
       'expression: ' +
       '<samp class="small">execution.stages[n].context.judgmentInput=="rollback"</samp></p>',
-    'pipeline.config.jenkins.haltPipelineOnFailure': '' +
+    'pipeline.config.haltPipelineOnFailure': '' +
     'Immediately halts execution of all running stages and fails the entire execution.',
-    'pipeline.config.jenkins.haltBranchOnFailure': '' +
+    'pipeline.config.haltBranchOnFailure': '' +
     'Prevents any stages that depend on this stage from running, but allows other branches of the pipeline to run.',
-    'pipeline.config.jenkins.ignoreFailure': '' +
-    'Continues execution of dowstream stages, marking this stages as failed/continuing.',
+    'pipeline.config.ignoreFailure': '' +
+    'Continues execution of downstream stages, marking this stage as failed/continuing.',
     'pipeline.config.jenkins.markUnstableAsSuccessful.true': 'If Jenkins reports the build status as UNSTABLE, ' +
       'Spinnaker will mark the stage as SUCCEEDED and continue execution of the pipeline.',
     'pipeline.config.jenkins.markUnstableAsSuccessful.false': 'If Jenkins reports the build status as UNSTABLE, ' +
@@ -217,7 +274,7 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
       '<p>The <em>lowest</em> strategy means that the cluster with the lowest score is used as the rolled up score</p>' +
       '<p>The <em>average</em> strategy takes the average of all the canary scores</p>',
 
-    'pipeline.config.canary.delayBeforeAnalysis': '<p>The number of minutes to wait before generating an initial canary score.</p>',
+    'pipeline.config.canary.delayBeforeAnalysis': '<p>The number of minutes until the first ACA measurement interval begins.</p>',
 
     'pipeline.config.canary.notificationHours': '<p>Hours at which to send a notification (comma separated)</p>',
 
@@ -230,6 +287,8 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'pipeline.config.canary.baselineVersion': '<p>The Canary stage will inspect the specified cluster to determine which version to deploy as the baseline in each cluster pair.</p>',
     'pipeline.config.canary.lookback':'<p>By default ACA will look at the entire duration of the canary for its analysis. Setting a look-back duration limits the number of minutes that the canary will use for it\'s analysis report.<br> <b>Useful for long running canaries that span multiple days.</b></p>',
     'pipeline.config.canary.continueOnUnhealthy':'<p>Continue the pipeline if the ACA comes back as <b>UNHEALTHY</b></p>',
+    'pipeline.config.canary.watchers': '<p>Comma separated list of emails to receive notifications of canary events.</p>',
+    'pipeline.config.canary.useGlobalDataset': '<p>Uses the global atlas dataset instead of the region specific dataset for ACA</p>',
 
     'pipeline.config.cron.expression': '<strong>Format (Year is optional)</strong><p><samp>Seconds  Minutes  Hour  DayOfMonth  Month  DayOfWeek  (Year)</samp></p>' +
     '<p><strong>Example: every 30 minutes</strong></p><samp>0 0/30 * * * ?</samp>' +
@@ -241,8 +300,6 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'pipeline.config.findAmi.imageNamePattern': 'A regex used to match the name of the image. Must result in exactly one match to succeed. Empty is treated as match any.',
     'pipeline.config.dependsOn': 'Declares which stages must be run <em>before</em> this stage begins.',
     'pipeline.config.fastProperty.rollback': 'Enables the Fast Property to be rolled back to it previous state when the pipeline completes.',
-    'pipeline.config.parallel.execution': '<p>Enabling parallel stage execution allows you to run stages only after dependent ' +
-      'stages have completed.</p><p>By configuring a pipeline this way, you can reduce the time it takes to run.</p>',
     'pipeline.config.parallel.cancel.queue': '<p>If concurrent pipeline execution is disabled, then the pipelines that are in the waiting queue will get canceled by default. <br><br>Check this box if you want to keep them in the queue.</p>',
     'pipeline.config.timeout': '<p>Allows you to override the amount of time the stage can run before failing.</p> ' +
     '<p><b>Note:</b> this is not the overall time the stage has, but rather the time for specific tasks.</p>',
@@ -258,7 +315,8 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'pipeline.config.script.cluster': '<p>(Optional) cluster passed down to script execution as CLUSTER_PARAM</p>',
     'pipeline.config.script.cmc': '<p>(Optional) cmc passed down to script execution as CMC</p>',
     'pipeline.config.script.propertyFile': '<p>(Optional) The name to the properties file produced by the script execution to be used by later stages of the Spinnaker pipeline. </p>',
-    'pipeline.config.docker.trigger.tag': '<p>(Optional) If specified, only changes to this tag will trigger the pipeline. Regex can be utilized in this field.</p>',
+    'pipeline.config.docker.trigger.tag': '<p>(Optional) If specified, only the tags that match this Java Regular Expression will be triggered. Leave empty to trigger builds on any tag pushed.</p>',
+    'pipeline.config.git.trigger.branch': '<p>(Optional) If specified, only pushes to the branches that match this Java Regular Expression will be triggered. Leave empty to trigger builds for every branch.</p>',
     'serverGroupCapacity.useSourceCapacityTrue':  '<p>Spinnaker will use the current capacity of the existing server group when deploying a new server group.</p>' +
       '<p>This setting is intended to support a server group with auto-scaling enabled, where the bounds and desired capacity are controlled by an external process.</p>' +
       '<p>In the event that there is no existing server group, the deploy will fail.</p>',
@@ -297,6 +355,11 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'kubernetes.serverGroup.detail': '(Optional) A string of free-form alphanumeric characters and hyphens to describe any other variables.',
     'kubernetes.serverGroup.containers': '(Required) Select at least one image to run in this server group (pod). ' +
       'If multiple images are selected, they will be colocated and replicated equally.',
+    'kubernetes.serverGroup.autoscaling.enabled': 'If selected, a horizontal autoscaler will be attached to this replica set.',
+    'kubernetes.serverGroup.autoscaling.min': 'The smallest number of pods to be deployed.',
+    'kubernetes.serverGroup.autoscaling.max': 'The largest number of pods to be deployed.',
+    'kubernetes.serverGroup.autoscaling.desired': 'The initial number of pods to be deployed.',
+    'kubernetes.serverGroup.autoscaling.cpuTarget': 'The target CPU utilization to be achieved by the autoscaler.',
     'kubernetes.job.parallelism': '(Required) The number of concurrent pods to run.',
     'kubernetes.job.completions': '(Required) The number of sucessful completions required for the job to be considered a success.',
     'kubernetes.job.deadlineSeconds': '(Optional) The number of seconds until the job is considered a failure.',
@@ -304,6 +367,12 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'kubernetes.containers.registry': 'The registry the selected image will be pulled from.',
     'kubernetes.containers.command': 'The list of commands which to overwrite the docker ENTRYPOINT array.',
     'kubernetes.containers.name': '(Required) The name of the container associated with the above image. Used for resource identification',
+    'kubernetes.containers.pullpolicy': '<p>Sets the policy used to determine when to pull (download) the selected container image.</p>' +
+      '<p><i><b>Warning</b> - This shouldn\'t be modified for most production pipelines as it encourages aliasing tags, ' +
+      'preventing proper rollbacks and determining an image\'s source.</i></p>' +
+      '<p><b>IFNOTPRESENT</b>: (Default) Pulls the image only when it is not present on the host machine.</p>' +
+      '<p><b>ALWAYS</b>: Always pulls the image, regardless of if it is present or not.</p>' +
+      '<p><b>NEVER</b>: Never pulls the image, regardless of if it is present or not.</p>',
     'kubernetes.containers.cpu': '(Optional) The relative CPU shares to allocate this container. If set, it is multiplied by 1024, then ' +
       'passed to Docker as the --cpu-shares flag. Otherwise the default of 1 (1024) is used',
     'kubernetes.containers.memory': '(Optional) The relative memory in megabytes to allocate this container. If set, it is converted to an integer ' +
@@ -376,4 +445,20 @@ module.exports = angular.module('spinnaker.core.help.contents', [])
     'azure.serverGroup.imageName': '(Required) <b>Image</b> is the deployable Azure Machine Image.',
     'azure.serverGroup.stack': '(Required) <b>Stack</b> is one of the core naming components of a cluster, used to create vertical stacks of dependent services for integration testing.',
     'azure.serverGroup.detail': '(Required) <b>Detail</b> is a naming component to help distinguish specifics of the server group.',
+    'openstack.loadBalancer.detail': '(Optional) A string of free-form alphanumeric characters; by convention, we recommend using "frontend".',
+    'openstack.loadBalancer.stack': '(Optional) One of the core naming components of a cluster, used to create vertical stacks of dependent services for integration testing.' ,
+    'openstack.loadBalancer.subnet': 'The subnet where the instances for this load balancer reside.',
+    'openstack.loadBalancer.protocol': 'The protocol for the traffic to be load balanced. Currently, only HTTP and HTTPS are supported.',
+    'openstack.loadBalancer.network': 'The network containing the floating IP pool from which this load balancer will obtain and bind to a floating IP.',
+    'openstack.loadBalancer.port': 'The TCP port on which this load balancer will listen.',
+    'openstack.loadBalancer.targetPort': 'The TCP port on instances associated with this load balancer to which traffic is sent.',
+    'openstack.loadBalancer.distribution': 'The method by which traffic is distributed to the instances.<dl><dt>Least Connections</dt><dd>Sends the request to the instance with the fewest active connections.</dd><dt>Round Robin</dt><dd>Evenly spreads requests across instances.</dd><dt>Source IP</dt><dd>Attempts to deliver requests from the same IP to the same instance.</dd></dl>',
+    'openstack.loadBalancer.healthCheck.timeout': '<p>Configures the timeout, in seconds, for obtaining the healthCheck status. This value must be less than the interval.</p><p> Default: <b>1</b></p>',
+    'openstack.loadBalancer.healthCheck.delay': '<p>The interval, in seconds, between health checks.</p><p>Default: <b>10</b></p>',
+    'openstack.loadBalancer.healthCheck.maxRetries': '<p>The number of retries before declaring an instance as failed and removing it from the pool.</p><p>Default: <b>2</b></p>',
+    'openstack.loadBalancer.healthCheck.statusCodes': 'A list of HTTP status codes that will be considered a successful response.',
+    'openstack.network.floatingip': '<p>Whether or not each instance in the server group should be assigned a floating ip.</p><p>Default: <b>No</b></p>',
+    'openstack.network.floatpool': 'The network from which to allocate a floating ip',
+    'openstack.serverGroup.userData': '<p>Provides a script that will run when each server group instance starts.</p>',
+    'openstack.serverGroup.tags': '<p>Key-value pairs of metadata that will be associate to each server group instance.</p>',
   });

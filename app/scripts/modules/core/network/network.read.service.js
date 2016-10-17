@@ -1,24 +1,25 @@
 'use strict';
 
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.core.network.read.service', [
-    require('exports?"restangular"!imports?_=lodash!restangular'),
-    require('../utils/lodash.js'),
-    require('../cache/infrastructureCaches.js')
+    require('../cache/infrastructureCaches.js'),
+    API_SERVICE
   ])
-  .factory('networkReader', function (Restangular, infrastructureCaches ) {
+  .factory('networkReader', function (API, infrastructureCaches ) {
 
     function listNetworks() {
-      return Restangular.one('networks')
-        .withHttpConfig({cache: infrastructureCaches.networks})
+      return API.one('networks')
+        .useCache(infrastructureCaches.networks)
         .get();
     }
 
     function listNetworksByProvider(cloudProvider) {
-      return Restangular.one('networks', cloudProvider)
-        .withHttpConfig({cache: infrastructureCaches.networks})
+      return API.one('networks').one(cloudProvider)
+        .useCache(infrastructureCaches.networks)
         .getList();
     }
 
@@ -26,5 +27,4 @@ module.exports = angular
       listNetworks: listNetworks,
       listNetworksByProvider: listNetworksByProvider,
     };
-
   });

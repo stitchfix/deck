@@ -1,14 +1,15 @@
 'use strict';
 
+import _ from 'lodash';
+
 const angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.aws.validation.applicationName', [
-    require('../../core/application/modal/validation/applicationName.validator'),
-    require('../../core/config/settings'),
-    require('../../core/utils/lodash'),
+    require('core/application/modal/validation/applicationName.validator'),
+    require('core/config/settings'),
   ])
-  .factory('awsApplicationNameValidator', function (settings, _) {
+  .factory('awsApplicationNameValidator', function (settings) {
 
     function validateSpecialCharacters(name, errors) {
       let pattern = /^[a-zA-Z_0-9.]*$/g;
@@ -26,7 +27,7 @@ module.exports = angular
     }
 
     function validateLoadBalancerCharacters(name, warnings) {
-      if (name.indexOf('.') > -1 || name.indexOf('_') > -1) {
+      if (name.includes('.') || name.includes('_')) {
         warnings.push(`If the application's name contains an underscore(_) or dot(.),
           you will not be able to create a load balancer,
           preventing it from being used as a front end service.`);

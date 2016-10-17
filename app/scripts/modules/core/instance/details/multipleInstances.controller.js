@@ -56,6 +56,22 @@ module.exports = angular.module('spinnaker.core.instance.details.multipleInstanc
       });
     };
 
+    this.canTerminateInstancesAndShrinkServerGroups = () => {
+      return !this.selectedGroups.some((group) => {
+        // terminateInstancesAndShrinkServerGroups is aws-only
+        return group.cloudProvider !== 'aws';
+      });
+    };
+
+    this.terminateInstancesAndShrinkServerGroups = () => {
+      let submitMethod = () => instanceWriter.terminateInstancesAndShrinkServerGroups(this.selectedGroups, app);
+      confirm(submitMethod, {
+        presentContinuous: 'Terminating',
+        simplePresent: 'Terminate',
+        futurePerfect: 'Terminated'
+      });
+    };
+
     this.rebootInstances = () => {
       let submitMethod = () => instanceWriter.rebootInstances(this.selectedGroups, app);
       confirm(submitMethod, {
@@ -158,10 +174,8 @@ module.exports = angular.module('spinnaker.core.instance.details.multipleInstanc
      */
 
     function getServerGroup(group) {
-      let [serverGroup] = app.serverGroups.data.filter((serverGroup) => serverGroup.name === group.serverGroup &&
+      return app.serverGroups.data.find((serverGroup) => serverGroup.name === group.serverGroup &&
           serverGroup.account === group.account && serverGroup.region === group.region);
-
-      return serverGroup;
     }
 
     function getInstanceDetails(group, instanceId) {
@@ -171,8 +185,7 @@ module.exports = angular.module('spinnaker.core.instance.details.multipleInstanc
         return null;
       }
 
-      let [instance] = serverGroup.instances.filter((instance) => instance.id === instanceId);
-      return instance || {};
+      return serverGroup.instances.find((instance) => instance.id === instanceId) || {};
     }
 
     let makeInstanceModel = (group, instanceId) => {
@@ -218,7 +231,7 @@ module.exports = angular.module('spinnaker.core.instance.details.multipleInstanc
 
     $scope.$on('$destroy', () => {
       MultiselectModel.deselectAllInstances();
-      multiselectWatcher.dispose();
+      multiselectWatcher.unsubscribe();
     });
 
   }

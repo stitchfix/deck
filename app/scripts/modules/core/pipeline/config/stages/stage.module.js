@@ -1,15 +1,19 @@
 'use strict';
 
+import _ from 'lodash';
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.core.pipeline.config.stage', [
-  require('../../../utils/lodash.js'),
+  API_SERVICE,
   require('../pipelineConfigProvider.js'),
   require('../services/pipelineConfigService.js'),
   require('./overrideTimeout/overrideTimeout.directive.js'),
+  require('./overrideFailure/overrideFailure.component.js'),
   require('./optionalStage/optionalStage.directive.js'),
-  require('../../../confirmationModal/confirmationModal.service.js'),
-  require('../../../account/account.service.js'),
+  require('core/confirmationModal/confirmationModal.service.js'),
+  require('core/account/account.service.js'),
   require('./core/stageConfigField/stageConfigField.directive.js'),
 ])
   .directive('pipelineConfigStage', function() {
@@ -29,7 +33,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.stage', [
     };
   })
   .controller('StageConfigCtrl', function($scope, $element, $compile, $controller, $templateCache,
-                                          pipelineConfigService, pipelineConfig, _, accountService) {
+                                          pipelineConfigService, pipelineConfig, accountService) {
 
     var stageTypes = pipelineConfig.getConfigurableStageTypes(),
         lastStageScope;
@@ -43,7 +47,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.stage', [
 
     accountService.listProviders($scope.application).then((providers) => {
       $scope.options.stageTypes = $scope.options.stageTypes.filter((stageType) => {
-        return !stageType.cloudProvider || _.contains(providers, stageType.cloudProvider);
+        return !stageType.cloudProvider || _.includes(providers, stageType.cloudProvider);
       });
     });
 
@@ -60,7 +64,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.stage', [
     $scope.groupDependencyOptions = function(stage) {
       var requisiteStageRefIds = $scope.stage.requisiteStageRefIds || [];
       return stage.available ? 'Available' :
-        requisiteStageRefIds.indexOf(stage.refId) === -1 ? 'Downstream dependencies (unavailable)' : null;
+        requisiteStageRefIds.includes(stage.refId) ? null : 'Downstream dependencies (unavailable)';
     };
 
     $scope.updateAvailableDependencyStages = function() {
@@ -77,7 +81,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.stage', [
       });
 
       $scope.pipeline.stages.forEach(function(stage) {
-        if (stage !== $scope.stage && availableDependencyStages.indexOf(stage) === -1) {
+        if (stage !== $scope.stage && !availableDependencyStages.includes(stage)) {
           $scope.options.dependencies.push({
             name: stage.name,
             refId: stage.refId,
@@ -117,6 +121,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.stage', [
       if (lastStageScope) {
         lastStageScope.$destroy();
       }
+      $scope.extendedDescription = '';
       lastStageScope = stageScope;
       $scope.$on('$destroy', function() {
         stageScope.$destroy();
@@ -126,6 +131,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.stage', [
         let config = getConfig(type);
         if (config) {
           $scope.description = config.description;
+          $scope.extendedDescription = config.extendedDescription;
           $scope.label = config.label;
           if (config.useBaseProvider || config.provides) {
             config.templateUrl = require('./baseProviderStage/baseProviderStage.html');
@@ -141,6 +147,7 @@ module.exports = angular.module('spinnaker.core.pipeline.config.stage', [
       } else {
         $scope.label = null;
         $scope.description = null;
+        $scope.extendedDescription = null;
       }
     };
 
@@ -176,19 +183,29 @@ module.exports = angular.module('spinnaker.core.pipeline.config.stage', [
     $scope.$watch('stage.type', this.selectStage);
     $scope.$watch('viewState.stageIndex', this.selectStage);
   })
-  .controller('RestartStageCtrl', function($scope, $stateParams, $http, Restangular, confirmationModalService) {
+  .controller('RestartStageCtrl', function($scope, $stateParams, $http, API, confirmationModalService) {
     var restartStage = function () {
-      return Restangular.one('pipelines', $stateParams.executionId).one('stages', $scope.stage.id).one('restart')
-        .customPUT({skip: false})
+      return API
+        .one('pipelines')
+        .one($stateParams.executionId)
+        .one('stages', $scope.stage.id)
+        .one('restart')
+        .data({skip: false})
+        .put()
         .then(function () {
           $scope.stage.isRestarting = true;
         });
     };
 
     this.restart = function () {
+      let body = null;
+      if ($scope.execution.isRunning) {
+        body = '<p><strong>This pipeline is currently running - restarting this stage will result in multiple concurrently running pipelines.</strong></p>';
+      }
       confirmationModalService.confirm({
         header: 'Really restart ' + $scope.stage.name + '?',
         buttonText: 'Restart ' + $scope.stage.name,
+        body: body,
         submitMethod: restartStage
       });
     };

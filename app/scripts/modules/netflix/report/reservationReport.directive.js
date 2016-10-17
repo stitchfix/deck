@@ -7,7 +7,7 @@ require('./reservationReport.directive.less');
 module.exports = angular
   .module('spinnaker.amazon.serverGroup.report.reservationReport.directive', [
     require('./reservationReport.read.service.js'),
-    require('../../core/account/accountTag.directive')
+    require('core/account/accountTag.directive')
   ])
   .directive('reservationReport', function() {
     return {
@@ -46,7 +46,7 @@ module.exports = angular
         return;
       }
       let reportData = reservationReportReader.extractReservations(this.report.reservations, this.account, this.region, this.instanceType);
-      this.reportData = reportData.filter((row) => this.zones.indexOf(row.availabilityZone) > -1);
+      this.reportData = reportData.filter((row) => this.zones.includes(row.availabilityZone));
       setVpc();
     };
 

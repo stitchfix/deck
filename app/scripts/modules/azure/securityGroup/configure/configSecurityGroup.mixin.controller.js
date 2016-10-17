@@ -1,15 +1,16 @@
 'use strict';
 
+import _ from 'lodash';
+
 var angular = require('angular');
 
 module.exports = angular
   .module('spinnaker.azure.securityGroup.baseConfig.controller', [
     require('angular-ui-router'),
-    require('../../../core/task/monitor/taskMonitorService.js'),
-    require('../../../core/securityGroup/securityGroup.write.service.js'),
-    require('../../../core/account/account.service.js'),
-    require('../../../core/modal/wizard/modalWizard.service.js'),
-    require('../../../core/utils/lodash.js'),
+    require('core/task/monitor/taskMonitorService.js'),
+    require('core/securityGroup/securityGroup.write.service.js'),
+    require('core/account/account.service.js'),
+    require('core/modal/wizard/modalWizard.service.js'),
   ])
   .controller('azureConfigSecurityGroupMixin', function ($scope,
                                                              $state,
@@ -21,8 +22,7 @@ module.exports = angular
                                                              securityGroupWriter,
                                                              accountService,
                                                              modalWizardService,
-                                                             cacheInitializer,
-                                                             _ ) {
+                                                             cacheInitializer) {
 
 
 
@@ -94,7 +94,7 @@ module.exports = angular
     ctrl.accountUpdated = function() {
       var account = $scope.securityGroup.credentials || $scope.securityGroup.accountName;
       accountService.getRegionsForAccount(account).then(function(regions) {
-        $scope.regions = _.pluck(regions, 'name');
+        $scope.regions = _.map(regions, 'name');
         clearSecurityGroups();
         ctrl.regionUpdated();
         ctrl.updateName();
@@ -139,7 +139,7 @@ module.exports = angular
         }
 
         var regionalSecurityGroups = _.filter(allSecurityGroups[account].azure[region], { vpcId: regionalVpcId }),
-          regionalGroupNames = _.pluck(regionalSecurityGroups, 'name');
+          regionalGroupNames = _.map(regionalSecurityGroups, 'name');
 
         existingSecurityGroupNames = _.uniq(existingSecurityGroupNames.concat(regionalGroupNames));
 
@@ -166,7 +166,7 @@ module.exports = angular
     function clearInvalidSecurityGroups() {
       var removed = $scope.state.removedRules;
       $scope.securityGroup.securityGroupIngress = $scope.securityGroup.securityGroupIngress.filter(function(rule) {
-        if (rule.name && $scope.availableSecurityGroups.indexOf(rule.name) === -1 && removed.indexOf(rule.name) === -1) {
+        if (rule.name && !$scope.availableSecurityGroups.includes(rule.name) && !removed.includes(rule.name)) {
           removed.push(rule.name);
           return false;
         }
@@ -203,7 +203,7 @@ module.exports = angular
           availableGroups = securityGroups;
         }
 
-        $scope.availableSecurityGroups = _.pluck(availableGroups, 'name');
+        $scope.availableSecurityGroups = _.map(availableGroups, 'name');
       });
     };
 

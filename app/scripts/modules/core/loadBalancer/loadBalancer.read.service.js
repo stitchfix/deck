@@ -1,5 +1,7 @@
 'use strict';
 
+import {API_SERVICE} from 'core/api/api.service';
+
 let angular = require('angular');
 
 module.exports = angular
@@ -7,13 +9,15 @@ module.exports = angular
     require('../naming/naming.service.js'),
     require('../cache/infrastructureCaches.js'),
     require('./loadBalancer.transformer.js'),
+    API_SERVICE
   ])
-  .factory('loadBalancerReader', function ($q, Restangular, namingService,
+  .factory('loadBalancerReader', function ($q, API, namingService,
                                            loadBalancerTransformer, infrastructureCaches) {
 
     function loadLoadBalancers(applicationName) {
-      var loadBalancers = Restangular.one('applications', applicationName).all('loadBalancers').getList();
+      var loadBalancers = API.one('applications').one(applicationName).all('loadBalancers').getList();
         return loadBalancers.then(function(results) {
+          results = loadBalancerTransformer.normalizeLoadBalancerSet(results);
           results.forEach(addStackToLoadBalancer);
           return $q.all(results.map(loadBalancerTransformer.normalizeLoadBalancer));
         });
@@ -26,14 +30,15 @@ module.exports = angular
     }
 
     function getLoadBalancerDetails(provider, account, region, name) {
-      return Restangular.one('loadBalancers').one(account).one(region).one(name).get({'provider': provider});
+      return API.one('loadBalancers').one(account).one(region).one(name).withParams({'provider': provider}).get();
     }
 
     function listLoadBalancers(provider) {
-      return Restangular
-        .all('loadBalancers')
-        .withHttpConfig({cache: infrastructureCaches.loadBalancers})
-        .getList({provider: provider});
+      return API
+        .one('loadBalancers')
+        .useCache(infrastructureCaches.loadBalancers)
+        .withParams({provider: provider})
+        .get();
     }
 
     return {

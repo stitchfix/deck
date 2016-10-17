@@ -8,8 +8,9 @@ module.exports = angular
   .module('spinnaker.core.delivery.group.executionGroup.execution.directive', [
     require('../../filter/executionFilter.service.js'),
     require('../../filter/executionFilter.model.js'),
-    require('../../../confirmationModal/confirmationModal.service.js'),
-    require('../../../navigation/urlParser.service.js'),
+    require('core/confirmationModal/confirmationModal.service.js'),
+    require('core/navigation/urlParser.service.js'),
+    require('core/scheduler/scheduler.factory'),
   ])
   .directive('execution', function() {
     return {
@@ -25,7 +26,7 @@ module.exports = angular
       controllerAs: 'vm',
     };
   })
-  .controller('ExecutionCtrl', function ($scope, $location, $stateParams, $state, urlParser,
+  .controller('ExecutionCtrl', function ($scope, $location, $stateParams, $state, urlParser, schedulerFactory,
                                          settings, ExecutionFilterModel, executionService, confirmationModalService) {
 
     this.pipelinesUrl = [settings.gateUrl, 'pipelines/'].join('/');
@@ -46,7 +47,7 @@ module.exports = angular
           $state.go('^');
         }
       } else {
-        if ($state.current.name.indexOf('.executions.execution') !== -1 || this.standalone) {
+        if ($state.current.name.includes('.executions.execution') || this.standalone) {
           $state.go('.', params);
         } else {
           $state.go('.execution', params);
@@ -93,6 +94,13 @@ module.exports = angular
       });
     };
 
+    let restartedStage = this.execution.stages.find(stage => stage.context.restartDetails);
+    if (restartedStage) {
+      this.restartDetails = restartedStage.context.restartDetails;
+    } else {
+      this.restartDetails = null;
+    }
+
     this.cancelExecution = () => {
       let hasDeployStage = this.execution.stages && this.execution.stages.some(stage => stage.type === 'deploy');
       confirmationModalService.confirm({
@@ -107,7 +115,7 @@ module.exports = angular
       confirmationModalService.confirm({
           header: 'Really pause execution?',
           buttonText: 'Pause',
-          body: '<p>This will pause the pipeline for up to 12 hours.</p><p>After 12 hours the pipeline will automatically timeout and fail.</p>',
+          body: '<p>This will pause the pipeline for up to 72 hours.</p><p>After 72 hours the pipeline will automatically timeout and fail.</p>',
           submitMethod: () => executionService.pauseExecution(this.application, this.execution.id)
       });
     };
@@ -120,7 +128,26 @@ module.exports = angular
       });
     };
 
+    let activeRefresher = schedulerFactory.createScheduler(1000);
+
+    if (this.execution.isRunning && !this.standalone) {
+      let refreshing = false;
+      activeRefresher.subscribe(() => {
+        if (refreshing) {
+          return;
+        }
+        refreshing = true;
+        executionService.getExecution(this.execution.id).then(execution => {
+          if (!$scope.$$destroyed) {
+            executionService.updateExecution(this.application, execution);
+          }
+          refreshing = false;
+        });
+      });
+    }
+
     $scope.$on('$destroy', () => {
+      activeRefresher.unsubscribe();
       if (this.isActive()) {
         this.hideDetails();
       }

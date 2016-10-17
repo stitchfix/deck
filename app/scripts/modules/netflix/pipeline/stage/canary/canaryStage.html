@@ -88,7 +88,7 @@
         class-name="form-control input-sm">
     </canary-analysis-name-selector>
   </stage-config-field>
-  <stage-config-field label="Delay">
+  <stage-config-field label="Warmup Period">
     <input type="text" required ng-model="stage.canary.canaryConfig.canaryAnalysisConfig.beginCanaryAnalysisAfterMins"
            class="form-control input-sm" style="display: inline-block; width: 20%"/>
     <span class="form-control-static">
@@ -104,6 +104,14 @@
            class="form-control input-sm" style="width: 33%; display: inline-block"/>
     <span class="form-control-static"> minutes</span>
   </stage-config-field>
+
+  <div class="checkbox col-md-offset-1">
+    <label>
+      <input type="checkbox" ng-model="stage.canary.canaryConfig.canaryAnalysisConfig.useGlobalDataset"/>
+      <b>Use Global Atlas Dataset</b>
+      <help-field key="pipeline.config.canary.useGlobalDataset"></help-field>
+    </label>
+  </div>
 
   <div class="checkbox col-md-offset-1">
     <label>
@@ -139,6 +147,17 @@
            class="form-control input-sm" />
   </stage-config-field>
 
+  <h5>Watchers</h5>
+  <div class="horizontal-rule"></div>
+  <stage-config-field
+    help-key="pipeline.config.canary.watchers"
+    ng-keyup="canaryStageCtrl.updateWatchersList()"
+    ng-paste="canaryStageCtrl.updateWatchersList()"
+    label="Emails">
+    <textarea ng-model="canaryStageCtrl.recipients"
+              class="form-control input-sm" ></textarea>
+  </stage-config-field>
+
   <h5>Baseline Version <help-field key="pipeline.config.canary.baselineVersion"></help-field></h5>
   <div class="horizontal-rule"></div>
   <stage-config-field label="Account">
@@ -153,6 +172,7 @@
   </stage-config-field>
   <stage-config-field label="Cluster">
     <cluster-selector
+      ng-if="application.serverGroups.loaded"
       clusters="clusterList"
       model="stage.baseline.cluster">
     </cluster-selector>

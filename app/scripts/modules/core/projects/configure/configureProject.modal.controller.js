@@ -7,11 +7,12 @@ module.exports = angular.module('spinnaker.core.projects.configure.modal.control
   require('../service/project.read.service.js'),
   require('../../account/account.service.js'),
   require('../../pipeline/config/services/pipelineConfigService.js'),
+  require('../../modal/wizard/wizardSubFormValidation.service.js'),
 ])
   .controller('ConfigureProjectModalCtrl', function ($scope, projectConfig, $uibModalInstance, $q,
                                                      pipelineConfigService, applicationReader, projectWriter,
                                                      projectReader, accountService, taskMonitorService,
-                                                     v2modalWizardService, $timeout) {
+                                                     v2modalWizardService, wizardSubFormValidation) {
 
     if (!projectConfig.name) {
       projectConfig.name = '';
@@ -37,10 +38,6 @@ module.exports = angular.module('spinnaker.core.projects.configure.modal.control
       pipelines: require('./projectPipelines.modal.html'),
     };
 
-    $timeout(() => {
-      Object.keys(this.pages).forEach(v2modalWizardService.markComplete);
-    });
-
     this.addApplication = (application) => {
       $scope.viewState.pipelinesLoaded = false;
       let retriever = pipelineConfigService.getPipelinesForApplication(application);
@@ -63,7 +60,7 @@ module.exports = angular.module('spinnaker.core.projects.configure.modal.control
         .filter((cluster) => !cluster.useAllApplications)
         .forEach((cluster) => {
           cluster.applications = cluster.applications
-            .filter((app) => $scope.command.config.applications.indexOf(app) > -1);
+            .filter((app) => $scope.command.config.applications.includes(app));
       });
     };
 
@@ -137,18 +134,15 @@ module.exports = angular.module('spinnaker.core.projects.configure.modal.control
       $scope.accounts = accounts;
     });
 
+    $scope.taskMonitor = taskMonitorService.buildTaskMonitor({
+      modalInstance: $uibModalInstance,
+    });
 
     this.deleteProject = () => {
       var submitMethod = () => projectWriter.deleteProject($scope.command);
 
-      var taskMonitorConfig = {
-        modalInstance: $uibModalInstance,
-        title: 'Deleting ' + $scope.command.name,
-        onTaskComplete: () => $uibModalInstance.close({action: 'delete'})
-      };
-
-      $scope.taskMonitor = taskMonitorService.buildTaskMonitor(taskMonitorConfig);
-
+      $scope.taskMonitor.onTaskComplete = () => $uibModalInstance.close({action: 'delete'});
+      $scope.taskMonitor.title = 'Deleting ' + $scope.command.name;
       $scope.taskMonitor.submit(submitMethod);
     };
 
@@ -164,18 +158,23 @@ module.exports = angular.module('spinnaker.core.projects.configure.modal.control
       var submitMethod = () => projectWriter.upsertProject($scope.command);
       let descriptor = $scope.command.id ? 'Updating ' : 'Creating ';
 
-      var taskMonitorConfig = {
-        modalInstance: $uibModalInstance,
-        title: descriptor + $scope.command.name,
-        onTaskComplete: () => $uibModalInstance.close({action: 'upsert', name: $scope.command.name})
-      };
-
-      $scope.taskMonitor = taskMonitorService.buildTaskMonitor(taskMonitorConfig);
+      $scope.taskMonitor.onTaskComplete = () => $uibModalInstance.close({action: 'upsert', name: $scope.command.name});
+      $scope.taskMonitor.title = descriptor + $scope.command.name;
 
       $scope.taskMonitor.submit(submitMethod);
     };
 
-    this.showSubmitButton = () => v2modalWizardService.allPagesVisited();
+    this.showSubmitButton = () => {
+      return v2modalWizardService.allPagesVisited()
+        && wizardSubFormValidation.subFormsAreValid();
+    };
+
+    wizardSubFormValidation
+      .config({ scope: $scope, form: 'projectConfigForm' })
+      .register({ subForm: 'clustersSubForm', page: 'clusters' })
+      .register({ subForm: 'pipelinesSubForm', page: 'pipelines' })
+      .register({ subForm: 'configSubForm', page: 'config' })
+      .register({ subForm: 'applicationsSubForm', page: 'applications' });
 
 
     this.cancel = $uibModalInstance.dismiss;

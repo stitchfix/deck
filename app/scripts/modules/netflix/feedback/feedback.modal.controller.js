@@ -1,10 +1,13 @@
 'use strict';
+
+import {AUTHENTICATION_SERVICE} from '../../core/authentication/authentication.service';
+
 let angular = require('angular');
 
 module.exports = angular.module('spinnaker.netflix.feedback.modal.controller', [
-  require('../../core/cache/deckCacheFactory.js'),
-  require('../../core/authentication/authentication.service.js'),
-  require('../../core/config/settings.js'),
+  require('core/cache/deckCacheFactory.js'),
+  AUTHENTICATION_SERVICE,
+  require('core/config/settings.js'),
 ])
   .controller('FeedbackModalCtrl', function($scope, $location, $http, $uibModalInstance, settings, authenticationService) {
 
@@ -34,7 +37,7 @@ module.exports = angular.module('spinnaker.netflix.feedback.modal.controller', [
 
     function getUserNameFromContactInfo() {
       var email = getContactInfo();
-      if (email.indexOf('@') !== -1) {
+      if (email.includes('@')) {
         return email.split('@')[0];
       }
       return email;

@@ -1,5 +1,7 @@
 'use strict';
 
+import _ from 'lodash';
+
 let angular = require('angular');
 
 require('./dashboard.less');
@@ -12,9 +14,12 @@ module.exports = angular.module('spinnaker.core.projects.dashboard.controller', 
   require('../../scheduler/scheduler.factory.js'),
   require('../../history/recentHistory.service.js'),
   require('../../presentation/refresher/componentRefresher.directive.js'),
+  require('./regionFilter/regionFilter.component.js'),
+  require('./regionFilter/regionFilter.service.js'),
 ])
-  .controller('ProjectDashboardCtrl', function ($scope, projectConfiguration, executionService, projectReader,
-                                                schedulerFactory, recentHistoryService) {
+  .controller('ProjectDashboardCtrl', function ($scope, $rootScope, projectConfiguration,
+                                                executionService, projectReader, regionFilterService,
+                                                schedulerFactory, recentHistoryService, $q) {
 
     this.project = projectConfiguration;
 
@@ -54,8 +59,21 @@ module.exports = angular.module('spinnaker.core.projects.dashboard.controller', 
       let state = this.state.clusters;
       state.error = false;
       state.refreshing = true;
-      return projectReader.getProjectClusters(projectConfiguration.name).then((clusters) => {
+
+      let clusterCount = _.get(projectConfiguration.config.clusters, 'length');
+      let clustersPromise;
+
+      if (clusterCount > 0) {
+        clustersPromise = projectReader.getProjectClusters(projectConfiguration.name);
+      } else if (clusterCount === 0) {
+        clustersPromise = $q.when([]);
+      } else { // shouldn't hide error if clusterCount is somehow undefined.
+        clustersPromise = $q.reject(null);
+      }
+
+      return clustersPromise.then((clusters) => {
         this.clusters = clusters;
+        this.allRegions = getAllRegions(clusters);
         state.initializing = false;
         state.loaded = true;
         state.refreshing = false;
@@ -77,11 +95,24 @@ module.exports = angular.module('spinnaker.core.projects.dashboard.controller', 
         state.loaded = true;
         state.refreshing = false;
         state.lastRefresh = new Date().getTime();
+        regionFilterService.activate();
+        regionFilterService.runCallbacks();
       }).catch(() => {
         state.initializing = false;
         state.refreshing = false;
         state.error = true;
       });
+    };
+
+    let getAllRegions = (clusters) => {
+      return _.chain(clusters)
+        .map('applications')
+        .flatten()
+        .map('clusters')
+        .flatten()
+        .map('region')
+        .uniq()
+        .value();
     };
 
     let clusterScheduler = schedulerFactory.createScheduler(),
@@ -92,11 +123,11 @@ module.exports = angular.module('spinnaker.core.projects.dashboard.controller', 
     let executionLoader = executionScheduler.subscribe(getExecutions);
 
     $scope.$on('$destroy', () => {
-      clusterScheduler.dispose();
-      clusterLoader.dispose();
+      clusterScheduler.unsubscribe();
+      clusterLoader.unsubscribe();
 
-      executionScheduler.dispose();
-      executionLoader.dispose();
+      executionScheduler.unsubscribe();
+      executionLoader.unsubscribe();
     });
 
     this.refreshClusters = clusterScheduler.scheduleImmediate;
@@ -105,4 +136,8 @@ module.exports = angular.module('spinnaker.core.projects.dashboard.controller', 
     this.refreshClusters();
     this.refreshExecutions();
 
+    $scope.$on('$destroy', $rootScope.$on('$locationChangeSuccess', () => {
+      regionFilterService.activate();
+      regionFilterService.runCallbacks();
+    }));
   });
